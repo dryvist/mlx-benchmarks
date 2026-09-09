@@ -60,3 +60,46 @@ def test_throughput_probe_round_trip() -> None:
     assert by_metric["throughput_total_toks_per_s"]["raw"] == raw
     assert envelope["campaign"]["cell_id"] == "qwen38-64k-c1"
     assert envelope["context"]["actual_prompt_tokens"] == 64031
+
+
+def _minimal_raw(**extra: object) -> dict:
+    raw = {
+        "model": "m",
+        "thinking": "off",
+        "sequential": {"cumulative_tok_s": {"median": 1.0}},
+    }
+    raw.update(extra)
+    return raw
+
+
+def _tags(raw: dict) -> dict[str, str]:
+    ctx = ConverterContext(suite="throughput", model="m", git_sha="deadbeef", system=detect_system())
+    envelope = get_converter("throughput-probe").build_envelope(raw, ctx)
+    validate_envelope(envelope)
+    return envelope["results"][0]["tags"]
+
+
+def test_a_graded_think_value_reaches_the_tags() -> None:
+    """The runner records the literal level it sent; the converter dropped it, so
+    two arms differing only in effort published identically."""
+    tags = _tags(_minimal_raw(thinking="on", think_kwarg="reasoning_effort", think_value="xhigh"))
+    assert tags["think_value"] == "xhigh"
+    assert tags["think_kwarg"] == "reasoning_effort"
+
+
+def test_no_kwarg_sent_is_distinguishable_from_asking_for_off() -> None:
+    """``thinking="off"`` is what a run records when it passes NO kwarg at all,
+    while the model reasons at its own default. Without ``think_kwarg_sent`` the
+    two are the same row, and the label is simply wrong for the second."""
+    asked_off = _tags(
+        _minimal_raw(thinking="off", think_kwarg="thinking", think_value=False, think_kwarg_sent=True)
+    )
+    asked_nothing = _tags(
+        _minimal_raw(thinking="off", think_kwarg=None, think_value=None, think_kwarg_sent=False)
+    )
+
+    assert asked_off["thinking"] == asked_nothing["thinking"] == "off"
+    assert asked_off["think_kwarg_sent"] == "True"
+    assert asked_nothing["think_kwarg_sent"] == "False"
+    # An absent condition is unstated, never a value: "None" would read as one.
+    assert asked_nothing["think_value"] == "unstated"

@@ -57,12 +57,22 @@ class ThroughputProbeConverter:
                 tags[key] = str(sequential[key])
         if isinstance(sequential.get("finish_reasons"), list):
             tags["finish_reasons"] = ",".join(map(str, sequential["finish_reasons"]))
-        if "max_tokens" in raw:
-            tags["max_tokens"] = str(raw["max_tokens"])
-        if "thinking" in raw:
-            tags["thinking"] = str(raw["thinking"])
-        if "context_tokens_target" in raw:
-            tags["context_tokens_target"] = str(raw["context_tokens_target"])
+        # ``thinking`` on its own is not readable: a run that passed no kwarg
+        # records "off" while the model reasons at its own default (see
+        # harness/throughput/run.py). ``think_kwarg_sent`` is what separates
+        # "we asked for off" from "we asked for nothing", and ``think_value``
+        # carries the graded level the boolean cannot hold — both were recorded
+        # on every row and dropped here.
+        for key in (
+            "max_tokens",
+            "thinking",
+            "think_kwarg",
+            "think_value",
+            "think_kwarg_sent",
+            "context_tokens_target",
+        ):
+            if key in raw:
+                tags[key] = "unstated" if raw[key] is None else str(raw[key])
         sequential_runs = raw.get("sequential_runs")
         if isinstance(sequential_runs, list):
             tags["measured_repetitions"] = str(len(sequential_runs))
