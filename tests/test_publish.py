@@ -109,6 +109,9 @@ def test_envelope_to_rows_flattens_topology_and_new_top_level_fields(cluster_env
     # New top-level fields land as their own columns.
     assert row["env_class"] == "isolated"
     assert row["concurrency"] == 4
+    # An envelope field that publish.py does not list becomes a column nowhere:
+    # the envelope carries it and every reader of the dataset misses it.
+    assert row["reasoning_effort"] == "xhigh"
     assert json.loads(row["serving"])["endpoint_port"] == 8080
     # The JSON-string columns still serialize to parquet.
     assert rows_to_parquet([row])[:4] == b"PAR1"

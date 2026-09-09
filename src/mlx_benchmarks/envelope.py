@@ -111,6 +111,7 @@ class Envelope(TypedDict, total=False):
     pr_number: int | None
     env_class: str
     concurrency: int
+    reasoning_effort: str
     serving: Serving
     suite: Required[str]
     model: Required[str]

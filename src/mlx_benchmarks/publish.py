@@ -81,7 +81,7 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     # Dynamic-key access over a plain mapping view — these optional top-level
     # scalars are copied through verbatim; envelope is a JSON object at runtime.
     env_map = cast("dict[str, Any]", envelope)
-    for key in ("model_revision", "quantization", "seed", "env_class", "concurrency"):
+    for key in ("model_revision", "quantization", "seed", "env_class", "concurrency", "reasoning_effort"):
         if key in env_map:
             base[key] = env_map[key]
     if "serving" in envelope:

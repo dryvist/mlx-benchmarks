@@ -23,6 +23,10 @@ class ConverterContext:
     # concurrency = in-flight request count, serving = inference-server identity.
     env_class: str | None = None
     concurrency: int | None = None
+    # reasoning_effort = the thinking level the run asked for, verbatim. Declared
+    # by the caller because no harness can see a serving default or an agent
+    # CLI's own config, and a guess is indistinguishable from a measurement.
+    reasoning_effort: str | None = None
     serving: Serving | None = None
     timestamp_override: str | None = None
     system: dict[str, Any] | None = None
@@ -38,10 +42,12 @@ class ConverterContext:
 def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope:
     """Copy optional run-context fields onto a built envelope, in place.
 
-    Centralizes the ``pr_number`` / ``env_class`` / ``concurrency`` / ``serving``
-    pass-through so every converter shares one omission rule: a field left unset
-    on the context is absent from the envelope. Returns the same envelope for
-    convenient ``return apply_optional_fields(...)`` use.
+    Centralizes the ``pr_number`` / ``env_class`` / ``concurrency`` /
+    ``reasoning_effort`` / ``serving`` pass-through so every converter shares one
+    omission rule: a field left unset on the context is absent from the envelope.
+    Adding a run-context field here reaches every converter at once, which is why
+    it belongs here rather than in each converter's own tag whitelist. Returns the
+    same envelope for convenient ``return apply_optional_fields(...)`` use.
     """
     if ctx.pr_number is not None:
         envelope["pr_number"] = ctx.pr_number
@@ -49,6 +55,8 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
         envelope["env_class"] = ctx.env_class
     if ctx.concurrency is not None:
         envelope["concurrency"] = ctx.concurrency
+    if ctx.reasoning_effort is not None:
+        envelope["reasoning_effort"] = ctx.reasoning_effort
     if ctx.serving is not None:
         envelope["serving"] = ctx.serving
     return envelope

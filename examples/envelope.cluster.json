@@ -5,6 +5,7 @@
   "trigger": "local",
   "env_class": "isolated",
   "concurrency": 4,
+  "reasoning_effort": "xhigh",
   "serving": {
     "stack": "mlx_lm.server",
     "endpoint_port": 8080,

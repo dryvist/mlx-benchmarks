@@ -92,10 +92,22 @@ def add_evidence_metadata(
     host = df.get("hostname", pd.Series("unknown", index=df.index)).fillna("unknown")
     backend = df.get("serving", pd.Series("unknown", index=df.index)).fillna("unknown")
     concurrency = df.get("concurrency", pd.Series("unspecified", index=df.index)).fillna("unspecified")
+    # An arm is weights + quant + effort + serving config, so two efforts are two
+    # series. Without this the chart averages `high` and `xhigh` into one line and
+    # the effort sweep it exists to show disappears. Historical rows have no
+    # column at all, hence the whole-frame default.
+    effort = df.get("reasoning_effort", pd.Series("unstated", index=df.index)).fillna("unstated")
     df["series_key"] = [
         " | ".join(map(str, values))
         for values in zip(
-            df["model"], host, backend, df["variant"], df["context_band"], concurrency, strict=False
+            df["model"],
+            host,
+            backend,
+            df["variant"],
+            df["context_band"],
+            concurrency,
+            effort,
+            strict=False,
         )
     ]
     return df
@@ -234,8 +246,8 @@ def bar_chart(df: pd.DataFrame, suite: str, task: str, metric: str) -> go.Figure
         return fig
 
     # Keep only the latest run per fully comparable series.  A model alone is
-    # insufficient: host, backend, variant, context band, and concurrency can
-    # all materially change the measured result.
+    # insufficient: host, backend, variant, context band, concurrency, and
+    # reasoning effort can all materially change the measured result.
     sub = sub.sort_values("timestamp").groupby("series_key", as_index=False).last()
     sub["label"] = sub["series_key"]
     sub = sub.sort_values("value", ascending=True)

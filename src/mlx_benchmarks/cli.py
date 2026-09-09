@@ -73,6 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Machine load class during the run (verdict-policy gate 3)",
     )
     parser.add_argument("--concurrency", type=int, help="In-flight request count the run drove (>=1)")
+    # No `choices=`: each model family names its own levels, and normalising one
+    # family's name into another's merges arms that are not the same arm.
+    parser.add_argument(
+        "--reasoning-effort",
+        help="Thinking effort the run asked for, verbatim (low/high/xhigh/max/off/unstated)",
+    )
     parser.add_argument("--serving-stack", help="Serving stack, e.g. 'mlx_lm.server' or 'vllm-mlx'")
     parser.add_argument("--serving-port", type=int, help="Serving endpoint TCP port")
     parser.add_argument("--serving-model", help="Model id as advertised by the serving endpoint")
@@ -148,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         pr_number=args.pr_number,
         env_class=args.env_class,
         concurrency=args.concurrency,
+        reasoning_effort=args.reasoning_effort,
         serving=serving or None,
         timestamp_override=args.timestamp,
         system=system,

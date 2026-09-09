@@ -28,6 +28,7 @@ Closed suite set: `throughput`, `ttft`, `tool-calling`, `code-accuracy`,
 | `pr_number` | integer \| null | `trigger == "pr"` |
 | `env_class` | `isolated \| under-load` | Machine load class during the run (verdict-policy gate 3). |
 | `concurrency` | integer (≥1) | The run drove more than a token's worth of parallelism (in-flight request count). |
+| `reasoning_effort` | string, free-form | `--reasoning-effort` declared the thinking level the run asked for. See below. |
 | `serving` | object | Inference-server identity: `stack` / `endpoint_port` / `served_model` (all optional). |
 | `model_revision` | string | Model provides HF revision or commit SHA. |
 | `quantization` | string | Runtime reports it (e.g. `mlx-4bit`, `mxfp4`). |
@@ -40,6 +41,19 @@ Closed suite set: `throughput`, `ttft`, `tool-calling`, `code-accuracy`,
 | `cell_status` | enum | Only `success` rows may be scored; all other listed states preserve a non-scored outcome. |
 | `context` | object | Context dimensions: model/catalog/proxy/worker maxima when known, selected window, requested and actual prompt, and output reservation. |
 | `readiness` | object | First request, excluded from warmed scoring. Stores initial residency and discarded timings. |
+
+### `reasoning_effort`
+
+An arm is weights *plus* quant *plus* effort *plus* serving config, so two
+efforts are two arms and a row without one cannot be placed against another.
+
+Stored verbatim, and deliberately not an enum: each model family names its own
+levels, so rewriting `on` into `high` merges arms that are not the same arm.
+
+Declared by the caller, never inferred. Effort lives in the agent CLI's config
+or the serving default, and a harness can see neither. Where nothing was
+declared the value is `unstated` — **absent is not `off`**, and a plausible
+default here would be indistinguishable from a measurement.
 
 ## `system` object
 
