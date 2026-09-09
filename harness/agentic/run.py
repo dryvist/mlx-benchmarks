@@ -782,6 +782,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stream", default="stream,nostream", help="Comma list from {stream,nostream}")
     parser.add_argument("--multiturn-rounds", type=int, default=20)
     parser.add_argument(
+        "--dedicated",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="declare that this arm was the ONLY consumer of its endpoint. Cannot "
+        "be detected — the harness cannot see what else is on the box — so it is "
+        "declared, and defaults to false because an unstated measurement "
+        "environment is an untrusted one. Runs are comparable only within one "
+        "value of this flag",
+    )
+    parser.add_argument(
         "--thinking-kwarg",
         default="enable_thinking",
         help="chat_template_kwargs bool name, or 'reasoning_effort' for harmony models",
@@ -878,6 +888,11 @@ async def _run(args: argparse.Namespace, timestamp: str, partial_path: Path) -> 
             "stream": [("stream" if s else "nostream") for s in streams],
             "multiturn_rounds": args.multiturn_rounds,
             "thinking_kwarg": args.thinking_kwarg,
+            # Declared, never inferred: the harness cannot see what else is on
+            # the box. A tool-calling rate measured while another consumer holds
+            # the endpoint's only slot describes the sharing, not the model, so
+            # runs compare only within one value of this.
+            "dedicated": args.dedicated,
             "max_tokens": args.max_tokens,
             "temperature": args.temperature,
             "repetition_penalty": args.repetition_penalty,

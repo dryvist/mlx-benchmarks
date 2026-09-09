@@ -132,6 +132,15 @@ def test_a_partially_failed_batch_is_marked_not_silently_averaged() -> None:
     assert agg["tags"]["concurrent_errors"] == "3"
 
 
+def test_dedicated_is_published_and_absent_reads_as_unstated() -> None:
+    """A throughput number from a shared endpoint measures the sharing, not the
+    model, so the flag has to survive to the artifact. Absent must not read as
+    `False` — that is a claim nobody made."""
+    assert _tags(_minimal_raw(dedicated=True))["dedicated"] == "True"
+    assert _tags(_minimal_raw(dedicated=False))["dedicated"] == "False"
+    assert "dedicated" not in _tags(_minimal_raw())
+
+
 def test_skip_concurrent_publishes_no_aggregate_row() -> None:
     """Absent, not zero: a run with --skip-concurrent made no such measurement,
     and a 0 tok/s row would read as an endpoint that delivered nothing."""

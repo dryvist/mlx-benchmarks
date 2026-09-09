@@ -69,6 +69,7 @@ class ThroughputProbeConverter:
             "think_kwarg",
             "think_value",
             "think_kwarg_sent",
+            "dedicated",
             "context_tokens_target",
         ):
             if key in raw:

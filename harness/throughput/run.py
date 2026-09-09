@@ -337,6 +337,16 @@ async def main():
         "vocabulary is not low/high.",
     )
     ap.add_argument("--skip-concurrent", action="store_true")
+    ap.add_argument(
+        "--dedicated",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="declare that this arm was the ONLY consumer of its endpoint. Cannot "
+        "be detected — the harness cannot see what else is on the box — so it is "
+        "declared, and defaults to false because an unstated measurement "
+        "environment is an untrusted one. Runs are comparable only within one "
+        "value of this flag",
+    )
     ap.add_argument("--output", required=True)
     a = ap.parse_args()
 
@@ -380,6 +390,10 @@ async def main():
         # measurement of maximum-effort reasoning was labelled "off".
         "think_value": think_val if a.think_kwarg else None,
         "think_kwarg_sent": bool(a.think_kwarg),
+        # Declared, never inferred: the harness cannot see what else is on the
+        # box. A throughput number from a shared endpoint measures the sharing,
+        # not the model, so runs compare only within one value of this.
+        "dedicated": a.dedicated,
         "readiness": {"initial_model_state": a.initial_model_state},
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }

@@ -53,6 +53,23 @@ class AgenticConverter:
         for track in multiturn:
             results.append(_multiturn_result(track, ctx))
 
+        # Run-level measurement conditions live in ``config``, which this converter
+        # never read — so a field the runner recorded there reached no artifact.
+        # Stamped onto every row because a reader filtering for comparable
+        # measurements filters row by row, not by locating the run's config block.
+        config = raw.get("config")
+        if not isinstance(config, dict):
+            config = {}
+        dedicated = config.get("dedicated")
+        dedicated_tag = "unstated" if dedicated is None else str(dedicated)
+        for result in results:
+            # ``tags`` is optional on Result, so read it rather than subscripting;
+            # both builders above always set it, and the tests assert every row
+            # carries the condition.
+            result_tags = result.get("tags")
+            if result_tags is not None:
+                result_tags["dedicated"] = dedicated_tag
+
         envelope: Envelope = {
             "schema_version": "1",
             "timestamp": timestamp,
