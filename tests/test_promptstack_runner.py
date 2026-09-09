@@ -221,8 +221,20 @@ def test_summarize_probe_class_homelab_qa_unsupported_claim_rate() -> None:
 
 
 def test_cell_name() -> None:
-    assert runner.cell_name("base_plus_variant", True) == "variant-base_plus_variant_think-on"
-    assert runner.cell_name("current", False) == "variant-current_think-off"
+    # on/off keep the exact names they have always produced — the name is a public
+    # join key (--cells, published tags.cell), so renaming orphans published rows.
+    assert runner.cell_name("base_plus_variant", "on") == "variant-base_plus_variant_think-on"
+    assert runner.cell_name("current", "off") == "variant-current_think-off"
+    # A graded level names its own cell instead of colliding with another's.
+    assert runner.cell_name("current", "xhigh") == "variant-current_think-xhigh"
+
+
+def test_thinking_body_kwargs_is_graded() -> None:
+    assert runner.thinking_body_kwargs("enable_thinking", "on") == {
+        "chat_template_kwargs": {"enable_thinking": True}
+    }
+    assert runner.thinking_body_kwargs("reasoning_effort", "off") == {"reasoning_effort": "low"}
+    assert runner.thinking_body_kwargs("reasoning_effort", "max") == {"reasoning_effort": "max"}
 
 
 def test_selected_filter() -> None:

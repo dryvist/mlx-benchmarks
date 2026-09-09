@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields, thinking_level
 from mlx_benchmarks.envelope import Envelope, Result, System
 
 # Per-cell rate metrics: raw key -> metric name. All are ratios in [0, 1].
@@ -65,7 +65,7 @@ class FactualConverter:
 def _cell_results(cell: dict[str, Any], bank_version: str, ctx: ConverterContext) -> list[Result]:
     tags: dict[str, str] = {
         "cell": str(cell.get("name", "")),
-        "thinking": "on" if cell.get("thinking") else "off",
+        "thinking": thinking_level(cell.get("thinking")),
         "fixture_bank_version": bank_version,
         "n_responses": str(cell.get("n_responses", "")),
         # The suite drives one request at a time by design: factual grounding is

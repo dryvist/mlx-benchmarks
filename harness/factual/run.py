@@ -199,16 +199,23 @@ def summarize_cell(records: Sequence[Mapping[str, Any]], wall_seconds: float) ->
     }
 
 
-def cell_name(thinking: bool) -> str:
-    return f"factual_think-{'on' if thinking else 'off'}"
+def cell_name(thinking: str) -> str:
+    """Cell identity, and a public join key (``--cells``, published ``tags.cell``),
+    so ``on``/``off`` keep the exact names they have always produced."""
+    return f"factual_think-{thinking}"
 
 
-def thinking_body_kwargs(kwarg: str, on: bool) -> dict[str, Any]:
-    """Per-family thinking toggle: chat_template_kwargs bool, or reasoning_effort for harmony."""
+def thinking_body_kwargs(kwarg: str, level: str) -> dict[str, Any]:
+    """``on``/``off`` send exactly the bodies they always have; any other level is
+    passed through verbatim, so a graded sweep reaches the model as itself."""
     if kwarg == "reasoning_effort":
         # ponytail: harmony models can't fully disable reasoning; low is the off-analog
-        return {"reasoning_effort": "high" if on else "low"}
-    return {"chat_template_kwargs": {kwarg: on}}
+        if level in ("on", "off"):
+            return {"reasoning_effort": "high" if level == "on" else "low"}
+        return {"reasoning_effort": level}
+    if level in ("on", "off"):
+        return {"chat_template_kwargs": {kwarg: level == "on"}}
+    return {"chat_template_kwargs": {kwarg: level}}
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +229,7 @@ async def one_request(
     args: argparse.Namespace,
     system_prompt: str,
     case: Mapping[str, Any],
-    thinking: bool,
+    thinking: str,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": args.model,
@@ -266,7 +273,7 @@ async def run_cell(
     client: Any,
     args: argparse.Namespace,
     bank: Mapping[str, Any],
-    thinking: bool,
+    thinking: str,
 ) -> dict[str, Any]:
     system_prompt = bank.get("system_prompt", "")
     cases = bank["cases"]
@@ -323,7 +330,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fixture bank JSON",
     )
     parser.add_argument("--repeats", type=int, default=5, help="Responses per case")
-    parser.add_argument("--thinking", default="on,off", help="Comma list from {on,off}")
+    parser.add_argument(
+        "--thinking",
+        default="on,off",
+        help="Comma list of effort levels, sent verbatim. 'on'/'off' keep their "
+        "per-family mapping and cell names; any other value is passed through",
+    )
     parser.add_argument(
         "--thinking-kwarg",
         default="enable_thinking",
@@ -346,7 +358,9 @@ async def _run(args: argparse.Namespace, timestamp: str) -> dict[str, Any]:
     import httpx
 
     bank = json.loads(args.fixtures.read_text())
-    thinking_modes = [m.strip() == "on" for m in args.thinking.split(",") if m.strip()]
+    # Verbatim, never coerced: `== "on"` turned every unrecognised level into
+    # False, so a graded sweep silently ran one cell twice under one name.
+    thinking_modes = [m.strip() for m in args.thinking.split(",") if m.strip()]
 
     headers = {}
     api_key = os.environ.get(args.api_key_env)
@@ -374,7 +388,7 @@ async def _run(args: argparse.Namespace, timestamp: str) -> dict[str, Any]:
             "fixture_bank_version": str(bank.get("fixture_bank_version", "")),
             "n_cases": len(bank["cases"]),
             "repeats": args.repeats,
-            "thinking": [("on" if t else "off") for t in thinking_modes],
+            "thinking": list(thinking_modes),
             "thinking_kwarg": args.thinking_kwarg,
             "max_tokens": args.max_tokens,
             "temperature": args.temperature,

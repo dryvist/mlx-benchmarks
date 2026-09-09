@@ -15,7 +15,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields, thinking_level
 from mlx_benchmarks.envelope import Envelope, Result, System
 
 # Per-probe-class rate metrics: raw key -> metric name. All are ratios in [0, 1].
@@ -77,7 +77,7 @@ def _cell_results(cell: dict[str, Any], probe_bank_version: str, ctx: ConverterC
             "prompt_variant": str(cell.get("prompt_variant", "")),
             "probe_class": str(block.get("probe_class", "")),
             "probe_bank_version": probe_bank_version,
-            "thinking": _on_off(cell.get("thinking")),
+            "thinking": thinking_level(cell.get("thinking")),
             "concurrency": "1",
             "n_tasks": str(block.get("n_tasks", "")),
             **{k: str(v) for k, v in ctx.extra_tags.items()},
@@ -125,10 +125,6 @@ def _cell_results(cell: dict[str, Any], probe_bank_version: str, ctx: ConverterC
                 }
             )
     return results
-
-
-def _on_off(value: Any) -> str:
-    return "on" if value else "off"
 
 
 def _extract_timestamp(raw: dict[str, Any]) -> str:

@@ -65,6 +65,13 @@ Notes:
   runner never accepts a literal key on the command line.
 - Harmony models (gpt-oss): add `--thinking-kwarg reasoning_effort`. Default
   is `enable_thinking` via `chat_template_kwargs` (Qwen3.x / GLM).
+- `--thinking` takes a comma list of levels, sent verbatim. `on` and `off` keep
+  their per-family mapping (`reasoning_effort` high/low, `enable_thinking`
+  true/false) and their existing cell names, so published rows stay comparable.
+  Any other value — `low`, `high`, `xhigh`, `max` — is passed straight through
+  and names its own cell, e.g. `conc1_think-xhigh_ctx-small_nostream`.
+  **Effort is part of the arm**, so a sweep across levels is a sweep across
+  arms, not a variation within one.
 - The full matrix (16 cells × 10 repeats + 2×20 multi-turn rounds) takes hours
   on slow models. Smoke first: `--cells conc4_think-on_ctx-large_stream --repeats 3`
   (`--cells` is a comma-separated substring filter; include `multiturn` to

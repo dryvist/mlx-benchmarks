@@ -62,6 +62,24 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
     return envelope
 
 
+def thinking_level(value: Any) -> str:
+    """The effort a cell ran at: verbatim for a graded run, on/off for a bool.
+
+    Shared by every harness that sweeps thinking, because each one had its own
+    copy and two of the three inverted the answer: ``"on" if value else "off"``
+    returns ``"on"`` for the *string* ``"off"``, since a non-empty string is
+    truthy. A graded cell therefore published the opposite of what it ran.
+
+    A bool is still accepted — every row written before the harnesses recorded a
+    level carries one, and those rows must keep publishing the same two values.
+    """
+    if isinstance(value, bool):
+        return "on" if value else "off"
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return "unstated"
+
+
 class Converter(Protocol):
     """Implementations turn a parsed raw result into a valid :class:`Envelope`."""
 

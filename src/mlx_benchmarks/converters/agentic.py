@@ -14,7 +14,7 @@ import datetime
 import logging
 from typing import Any
 
-from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields, thinking_level
 from mlx_benchmarks.envelope import Envelope, Result, System
 
 log = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def _cell_results(cell: dict[str, Any], ctx: ConverterContext) -> list[Result]:
     tags: dict[str, str] = {
         "cell": str(cell.get("name", "")),
         "concurrency": str(cell.get("concurrency", "")),
-        "thinking": _on_off(cell.get("thinking")),
+        "thinking": thinking_level(cell.get("thinking")),
         "context": str(cell.get("context", "")),
         "stream": "stream" if cell.get("stream") else "nostream",
         "n_requests": str(cell.get("n_requests", "")),
@@ -161,17 +161,13 @@ def _multiturn_result(track: dict[str, Any], ctx: ConverterContext) -> Result:
         "unit": "round",
         "tags": {
             "track": "multiturn",
-            "thinking": _on_off(track.get("thinking")),
+            "thinking": thinking_level(track.get("thinking")),
             "degraded": "true" if degraded else "false",
             "rounds": str(len(rounds)),
             "valid_rounds": str(sum(1 for r in rounds if r.get("outcome") == "valid")),
             **{k: str(v) for k, v in ctx.extra_tags.items()},
         },
     }
-
-
-def _on_off(value: Any) -> str:
-    return "on" if value else "off"
 
 
 def _extract_timestamp(raw: dict[str, Any]) -> str:
