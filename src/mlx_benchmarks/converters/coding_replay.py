@@ -5,6 +5,14 @@ row shape: task/repo/check identity, ``check_rc``, ``overlap``, ``pass``,
 tokens, ttft, wall time). Each row becomes a per-task ``pass_at_1`` result
 carrying task/repo/check as tags, plus one aggregate ``pass_rate`` result
 across every row in the file — the suite's headline metric.
+
+Tags are a WHITELIST, so a field the runner records reaches the published
+parquet only if it is named here. The measurement-condition fields
+(``dedicated``, ``reasoning_effort``, the runner's own ``tag``) were recorded
+on every row and dropped at this boundary — visible in the raw JSON Lines,
+absent from the artifact anyone reads. Passing the same value with the
+publisher's ``--tag`` masked it, because that lands via ``ctx.extra_tags``
+below. When adding a field to the runner, add it here too, or it goes nowhere.
 """
 
 from __future__ import annotations
@@ -59,6 +67,12 @@ def _task_result(row: dict[str, Any], ctx: ConverterContext) -> Result:
             "check": str(row.get("check", "")),
             "check_rc": str(row.get("check_rc", "")),
             "overlap": str(row.get("overlap", "")),
+            # Measurement conditions. Defaults mirror the runner's own: an
+            # absent value means the row predates the field, which is not the
+            # same as the condition being false or known.
+            "dedicated": str(row.get("dedicated", "unstated")),
+            "reasoning_effort": str(row.get("reasoning_effort", "unstated")),
+            "run_tag": str(row.get("tag", "")),
             **{k: str(v) for k, v in ctx.extra_tags.items()},
         },
     }
@@ -75,8 +89,28 @@ def _pass_rate_result(rows: list[dict[str, Any]], ctx: ConverterContext) -> Resu
         "metric": "pass_rate",
         "value": round(sum(passes) / len(passes), 3),
         "unit": "ratio",
-        "tags": {"n_tasks": str(len(rows)), **{k: str(v) for k, v in ctx.extra_tags.items()}},
+        "tags": {
+            "n_tasks": str(len(rows)),
+            # The headline row needs the conditions too — it is the row most
+            # readers see, and a pass_rate without them invites comparison
+            # across measurement classes.
+            "dedicated": _run_level(rows, "dedicated"),
+            "reasoning_effort": _run_level(rows, "reasoning_effort"),
+            "run_tag": _run_level(rows, "tag", default=""),
+            **{k: str(v) for k, v in ctx.extra_tags.items()},
+        },
     }
+
+
+def _run_level(rows: list[dict[str, Any]], key: str, default: str = "unstated") -> str:
+    """A run-level condition, or ``mixed`` when the file merges disagreeing runs.
+
+    Reading ``rows[0]`` would label a concatenated file with whichever run
+    happened to be first, which is how a wrong condition becomes indistinguishable
+    from a measured one.
+    """
+    values = {str(row.get(key, default)) for row in rows}
+    return values.pop() if len(values) == 1 else "mixed"
 
 
 def _extract_timestamp(row: dict[str, Any]) -> str:
