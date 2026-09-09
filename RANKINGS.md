@@ -92,7 +92,7 @@ exists.
 | Qwen3.6-35B-A3B-OptiQ-4bit | ~19.5 | 1/4 | | | 100% / clean | Leads as agent brain this cycle |
 | Qwen3-Next-80B-A3B-Thinking-4bit | ~45 | 1/4 | 25.1 | 0.08 | 100% / r17 | Agent brain runner-up; weak on math_verify |
 | Qwen3-Next-80B-A3B-Instruct-4bit | ~45 | 1/4 | 28.2 | 0.34 | | Strong all-rounder MoE |
-| Qwen3.6-35B-A3B-4bit | ~19.5 | 1/4 | | | 100% / clean | Clean agent brain, slower |
+| Qwen3.6-35B-A3B-4bit | ~19.5 | 1/4 | 24.9 / 28.4 (c2) † | | 100% / clean | Clean agent brain, slower |
 | Qwen3.6-35B-A3B-8bit | ~35 | 1/4 | | | 100% / r6 | Early multi-turn degrade |
 | Qwen3.6-35B-A3B-MLX-8bit (lmstudio) | ~35 | 1/4 | | | 100% / r19 | Near-clean agent brain |
 | Qwen3-Coder-30B-A3B-Instruct-4bit | ~17 | 1/4 | 136.7 (c4) | 0.47 | 0–67% / r1 | Coding sidecar; throughput + math leader this cycle |
@@ -127,6 +127,24 @@ exists to expose. Single-shot validity alone is not a passing agentic verdict.
 ³ jevans-mbp quick smoke, 2026-08-23 (under-load, conc 1): single unreplicated
 runs, reduced matrix — not pass-gate comparable.
 [Journal](docs/journal/2026-08-23-jevans-mbp-quick-smokes.md).
+
+† 2026-09-09, ISOLATED class, `dedicated=true`, on a private loopback endpoint
+nothing routes to. Aggregate decode rate at concurrency 1 and 2, three runs each,
+256 max output tokens over a 2048-token prompt. Both cells pair-validated: the
+widest gap between consecutive runs is 0.65% at concurrency 1 and 0.39% at
+concurrency 2, and concurrency 2 is +14.1% on aggregate cumulative throughput
+with zero errors.
+
+The clean room is what makes these comparable, and it was proven rather than
+assumed: the gate logged 12 × 502 and zero 200s across the measurement interval,
+so it was demonstrably unable to reach any backend while the runs were in flight.
+The same grid on a contended host swung 60.8% and 35.5% between consecutive runs —
+so an un-quiesced throughput figure measures the contention, not the model.
+
+Do not compare these against the `²` rows: those are single-stream agentic decode,
+a different metric. Also note that the suite's cumulative tok/s counts prompt plus
+completion over wall time against a large prompt cache, so it partly tracks cache
+hit rate; the decode figure above is the model-speed one.
 
 Cloud baselines: see the [quick-smokes journal](docs/journal/2026-08-23-jevans-mbp-quick-smokes.md).
 
