@@ -175,6 +175,61 @@ hit rate; the decode figure above is the model-speed one.
 
 Cloud baselines: see the [quick-smokes journal](docs/journal/2026-08-23-jevans-mbp-quick-smokes.md).
 
+## Verdict: Pareto frontier over speed and tool-calling (2026-09-10)
+
+No composite score. Two axes are kept separate because they trade against each
+other and a single number would hide which one you are buying. No external
+leaderboard figure is used as either value; every number here was measured on
+this estate.
+
+**The frontier is small because most cells are not comparable, and that is the
+finding.** Only four models carry a measured value on *both* axes. Of those,
+the speed figures were taken at three different concurrencies, from two
+different suites, mixing cumulative and decode-only rates — the footnotes above
+say so explicitly. A frontier drawn over those numbers would rank measurement
+conditions, not models.
+
+So the table below ranks the axis pair only where the pair is real, and records
+everything else as unranked rather than guessing.
+
+| Model | Tool-calling (valid% / degrade) | Speed, as measured | Frontier? |
+| --- | --- | --- | --- |
+| Qwen3.6-35B-A3B-4bit | 100% / clean | 24.9 (c1), 28.4 (c2) † | **yes** — best tool-calling at a measured speed |
+| Qwen3-Next-80B-A3B-Thinking-4bit | 100% / r17 | 25.1 | no — same speed class, degrades where the above does not |
+| Qwen3-Coder-30B-A3B-Instruct-4bit | 0–67% / r1 | 136.7 (c4) | **yes** — fastest with any tool-calling number, but see below |
+| gpt-oss-120b-MXFP4-Q8 | 0% / r1 | 44.4 (c4) | no — dominated: slower than the Coder and worse at tools |
+
+**Reading the two frontier entries.** They are not alternatives for the same
+job. Qwen3.6-35B-A3B-4bit is the only model that is both clean through the
+multi-turn track and has a speed number; it is the agent brain. The Coder-30B
+is on the frontier only because nothing faster has a tool-calling measurement
+at all — it collapses at round 1, which is why the catalog calls it a sidecar
+rather than a brain. A frontier entry is not an endorsement; it means nothing
+measured dominates it on both axes.
+
+**Unranked, and why** — each of these needs one specific measurement, not a
+judgement call:
+
+| Model | Missing | What would rank it |
+| --- | --- | --- |
+| Qwen3.6-35B-A3B-OptiQ-4bit | speed | a `throughput` run at c1 and c2 |
+| Qwen3.6-35B-A3B-8bit, -MLX-8bit | speed | same |
+| GLM-4.7-Flash-4bit | speed | same |
+| NVIDIA-Nemotron-3-Super-120B-A12B-4bit | tool-calling | the agentic grid; it has speed ‡ but no tool-calling number |
+| Kimi-Linear-48B | both | unservable until a declared `tiktoken` reaches the host |
+
+**Recorded as a loss, not omitted:** Nemotron-120B does not serve two
+concurrent requests on this host at the standing wired ceiling — two of three
+runs at concurrency 2 failed with swap engaged. It leads the throughput column
+at concurrency 1 and cannot be used concurrently, which is a property of the
+pairing, not a gap in the data.
+
+**The one change that would make this table mean more:** re-measure the four
+comparable models on a single grid — same suite, same concurrencies, same
+prompt size, `dedicated=true`, pair-validated. Until then this is a frontier
+over four points measured four ways, and it is published with that caveat
+rather than presented as a ranking.
+
 ## Flagship investigation (2026-07-09) — the 50–90 GB tier does not fit here
 
 An 8-hour isolated-window sweep for a 50–90 GB "flagship" brain to maximize the
