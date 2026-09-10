@@ -97,6 +97,7 @@ exists.
 | Qwen3.6-35B-A3B-MLX-8bit (lmstudio) | ~35 | 1/4 | | | 100% / r19 | Near-clean agent brain |
 | Qwen3-Coder-30B-A3B-Instruct-4bit | ~17 | 1/4 | 136.7 (c4) | 0.47 | 0–67% / r1 | Coding sidecar; throughput + math leader this cycle |
 | Qwen3-Coder-30B-A3B-Instruct-8bit | ~32 | 1/4 | 41.2 | 0.37 | | Coding sidecar, 8-bit |
+| NVIDIA-Nemotron-3-Super-120B-A12B-4bit | ~63 | 1/4 | 225.3 (c1) ‡ | | | Fastest cumulative throughput measured; will not serve c2 here |
 | gpt-oss-120b-MXFP4-Q8 | ~63 | 1/4 | 44.4 (c4) | | 0% / r1 | High-throughput generalist; lags as a tool brain |
 | gpt-oss-120b-4bit | ~63 | 1/4 | 44.9 | 0.42 | | Generalist; strong math_verify |
 | GLM-4.7-Flash-4bit | ~18 | 1/4 | | | 100%¹ / r1 | Fast, tool-dead multi-turn |
@@ -140,6 +141,32 @@ assumed: the gate logged 12 × 502 and zero 200s across the measurement interval
 so it was demonstrably unable to reach any backend while the runs were in flight.
 The same grid on a contended host swung 60.8% and 35.5% between consecutive runs —
 so an un-quiesced throughput figure measures the contention, not the model.
+
+‡ 2026-09-09/10, ISOLATED class, `dedicated=true`, on a private loopback endpoint
+nothing routes to, host `jevans-ms`. Cell is the mean aggregate cumulative rate at
+**concurrency 1 only**: 224.24 and 226.26 tok/s, 0.90% apart, pair-validated.
+Sequential per-request decode was 23.03-23.40 tok/s and TTFT 47.6-48.5s across six
+repetitions.
+
+**Concurrency 2 is a recorded loss, not a missing measurement.** Two of three runs
+failed with swap engaged against 63 GB of weights; the surviving run (162.77
+aggregate) is unpaired and cannot be validated. The wired-memory ceiling was not
+raised to chase it — it is fixed by standing ruling — so the honest finding is that
+this model does not serve two concurrent requests on this host at that ceiling.
+
+Read the headline against its own definition: cumulative tok/s counts prompt plus
+completion, so a long prefill inflates it relative to a decode-only figure. This
+model's *decode* is unremarkable; its prefill is what puts it at the top of the
+column. The published rows keep the two separable —
+`throughput_aggregate_output_toks_per_s` is 3.33 at this cell while
+`throughput_total_toks_per_s` is 225.75, and conflating them is easy and wrong.
+
+Two runs from this campaign are retained but excluded: a duplicate benchmark
+driver was started against the same model, so both processes recorded
+`dedicated=true` while sharing one GPU and per-request decode fell about 7×. They
+carry `annotation_env_class=contended` and are not part of any cell above.
+`dedicated` is a claim the runner cannot verify — treat it as an assertion about
+method, not a measurement.
 
 Do not compare these against the `²` rows: those are single-stream agentic decode,
 a different metric. Also note that the suite's cumulative tok/s counts prompt plus
