@@ -143,7 +143,8 @@ The same grid on a contended host swung 60.8% and 35.5% between consecutive runs
 so an un-quiesced throughput figure measures the contention, not the model.
 
 ‡ 2026-09-09/10, ISOLATED class, `dedicated=true`, on a private loopback endpoint
-nothing routes to, host `jevans-ms`. Cell is the mean aggregate cumulative rate at
+nothing routes to, host `jevans-ms`. Cell is the mean aggregate
+cumulative rate at
 **concurrency 1 only**: 224.24 and 226.26 tok/s, 0.90% apart, pair-validated.
 Sequential per-request decode was 23.03-23.40 tok/s and TTFT 47.6-48.5s across six
 repetitions.
@@ -194,10 +195,10 @@ everything else as unranked rather than guessing.
 
 | Model | Tool-calling (valid% / degrade) | Speed, as measured | Frontier? |
 | --- | --- | --- | --- |
-| Qwen3.6-35B-A3B-4bit | 100% / clean | 24.9 (c1), 28.4 (c2) † | **yes** — best tool-calling at a measured speed |
-| Qwen3-Next-80B-A3B-Thinking-4bit | 100% / r17 | 25.1 | no — same speed class, degrades where the above does not |
-| Qwen3-Coder-30B-A3B-Instruct-4bit | 0–67% / r1 | 136.7 (c4) | **yes** — fastest with any tool-calling number, but see below |
-| gpt-oss-120b-MXFP4-Q8 | 0% / r1 | 44.4 (c4) | no — dominated: slower than the Coder and worse at tools |
+| Qwen3.6-35B-A3B-4bit | 100% / clean | 24.9 (c1), 28.4 (c2) † | **yes** |
+| Qwen3-Next-80B-A3B-Thinking-4bit | 100% / r17 | 25.1 | no |
+| Qwen3-Coder-30B-A3B-Instruct-4bit | 0–67% / r1 | 136.7 (c4) | **yes** |
+| gpt-oss-120b-MXFP4-Q8 | 0% / r1 | 44.4 (c4) | no |
 
 **Reading the two frontier entries.** They are not alternatives for the same
 job. Qwen3.6-35B-A3B-4bit is the only model that is both clean through the
@@ -215,8 +216,8 @@ judgement call:
 | Qwen3.6-35B-A3B-OptiQ-4bit | speed | a `throughput` run at c1 and c2 |
 | Qwen3.6-35B-A3B-8bit, -MLX-8bit | speed | same |
 | GLM-4.7-Flash-4bit | speed | same |
-| NVIDIA-Nemotron-3-Super-120B-A12B-4bit | tool-calling | the agentic grid; it has speed ‡ but no tool-calling number |
-| Kimi-Linear-48B | both | unservable until a declared `tiktoken` reaches the host |
+| NVIDIA-Nemotron-3-Super-120B-A12B-4bit | tool-calling | agentic grid |
+| Kimi-Linear-48B | both | a declared `tiktoken` reaching the host |
 
 **Recorded as a loss, not omitted:** Nemotron-120B does not serve two
 concurrent requests on this host at the standing wired ceiling — two of three
