@@ -225,6 +225,34 @@ runs at concurrency 2 failed with swap engaged. It leads the throughput column
 at concurrency 1 and cannot be used concurrently, which is a property of the
 pairing, not a gap in the data.
 
+### Kimi-Linear-48B — recorded as a loss, 2026-09-10
+
+Not measured, and the reason is a toolchain gap rather than anything about the
+model. Recorded here so it is a result rather than a blank cell.
+
+The model ships its own tokenizer code, which imports `tiktoken` at load. That
+package was not declared in the serving environment, so the server started,
+answered the model listing with `200`, and raised `ImportError` on the first
+generation — a model that lists but cannot generate. This is the concrete case
+behind the standing rule that readiness is proven with a real completion and
+never with `GET /v1/models`.
+
+The declaration is written and merged, and the chain still does not reach the
+host:
+
+1. `tiktoken` declared and merged to the integration branch — done
+2. promoted to the release branch — done
+3. tagged `v5.9.1` — done
+4. **release object never created** — `GET /releases/tags/v5.9.1` returns 404
+   while the tag exists, so the downstream relock that advances a consumer's
+   pin never fires
+5. host rebuild — blocked on 4
+
+So the arm is blocked three steps past the fix, on a release step that reported
+success while producing nothing. Re-run this arm once a release exists and the
+host has rebuilt; nothing about the model has been assessed, and no inference
+should be drawn about it from this entry.
+
 **The one change that would make this table mean more:** re-measure the four
 comparable models on a single grid — same suite, same concurrencies, same
 prompt size, `dedicated=true`, pair-validated. Until then this is a frontier
