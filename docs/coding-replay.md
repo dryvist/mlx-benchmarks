@@ -32,6 +32,37 @@ the overlap with the real PR's changed files proves the model touched the
 right code — `passed()` in the runner is the single source of truth for this
 and is unit-tested against exactly that false-green case.
 
+## Resolution of the current task set
+
+Measured over six clean runs — two models, three runs each, isolated
+single-consumer endpoints. Nine of the twelve tasks pass in every run, one
+fails in every run, and only two ever vary:
+
+| Task | passes / 6 |
+| --- | --- |
+| tofu-proxmox#1060 | 0 |
+| ansible-proxmox-ai#641 | 1 |
+| nix-darwin#2330 | 5 |
+| the other nine | 6 each |
+
+So `pass_rate` on this task set carries roughly two tasks of signal. Two
+causes, both in the task list rather than the runner:
+
+- Ten of the twelve real PRs touch exactly one file, so `overlap > 0` reduces
+  to "found the one file". 64 of 72 rows score `overlap` exactly 1, and a
+  fractional score could not exceed 1.0 either.
+- The two tasks that do vary fail by reaching `--task-timeout-s`, not by
+  producing wrong code. Halving endpoint throughput lowers the score with no
+  change in the model — measured directly: the same model and task set scored
+  10/12 with one timeout when sharing its endpoint with a second concurrent
+  run, against 10-11/12 with one timeout across three sole-consumer runs.
+
+Until the task list carries multi-file PRs and checks that exercise behaviour
+rather than lint, read `pass_rate` here as saturated. The per-row `wall_s`,
+`tokens.steps` and `tokens.output` still separate models cleanly: across the
+runs above, one arm solved the same tasks at a 127 s median with 6.2 steps
+where the other took 238 s and 18.2 steps.
+
 ## Envelope shape
 
 One `pass_at_1` result per task (tags: `task`, `repo`, `check`, `check_rc`,
