@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.25.1...v0.25.2) (2026-09-11)
+
+
+### Documentation
+
+* add benchmark platform roadmap ([#250](https://github.com/dryvist/mlx-benchmarks/issues/250)) ([93f58f3](https://github.com/dryvist/mlx-benchmarks/commit/93f58f3dc72ec9c274dbccc320b12bd6e2a0c6f9))
+
 ## [0.25.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.25.0...v0.25.1) (2026-09-11)
 
 
