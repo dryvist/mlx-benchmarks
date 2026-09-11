@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.25.0...v0.25.1) (2026-09-11)
+
+
+### Documentation
+
+* **coding-replay:** record that the current task set is saturated ([5e533f4](https://github.com/dryvist/mlx-benchmarks/commit/5e533f433fd80395ad1a8c6373e8dbc8dd3bb016))
+* **coding-replay:** record that the current task set is saturated ([95a96dd](https://github.com/dryvist/mlx-benchmarks/commit/95a96dd307b326f55d2b02ca41fc036d24ead21a))
+* record the external benchmark landscape as a guide, not a result ([7c164b9](https://github.com/dryvist/mlx-benchmarks/commit/7c164b901fa7f95d4d8be6ffdfd27fb5bd78f000))
+* record the external benchmark landscape as a guide, not a result ([#246](https://github.com/dryvist/mlx-benchmarks/issues/246)) ([7ba4fd5](https://github.com/dryvist/mlx-benchmarks/commit/7ba4fd5c653551c5f1e6d00de3608e799ac7331f))
+
 ## [0.25.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.24.5...v0.25.0) (2026-09-09)
 
 
