@@ -127,6 +127,65 @@ def test_cli_hostname_override(tmp_path: Path, lm_eval_sample: dict, monkeypatch
     assert envelope["system"]["hostname"] == "mac-studio"
 
 
+def _publish_via_cli(tmp_path: Path, sample: dict, monkeypatch: pytest.MonkeyPatch, *extra_argv: str) -> dict:
+    results_path = _write_sample(tmp_path, sample)
+    captured: dict[str, object] = {}
+
+    def fake_publish(envelope: dict, **_: object) -> str:
+        captured["envelope"] = envelope
+        return "data/x.parquet"
+
+    monkeypatch.setattr("mlx_benchmarks.cli.publish", fake_publish)
+    assert (
+        main(
+            [
+                str(results_path),
+                "--kind",
+                "lm-eval",
+                "--suite",
+                "reasoning",
+                "--git-sha",
+                "deadbeef",
+                *extra_argv,
+            ]
+        )
+        == 0
+    )
+    envelope = captured["envelope"]
+    assert isinstance(envelope, dict)
+    return envelope
+
+
+def test_cli_reasoning_effort_reaches_the_envelope(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    envelope = _publish_via_cli(
+        tmp_path, lm_eval_sample, monkeypatch, "--reasoning-effort", "xhigh", "--dry-run"
+    )
+    assert envelope["reasoning_effort"] == "xhigh"
+
+
+def test_cli_reasoning_effort_takes_any_level_verbatim(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No `choices=` on the flag: a family that names its levels differently must
+    not be silently coerced, and `off` must stay `off`."""
+    for level in ("off", "low", "max", "think-harder"):
+        envelope = _publish_via_cli(
+            tmp_path, lm_eval_sample, monkeypatch, "--reasoning-effort", level, "--dry-run"
+        )
+        assert envelope["reasoning_effort"] == level
+
+
+def test_cli_omits_reasoning_effort_when_not_declared(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Absent, not defaulted. A harness cannot see the serving default, so
+    inventing one here would be indistinguishable from having measured it."""
+    envelope = _publish_via_cli(tmp_path, lm_eval_sample, monkeypatch, "--dry-run")
+    assert "reasoning_effort" not in envelope
+
+
 def test_cli_rejects_invalid_tag(tmp_path: Path, lm_eval_sample: dict) -> None:
     results_path = _write_sample(tmp_path, lm_eval_sample)
     with pytest.raises(SystemExit, match="invalid --tag"):

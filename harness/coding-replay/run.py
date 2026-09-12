@@ -406,6 +406,7 @@ def run_task(
     slot_wait_s: float = 600.0,
     rate_limit_attempts: int = 4,
     dedicated: bool = False,
+    reasoning_effort: str = "unstated",
 ) -> dict[str, Any]:
     repo, pr, base = task["repo"], task["pr"], task["base"]
     name = task_name(repo, pr)
@@ -493,6 +494,21 @@ def run_task(
         # unstated measurement environment is an untrusted one. Compare within a
         # class; never across one.
         "dedicated": dedicated,
+        # At what reasoning effort did this arm run? Declared by the caller,
+        # never inferred: effort is set in the agent CLI's own configuration or
+        # by the serving default, and neither is visible from here.
+        #
+        # An arm is weights PLUS quant PLUS effort PLUS serving config. The same
+        # weights at two efforts are two arms, and comparing them as one model
+        # is the same error as comparing across a `dedicated` boundary. Public
+        # leaderboards already treat effort as part of a model's identity
+        # ("27B (xhigh)"); a row without it cannot be placed against them or
+        # against our own history.
+        #
+        # Defaults to "unstated" rather than to a plausible value such as
+        # "default" or "medium". A guess here is indistinguishable from a
+        # measurement, and an unstated condition must stay visibly unstated.
+        "reasoning_effort": reasoning_effort,
         # Containment: did the agent modify the SOURCE clone? True means the
         # sandbox leaked and both the result and the repository are suspect.
         "source_touched": source_fingerprint(clone) != source_before,
@@ -545,6 +561,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="agentic CLI invocation, split on whitespace; '-m <model> <prompt>' is appended. "
         "Must pin an editing agent, or results measure the runner's local agent config",
     )
+    ap.add_argument(
+        "--reasoning-effort",
+        default="unstated",
+        help="declare the reasoning effort this arm ran at (e.g. low, medium, high, "
+        "xhigh, max, off). Cannot be detected — effort lives in the agent CLI's "
+        "config or the serving default, neither visible to the harness — so it is "
+        "declared, and defaults to 'unstated' because a plausible guess is "
+        "indistinguishable from a measurement. The same weights at two efforts are "
+        "two arms; compare within one.",
+    )
     ap.add_argument("--output", type=Path, required=True, help="JSON Lines file; one row appended per task")
     ap.add_argument(
         "--dedicated",
@@ -587,6 +613,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.slot_wait_s,
                 args.rate_limit_attempts,
                 args.dedicated,
+                args.reasoning_effort,
             )
             out.write(json.dumps(row) + "\n")
             out.flush()

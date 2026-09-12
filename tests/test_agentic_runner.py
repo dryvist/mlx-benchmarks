@@ -241,12 +241,74 @@ def test_summarize_cell_counts_and_rates() -> None:
 
 
 def test_cell_name_and_thinking_kwargs() -> None:
-    assert runner.cell_name(4, True, "large", True) == "conc4_think-on_ctx-large_stream"
-    assert runner.cell_name(1, False, "small", False) == "conc1_think-off_ctx-small_nostream"
-    assert runner.thinking_body_kwargs("enable_thinking", True) == {
+    """`on`/`off` must keep the exact names and bodies they have always produced.
+
+    `cell_name` is a public join key — `--cells` filters on it, the recovery JSONL
+    is keyed by it, and it publishes as `tags.cell`. Renaming either level would
+    orphan every row already in the dataset.
+    """
+    assert runner.cell_name(4, "on", "large", True) == "conc4_think-on_ctx-large_stream"
+    assert runner.cell_name(1, "off", "small", False) == "conc1_think-off_ctx-small_nostream"
+    assert runner.thinking_body_kwargs("enable_thinking", "on") == {
         "chat_template_kwargs": {"enable_thinking": True}
     }
-    assert runner.thinking_body_kwargs("reasoning_effort", False) == {"reasoning_effort": "low"}
+    assert runner.thinking_body_kwargs("enable_thinking", "off") == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
+    assert runner.thinking_body_kwargs("reasoning_effort", "on") == {"reasoning_effort": "high"}
+    assert runner.thinking_body_kwargs("reasoning_effort", "off") == {"reasoning_effort": "low"}
+
+
+def test_a_graded_level_is_sent_verbatim_and_names_its_own_cell() -> None:
+    """`high` and `xhigh` are two arms. Before this they both parsed to False,
+    producing one cell name twice and one request body — no error, no signal."""
+    assert runner.cell_name(1, "xhigh", "small", False) == "conc1_think-xhigh_ctx-small_nostream"
+    assert runner.cell_name(1, "high", "small", False) == "conc1_think-high_ctx-small_nostream"
+    assert runner.thinking_body_kwargs("reasoning_effort", "xhigh") == {"reasoning_effort": "xhigh"}
+    assert runner.thinking_body_kwargs("enable_thinking", "medium") == {
+        "chat_template_kwargs": {"enable_thinking": "medium"}
+    }
+
+
+def test_a_graded_sweep_produces_one_cell_per_level(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The end-to-end shape of the trap: a two-level sweep must run two cells."""
+    seen: list[str] = []
+
+    async def fake_run_cell(client, args, concurrency, thinking, context, stream, required, history):
+        seen.append(thinking)
+        return {"name": runner.cell_name(concurrency, thinking, context, stream), "n_requests": 1}
+
+    async def fake_run_multiturn(client, args, thinking, required):
+        return {"thinking": thinking, "rounds": [], "first_degraded_round": None}
+
+    monkeypatch.setattr(runner, "run_cell", fake_run_cell)
+    monkeypatch.setattr(runner, "run_multiturn", fake_run_multiturn)
+
+    args = runner.build_parser().parse_args(
+        [
+            "--base-url",
+            "http://localhost:1/v1",
+            "--model",
+            "m",
+            "--thinking",
+            "high,xhigh",
+            "--concurrency",
+            "1",
+            "--context",
+            "small",
+            "--stream",
+            "nostream",
+        ]
+    )
+    out = asyncio.run(runner._run(args, "2026-09-09T00:00:00Z", tmp_path / "partial.jsonl"))
+
+    assert seen == ["high", "xhigh"]
+    assert [cell["name"] for cell in out["cells"]] == [
+        "conc1_think-high_ctx-small_nostream",
+        "conc1_think-xhigh_ctx-small_nostream",
+    ]
+    # The config block records the levels asked for, not a pair of booleans.
+    assert out["config"]["thinking"] == ["high", "xhigh"]
 
 
 # --- runner robustness: warm-up, malformed body, incremental persistence -------
@@ -307,7 +369,7 @@ def test_run_cell_fires_one_untimed_warmup() -> None:
     async def go() -> dict:
         async with _mock_client(handler) as client:
             return await runner.run_cell(
-                client, _args(repeats=3), 1, False, "small", False, REQUIRED, history=[]
+                client, _args(repeats=3), 1, "off", "small", False, REQUIRED, history=[]
             )
 
     cell = asyncio.run(go())
@@ -325,7 +387,7 @@ def test_one_request_malformed_stream_body_is_recorded_not_raised() -> None:
     async def go() -> dict:
         async with _mock_client(handler) as client:
             return await runner.one_request(
-                client, _args(), [{"role": "user", "content": "hi"}], False, True, REQUIRED
+                client, _args(), [{"role": "user", "content": "hi"}], "off", True, REQUIRED
             )
 
     record = asyncio.run(go())
@@ -340,7 +402,7 @@ def test_run_cell_survives_malformed_bodies() -> None:
     async def go() -> dict:
         async with _mock_client(handler) as client:
             return await runner.run_cell(
-                client, _args(repeats=3), 1, False, "small", False, REQUIRED, history=[]
+                client, _args(repeats=3), 1, "off", "small", False, REQUIRED, history=[]
             )
 
     cell = asyncio.run(go())

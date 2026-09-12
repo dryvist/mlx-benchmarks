@@ -57,12 +57,23 @@ class ThroughputProbeConverter:
                 tags[key] = str(sequential[key])
         if isinstance(sequential.get("finish_reasons"), list):
             tags["finish_reasons"] = ",".join(map(str, sequential["finish_reasons"]))
-        if "max_tokens" in raw:
-            tags["max_tokens"] = str(raw["max_tokens"])
-        if "thinking" in raw:
-            tags["thinking"] = str(raw["thinking"])
-        if "context_tokens_target" in raw:
-            tags["context_tokens_target"] = str(raw["context_tokens_target"])
+        # ``thinking`` on its own is not readable: a run that passed no kwarg
+        # records "off" while the model reasons at its own default (see
+        # harness/throughput/run.py). ``think_kwarg_sent`` is what separates
+        # "we asked for off" from "we asked for nothing", and ``think_value``
+        # carries the graded level the boolean cannot hold — both were recorded
+        # on every row and dropped here.
+        for key in (
+            "max_tokens",
+            "thinking",
+            "think_kwarg",
+            "think_value",
+            "think_kwarg_sent",
+            "dedicated",
+            "context_tokens_target",
+        ):
+            if key in raw:
+                tags[key] = "unstated" if raw[key] is None else str(raw[key])
         sequential_runs = raw.get("sequential_runs")
         if isinstance(sequential_runs, list):
             tags["measured_repetitions"] = str(len(sequential_runs))
@@ -80,6 +91,10 @@ class ThroughputProbeConverter:
             if not isinstance(stats, dict) or not isinstance(stats.get("median"), int | float):
                 continue
             result_tags = dict(tags)
+            # Which phase produced the number. Without it the sequential and
+            # concurrent rows are indistinguishable once published, and a reader
+            # cannot tell a one-at-a-time figure from an aggregate under load.
+            result_tags["phase"] = "sequential"
             for stat in ("min", "max"):
                 if isinstance(stats.get(stat), int | float):
                     result_tags[f"{source_key}_{stat}"] = str(stats[stat])
@@ -96,4 +111,51 @@ class ThroughputProbeConverter:
                     "raw": raw,
                 }
             )
+        results.extend(_concurrent_results(raw, tags))
         return results
+
+
+# The concurrent phase's aggregate throughput: the only figure in this harness
+# that answers "what does the endpoint deliver with N requests in flight". The
+# runner has always recorded it and this converter dropped it, so every published
+# throughput row described one-at-a-time serving no matter what width was driven.
+_CONCURRENT_METRICS: tuple[tuple[str, str], ...] = (
+    ("aggregate_cumulative_tok_s", "throughput_aggregate_toks_per_s"),
+    ("aggregate_decode_tok_s", "throughput_aggregate_output_toks_per_s"),
+)
+
+
+def _concurrent_results(raw: Any, tags: dict[str, str]) -> list[Result]:
+    concurrent = raw.get("concurrent") if isinstance(raw, dict) else None
+    if not isinstance(concurrent, dict):
+        # --skip-concurrent, or a run that failed before the phase. Absent, not zero.
+        return []
+
+    base = dict(tags)
+    base["phase"] = "concurrent"
+    for key in ("width", "n_ok", "n_err", "wall_s"):
+        if concurrent.get(key) is not None:
+            base[key] = str(concurrent[key])
+    errors = concurrent.get("errors")
+    if isinstance(errors, list) and errors:
+        # A partially-failed batch still publishes; the aggregate is over the
+        # requests that returned, so the error count is what stops it reading
+        # as a clean measurement.
+        base["concurrent_errors"] = str(len(errors))
+
+    results: list[Result] = []
+    for source_key, metric in _CONCURRENT_METRICS:
+        value = concurrent.get(source_key)
+        if not isinstance(value, int | float):
+            continue
+        results.append(
+            {
+                "name": "throughput_probe",
+                "metric": metric,
+                "value": float(value),
+                "unit": "tok/s",
+                "tags": dict(base),
+                "raw": raw,
+            }
+        )
+    return results

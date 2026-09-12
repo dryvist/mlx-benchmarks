@@ -163,3 +163,61 @@ def test_agentic_multiturn_only_is_valid(agentic_sample: dict) -> None:
     envelope = converter.build_envelope(raw, _ctx())
     validate_envelope(envelope)
     assert len(envelope["results"]) == 2
+
+
+def test_dedicated_from_the_config_block_reaches_every_row(agentic_sample: dict) -> None:
+    """`dedicated` is recorded in the run's `config` block, which this converter
+    never read — so the field existed in the raw file and in no artifact. It is
+    stamped on every row because a reader filtering for comparable measurements
+    filters row by row, not by finding the run's config."""
+    raw = {**agentic_sample, "config": {**agentic_sample.get("config", {}), "dedicated": True}}
+    converter = get_converter("agentic")
+    envelope = converter.build_envelope(raw, _ctx())
+    validate_envelope(envelope)
+    assert envelope["results"]
+    assert all(r["tags"]["dedicated"] == "True" for r in envelope["results"])
+
+
+def test_absent_dedicated_reads_as_unstated_not_false(agentic_sample: dict) -> None:
+    """Every row written before the flag existed has no value. Publishing `False`
+    would assert the endpoint was shared, which nobody measured."""
+    raw = {k: v for k, v in agentic_sample.items() if k != "config"}
+    converter = get_converter("agentic")
+    envelope = converter.build_envelope(raw, _ctx())
+    validate_envelope(envelope)
+    assert all(r["tags"]["dedicated"] == "unstated" for r in envelope["results"])
+
+
+def test_a_graded_level_publishes_verbatim_and_off_does_not_become_on(agentic_sample: dict) -> None:
+    """The inversion this replaced: the old truthiness test returned "on" for the
+    string "off", because a non-empty string is truthy. A graded cell therefore
+    published the exact opposite of the effort it ran at."""
+    raw = {
+        "timestamp": agentic_sample["timestamp"],
+        "cells": [
+            dict(agentic_sample["cells"][0], name="conc1_think-off_ctx-small_nostream", thinking="off"),
+            dict(agentic_sample["cells"][0], name="conc1_think-xhigh_ctx-small_nostream", thinking="xhigh"),
+        ],
+    }
+    converter = get_converter("agentic")
+    envelope = converter.build_envelope(raw, _ctx())
+    validate_envelope(envelope)
+
+    levels = {r["tags"]["thinking"] for r in envelope["results"]}
+    assert levels == {"off", "xhigh"}
+
+
+def test_a_boolean_thinking_field_still_reads_on_off(agentic_sample: dict) -> None:
+    """Every row written before the harness recorded a level carries a bool, and
+    those rows must keep publishing the same two values they always have."""
+    raw = {
+        "timestamp": agentic_sample["timestamp"],
+        "cells": [
+            dict(agentic_sample["cells"][0], name="a", thinking=True),
+            dict(agentic_sample["cells"][0], name="b", thinking=False),
+        ],
+    }
+    converter = get_converter("agentic")
+    envelope = converter.build_envelope(raw, _ctx())
+    validate_envelope(envelope)
+    assert {r["tags"]["thinking"] for r in envelope["results"]} == {"on", "off"}

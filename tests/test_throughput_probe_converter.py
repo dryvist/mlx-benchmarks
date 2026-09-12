@@ -60,3 +60,116 @@ def test_throughput_probe_round_trip() -> None:
     assert by_metric["throughput_total_toks_per_s"]["raw"] == raw
     assert envelope["campaign"]["cell_id"] == "qwen38-64k-c1"
     assert envelope["context"]["actual_prompt_tokens"] == 64031
+
+
+def _minimal_raw(**extra: object) -> dict:
+    raw = {
+        "model": "m",
+        "thinking": "off",
+        "sequential": {"cumulative_tok_s": {"median": 1.0}},
+    }
+    raw.update(extra)
+    return raw
+
+
+def _tags(raw: dict) -> dict[str, str]:
+    ctx = ConverterContext(suite="throughput", model="m", git_sha="deadbeef", system=detect_system())
+    envelope = get_converter("throughput-probe").build_envelope(raw, ctx)
+    validate_envelope(envelope)
+    return envelope["results"][0]["tags"]
+
+
+def _results(raw: dict) -> list[dict]:
+    ctx = ConverterContext(suite="throughput", model="m", git_sha="deadbeef", system=detect_system())
+    envelope = get_converter("throughput-probe").build_envelope(raw, ctx)
+    validate_envelope(envelope)
+    return list(envelope["results"])
+
+
+def test_the_concurrent_phase_aggregate_is_published() -> None:
+    """The only figure in this harness that answers "what does the endpoint
+    deliver with N in flight". The runner always recorded it; the converter read
+    only the sequential block, so every published throughput row described
+    one-at-a-time serving no matter what width was driven."""
+    raw = _minimal_raw(
+        concurrent={
+            "width": 5,
+            "wall_s": 12.5,
+            "n_ok": 5,
+            "n_err": 0,
+            "aggregate_cumulative_tok_s": 210.5,
+            "aggregate_decode_tok_s": 88.25,
+            "errors": [],
+        }
+    )
+    by_metric = {r["metric"]: r for r in _results(raw)}
+    assert by_metric["throughput_aggregate_toks_per_s"]["value"] == 210.5
+    assert by_metric["throughput_aggregate_output_toks_per_s"]["value"] == 88.25
+
+    agg = by_metric["throughput_aggregate_toks_per_s"]
+    assert agg["tags"]["width"] == "5"
+    assert agg["tags"]["n_ok"] == "5"
+    assert agg["tags"]["phase"] == "concurrent"
+    # The sequential rows must stay distinguishable from it.
+    assert by_metric["throughput_total_toks_per_s"]["tags"]["phase"] == "sequential"
+
+
+def test_a_partially_failed_batch_is_marked_not_silently_averaged() -> None:
+    """The aggregate covers only the requests that returned, so without the error
+    count a batch where 3 of 5 failed reads as a clean measurement."""
+    raw = _minimal_raw(
+        concurrent={
+            "width": 5,
+            "wall_s": 4.0,
+            "n_ok": 2,
+            "n_err": 3,
+            "aggregate_cumulative_tok_s": 50.0,
+            "errors": ["429", "429", "429"],
+        }
+    )
+    agg = next(r for r in _results(raw) if r["metric"] == "throughput_aggregate_toks_per_s")
+    assert agg["tags"]["n_err"] == "3"
+    assert agg["tags"]["concurrent_errors"] == "3"
+
+
+def test_dedicated_is_published_and_absent_reads_as_unstated() -> None:
+    """A throughput number from a shared endpoint measures the sharing, not the
+    model, so the flag has to survive to the artifact. Absent must not read as
+    `False` — that is a claim nobody made."""
+    assert _tags(_minimal_raw(dedicated=True))["dedicated"] == "True"
+    assert _tags(_minimal_raw(dedicated=False))["dedicated"] == "False"
+    assert "dedicated" not in _tags(_minimal_raw())
+
+
+def test_skip_concurrent_publishes_no_aggregate_row() -> None:
+    """Absent, not zero: a run with --skip-concurrent made no such measurement,
+    and a 0 tok/s row would read as an endpoint that delivered nothing."""
+    metrics = {r["metric"] for r in _results(_minimal_raw())}
+    assert "throughput_aggregate_toks_per_s" not in metrics
+    assert "throughput_total_toks_per_s" in metrics
+
+
+def test_a_graded_think_value_reaches_the_tags() -> None:
+    """The runner records the literal level it sent; the converter dropped it, so
+    two arms differing only in effort published identically."""
+    tags = _tags(_minimal_raw(thinking="on", think_kwarg="reasoning_effort", think_value="xhigh"))
+    assert tags["think_value"] == "xhigh"
+    assert tags["think_kwarg"] == "reasoning_effort"
+
+
+def test_no_kwarg_sent_is_distinguishable_from_asking_for_off() -> None:
+    """``thinking="off"`` is what a run records when it passes NO kwarg at all,
+    while the model reasons at its own default. Without ``think_kwarg_sent`` the
+    two are the same row, and the label is simply wrong for the second."""
+    asked_off = _tags(
+        _minimal_raw(thinking="off", think_kwarg="thinking", think_value=False, think_kwarg_sent=True)
+    )
+    asked_nothing = _tags(
+        _minimal_raw(thinking="off", think_kwarg=None, think_value=None, think_kwarg_sent=False)
+    )
+
+    assert asked_off["thinking"] == asked_nothing["thinking"] == "off"
+    assert asked_off["think_kwarg_sent"] == "True"
+    assert asked_nothing["think_kwarg_sent"] == "False"
+    # An absent condition is unstated, never a value: "None" would read as one.
+    assert asked_nothing["think_value"] == "unstated"

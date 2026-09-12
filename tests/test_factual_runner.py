@@ -232,3 +232,24 @@ def test_summarize_cell_handles_no_records() -> None:
     assert block["n_responses"] == 0
     assert block["grounded_accuracy"] == 0.0
     assert block["latency_p50_ms"] == 0.0
+
+
+def test_cell_name_keeps_on_off_and_grades_anything_else() -> None:
+    # The name is a public join key (--cells, published tags.cell): renaming the
+    # two existing levels would orphan every row already in the dataset.
+    assert runner.cell_name("on") == "factual_think-on"
+    assert runner.cell_name("off") == "factual_think-off"
+    assert runner.cell_name("xhigh") == "factual_think-xhigh"
+
+
+def test_thinking_body_kwargs_is_graded() -> None:
+    """`on`/`off` send the bodies they always have; a graded level goes verbatim,
+    so `high` and `xhigh` reach the model as themselves instead of collapsing."""
+    assert runner.thinking_body_kwargs("enable_thinking", "on") == {
+        "chat_template_kwargs": {"enable_thinking": True}
+    }
+    assert runner.thinking_body_kwargs("enable_thinking", "off") == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }
+    assert runner.thinking_body_kwargs("reasoning_effort", "on") == {"reasoning_effort": "high"}
+    assert runner.thinking_body_kwargs("reasoning_effort", "xhigh") == {"reasoning_effort": "xhigh"}

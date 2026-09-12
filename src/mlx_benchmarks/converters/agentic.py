@@ -14,7 +14,7 @@ import datetime
 import logging
 from typing import Any
 
-from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields, thinking_level
 from mlx_benchmarks.envelope import Envelope, Result, System
 
 log = logging.getLogger(__name__)
@@ -53,6 +53,23 @@ class AgenticConverter:
         for track in multiturn:
             results.append(_multiturn_result(track, ctx))
 
+        # Run-level measurement conditions live in ``config``, which this converter
+        # never read — so a field the runner recorded there reached no artifact.
+        # Stamped onto every row because a reader filtering for comparable
+        # measurements filters row by row, not by locating the run's config block.
+        config = raw.get("config")
+        if not isinstance(config, dict):
+            config = {}
+        dedicated = config.get("dedicated")
+        dedicated_tag = "unstated" if dedicated is None else str(dedicated)
+        for result in results:
+            # ``tags`` is optional on Result, so read it rather than subscripting;
+            # both builders above always set it, and the tests assert every row
+            # carries the condition.
+            result_tags = result.get("tags")
+            if result_tags is not None:
+                result_tags["dedicated"] = dedicated_tag
+
         envelope: Envelope = {
             "schema_version": "1",
             "timestamp": timestamp,
@@ -71,7 +88,7 @@ def _cell_results(cell: dict[str, Any], ctx: ConverterContext) -> list[Result]:
     tags: dict[str, str] = {
         "cell": str(cell.get("name", "")),
         "concurrency": str(cell.get("concurrency", "")),
-        "thinking": _on_off(cell.get("thinking")),
+        "thinking": thinking_level(cell.get("thinking")),
         "context": str(cell.get("context", "")),
         "stream": "stream" if cell.get("stream") else "nostream",
         "n_requests": str(cell.get("n_requests", "")),
@@ -161,17 +178,13 @@ def _multiturn_result(track: dict[str, Any], ctx: ConverterContext) -> Result:
         "unit": "round",
         "tags": {
             "track": "multiturn",
-            "thinking": _on_off(track.get("thinking")),
+            "thinking": thinking_level(track.get("thinking")),
             "degraded": "true" if degraded else "false",
             "rounds": str(len(rounds)),
             "valid_rounds": str(sum(1 for r in rounds if r.get("outcome") == "valid")),
             **{k: str(v) for k, v in ctx.extra_tags.items()},
         },
     }
-
-
-def _on_off(value: Any) -> str:
-    return "on" if value else "off"
 
 
 def _extract_timestamp(raw: dict[str, Any]) -> str:

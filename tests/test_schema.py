@@ -62,6 +62,21 @@ def test_concurrency_minimum_is_enforced(valid_envelope: dict) -> None:
         validate_envelope({**valid_envelope, "concurrency": 0})
 
 
+def test_reasoning_effort_accepts_any_family_naming(valid_envelope: dict) -> None:
+    """Not an enum on purpose: families name their own levels, and normalising
+    one family's name into another's merges arms that are not the same arm. The
+    schema's job is to carry the value, not to referee the vocabulary."""
+    for level in ("low", "medium", "high", "xhigh", "max", "off", "unstated", "think-harder"):
+        validate_envelope({**valid_envelope, "reasoning_effort": level})
+
+
+def test_reasoning_effort_must_be_a_string(valid_envelope: dict) -> None:
+    # A bare boolean is how effort got collapsed in the agentic harness; the
+    # schema refuses it so that shape cannot reach a shard.
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope({**valid_envelope, "reasoning_effort": True})
+
+
 def test_serving_rejects_unknown_key(valid_envelope: dict) -> None:
     with pytest.raises(EnvelopeValidationError):
         validate_envelope({**valid_envelope, "serving": {"stack": "x", "bogus": 1}})

@@ -496,3 +496,27 @@ def test_source_fingerprint_is_stable_when_only_the_task_clone_changes(tmp_path:
     before = runner.source_fingerprint(source)
     (dest / "AGENTS.md").write_text("# edited in the sandbox\n")
     assert runner.source_fingerprint(source) == before
+
+
+def test_reasoning_effort_defaults_to_unstated() -> None:
+    """An undeclared reasoning effort must record as literally "unstated".
+
+    The anti-vacuity half: a run built without ``--reasoning-effort`` still
+    carries the field, so the assertion is held by the default rather than by
+    the flag happening to be passed. The default is deliberately not a
+    plausible value such as "default" or "medium" — once a guess is in the row
+    it is indistinguishable from a measurement, and every run recorded before
+    this field existed genuinely has an unknown effort.
+    """
+    assert _parse().reasoning_effort == "unstated"
+
+
+def test_reasoning_effort_is_recorded_verbatim() -> None:
+    """Effort is part of an arm's identity, so it is stored exactly as declared.
+
+    No normalisation and no allowed-value list: harnesses name these
+    differently (high/xhigh/max, on/off, a numeric budget), and silently
+    rewriting one into another would merge two arms that are not the same arm.
+    """
+    for value in ("low", "medium", "high", "xhigh", "max", "off"):
+        assert _parse("--reasoning-effort", value).reasoning_effort == value

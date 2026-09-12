@@ -7,7 +7,7 @@
 
 Fires realistic chat/completions requests carrying a 22-tool registry at any
 OpenAI-compatible endpoint and measures whether the model produces *valid*
-structured tool calls under load: a full matrix of thinking on/off,
+structured tool calls under load: a full matrix of thinking levels,
 concurrency 1/4, small/large context, and streaming/non-streaming — plus a
 multi-turn degradation track (mlx-lm #1011: stock 4-bit quants fall back to
 plain-text ``[Tool call: ...]`` around round 5).
@@ -546,9 +546,15 @@ def summarize_cell(records: Sequence[Mapping[str, Any]], wall_seconds: float) ->
     }
 
 
-def cell_name(concurrency: int, thinking: bool, context: str, stream: bool) -> str:
-    think = "on" if thinking else "off"
-    return f"conc{concurrency}_think-{think}_ctx-{context}_{'stream' if stream else 'nostream'}"
+def cell_name(concurrency: int, thinking: str, context: str, stream: bool) -> str:
+    """Cell identity, and a public join key.
+
+    ``--cells`` filters on it, the crash-recovery JSONL is keyed by it, and it is
+    published as ``tags.cell``. So ``on`` and ``off`` keep the exact names they
+    have always produced — renaming them would orphan every published row — and a
+    graded level simply names its own cell.
+    """
+    return f"conc{concurrency}_think-{thinking}_ctx-{context}_{'stream' if stream else 'nostream'}"
 
 
 def synth_tool_result(call: Mapping[str, Any]) -> dict[str, Any]:
@@ -567,19 +573,29 @@ def synth_tool_result(call: Mapping[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def thinking_body_kwargs(kwarg: str, on: bool) -> dict[str, Any]:
-    """Per-family thinking toggle: chat_template_kwargs bool, or reasoning_effort for harmony."""
+def thinking_body_kwargs(kwarg: str, level: str) -> dict[str, Any]:
+    """Per-family thinking control: chat_template_kwargs bool, or reasoning_effort.
+
+    ``on``/``off`` keep the exact bodies they have always sent, so a re-run of a
+    published cell is byte-identical. Any other level is passed through verbatim —
+    the point of a graded sweep is that ``high`` and ``xhigh`` reach the model as
+    themselves rather than collapsing into one request.
+    """
     if kwarg == "reasoning_effort":
         # ponytail: harmony models can't fully disable reasoning; low is the off-analog
-        return {"reasoning_effort": "high" if on else "low"}
-    return {"chat_template_kwargs": {kwarg: on}}
+        if level in ("on", "off"):
+            return {"reasoning_effort": "high" if level == "on" else "low"}
+        return {"reasoning_effort": level}
+    if level in ("on", "off"):
+        return {"chat_template_kwargs": {kwarg: level == "on"}}
+    return {"chat_template_kwargs": {kwarg: level}}
 
 
 async def one_request(
     client: Any,
     args: argparse.Namespace,
     messages: list[dict[str, Any]],
-    thinking: bool,
+    thinking: str,
     stream: bool,
     required: Mapping[str, Sequence[str]],
 ) -> dict[str, Any]:
@@ -668,7 +684,7 @@ async def run_cell(
     client: Any,
     args: argparse.Namespace,
     concurrency: int,
-    thinking: bool,
+    thinking: str,
     context: str,
     stream: bool,
     required: Mapping[str, Sequence[str]],
@@ -706,7 +722,7 @@ async def run_cell(
 async def run_multiturn(
     client: Any,
     args: argparse.Namespace,
-    thinking: bool,
+    thinking: str,
     required: Mapping[str, Sequence[str]],
 ) -> dict[str, Any]:
     messages: list[dict[str, Any]] = []
@@ -755,10 +771,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--repeats", type=int, default=10, help="Requests per cell")
     parser.add_argument("--concurrency", default="1,4", help="Comma list of in-flight request counts")
-    parser.add_argument("--thinking", default="on,off", help="Comma list from {on,off}")
+    parser.add_argument(
+        "--thinking",
+        default="on,off",
+        help="Comma list of effort levels, sent verbatim. 'on'/'off' keep their "
+        "per-family mapping and cell names; any other value (low/high/xhigh/max) "
+        "is passed straight through and names its own cell",
+    )
     parser.add_argument("--context", default="small,large", help="Comma list from {small,large}")
     parser.add_argument("--stream", default="stream,nostream", help="Comma list from {stream,nostream}")
     parser.add_argument("--multiturn-rounds", type=int, default=20)
+    parser.add_argument(
+        "--dedicated",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="declare that this arm was the ONLY consumer of its endpoint. Cannot "
+        "be detected — the harness cannot see what else is on the box — so it is "
+        "declared, and defaults to false because an unstated measurement "
+        "environment is an untrusted one. Runs are comparable only within one "
+        "value of this flag",
+    )
     parser.add_argument(
         "--thinking-kwarg",
         default="enable_thinking",
@@ -801,7 +833,10 @@ async def _run(args: argparse.Namespace, timestamp: str, partial_path: Path) -> 
 
     required = required_params(TOOLS)
     history = build_history(args.large_context_tokens)
-    thinking_modes = [m.strip() == "on" for m in args.thinking.split(",") if m.strip()]
+    # Verbatim, never coerced. The `== "on"` form this replaced turned every
+    # unrecognised level into False, so `--thinking high,xhigh` ran the same cell
+    # twice under one name and reported no error at all.
+    thinking_modes = [m.strip() for m in args.thinking.split(",") if m.strip()]
     concurrencies = [int(c) for c in args.concurrency.split(",") if c.strip()]
     contexts = [c.strip() for c in args.context.split(",") if c.strip()]
     streams = [s.strip() == "stream" for s in args.stream.split(",") if s.strip()]
@@ -830,7 +865,7 @@ async def _run(args: argparse.Namespace, timestamp: str, partial_path: Path) -> 
                         cells.append(cell)
                         _append_partial(partial_path, "cell", cell)
         for thinking in thinking_modes:
-            name = f"multiturn_think-{'on' if thinking else 'off'}"
+            name = f"multiturn_think-{thinking}"
             if not _selected(name, args.cells):
                 continue
             print(f"track {name} ...", file=sys.stderr)
@@ -848,11 +883,16 @@ async def _run(args: argparse.Namespace, timestamp: str, partial_path: Path) -> 
             "n_tools": len(TOOLS),
             "repeats": args.repeats,
             "concurrency": concurrencies,
-            "thinking": [("on" if t else "off") for t in thinking_modes],
+            "thinking": list(thinking_modes),
             "context": contexts,
             "stream": [("stream" if s else "nostream") for s in streams],
             "multiturn_rounds": args.multiturn_rounds,
             "thinking_kwarg": args.thinking_kwarg,
+            # Declared, never inferred: the harness cannot see what else is on
+            # the box. A tool-calling rate measured while another consumer holds
+            # the endpoint's only slot describes the sharing, not the model, so
+            # runs compare only within one value of this.
+            "dedicated": args.dedicated,
             "max_tokens": args.max_tokens,
             "temperature": args.temperature,
             "repetition_penalty": args.repetition_penalty,

@@ -140,7 +140,15 @@ def test_bar_chart_keeps_variants_in_separate_series() -> None:
     duplicate = df.iloc[[0]].copy()
     duplicate["variant"] = "MTP default"
     duplicate["series_key"] = " | ".join(
-        [str(duplicate.iloc[0]["model"]), "unknown", "unknown", "MTP default", "unspecified", "unspecified"]
+        [
+            str(duplicate.iloc[0]["model"]),
+            "unknown",
+            "unknown",
+            "MTP default",
+            "unspecified",
+            "unspecified",
+            "unstated",
+        ]
     )
     fig = app.bar_chart(
         pd.concat([df, duplicate], ignore_index=True),
@@ -149,3 +157,30 @@ def test_bar_chart_keeps_variants_in_separate_series() -> None:
         "exact_match_flexible",
     )
     assert len(fig.data[0].y) == 3
+
+
+def test_two_reasoning_efforts_are_two_series() -> None:
+    """Effort is part of the arm, so the same weights at `high` and at `xhigh`
+    must not collapse into one bar — `groupby("series_key").last()` would keep
+    only whichever ran later and silently drop the comparison."""
+    rows = pd.DataFrame([SAMPLE_ROWS[0], SAMPLE_ROWS[0]])
+    rows["timestamp"] = pd.to_datetime(rows["timestamp"], utc=True)
+    rows["source_path"] = ["data/a.parquet", "data/b.parquet"]
+    rows["reasoning_effort"] = ["high", "xhigh"]
+
+    out = app.add_evidence_metadata(rows, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
+    assert out["series_key"].nunique() == 2
+    assert all("high" in key for key in out["series_key"])
+
+
+def test_rows_without_the_column_still_get_a_series_key() -> None:
+    """Every shard published before the field existed lacks the column entirely;
+    reading it must default rather than raise, and label as unstated rather than
+    claiming an effort nobody recorded."""
+    rows = pd.DataFrame(SAMPLE_ROWS)
+    rows["timestamp"] = pd.to_datetime(rows["timestamp"], utc=True)
+    rows["source_path"] = ["data/a.parquet", "data/b.parquet"]
+    assert "reasoning_effort" not in rows.columns
+
+    out = app.add_evidence_metadata(rows, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
+    assert all(key.endswith("unstated") for key in out["series_key"])

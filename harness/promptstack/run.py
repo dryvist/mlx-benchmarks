@@ -186,8 +186,10 @@ def summarize_probe_class(probe_class: str, records: Sequence[Mapping[str, Any]]
     return block
 
 
-def cell_name(prompt_variant: str, thinking: bool) -> str:
-    return f"variant-{prompt_variant}_think-{'on' if thinking else 'off'}"
+def cell_name(prompt_variant: str, thinking: str) -> str:
+    """Cell identity, and a public join key (``--cells``, published ``tags.cell``),
+    so ``on``/``off`` keep the exact names they have always produced."""
+    return f"variant-{prompt_variant}_think-{thinking}"
 
 
 # ---------------------------------------------------------------------------
@@ -196,11 +198,17 @@ def cell_name(prompt_variant: str, thinking: bool) -> str:
 # ---------------------------------------------------------------------------
 
 
-def thinking_body_kwargs(kwarg: str, on: bool) -> dict[str, Any]:
+def thinking_body_kwargs(kwarg: str, level: str) -> dict[str, Any]:
+    """``on``/``off`` send exactly the bodies they always have; any other level is
+    passed through verbatim, so a graded sweep reaches the model as itself."""
     if kwarg == "reasoning_effort":
         # ponytail: harmony models can't fully disable reasoning; low is the off-analog
-        return {"reasoning_effort": "high" if on else "low"}
-    return {"chat_template_kwargs": {kwarg: on}}
+        if level in ("on", "off"):
+            return {"reasoning_effort": "high" if level == "on" else "low"}
+        return {"reasoning_effort": level}
+    if level in ("on", "off"):
+        return {"chat_template_kwargs": {kwarg: level == "on"}}
+    return {"chat_template_kwargs": {kwarg: level}}
 
 
 async def one_request(
@@ -208,7 +216,7 @@ async def one_request(
     args: argparse.Namespace,
     system_prompt: str,
     user_prompt: str,
-    thinking: bool,
+    thinking: str,
     tools: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
@@ -257,7 +265,7 @@ async def run_probe_class(
     probe_dir: Path,
     probe_class: str,
     system_prompt: str,
-    thinking: bool,
+    thinking: str,
 ) -> dict[str, Any]:
     bank = load_probe_bank(probe_dir, probe_class)
     tools = bank.get("tools")
@@ -309,7 +317,7 @@ async def run_cell(
     probe_dir: Path,
     prompt_variant: str,
     system_prompt: str,
-    thinking: bool,
+    thinking: str,
 ) -> dict[str, Any]:
     probe_results = [
         await run_probe_class(client, args, probe_dir, probe_class, system_prompt, thinking)
@@ -345,7 +353,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--cells", help="Comma-separated substrings; only cell_probe-class combos matching one run"
     )
     parser.add_argument("--repeats", type=int, default=10, help="Repeats per probe task")
-    parser.add_argument("--thinking", default="on,off", help="Comma list from {on,off}")
+    parser.add_argument(
+        "--thinking",
+        default="on,off",
+        help="Comma list of effort levels, sent verbatim. 'on'/'off' keep their "
+        "per-family mapping and cell names; any other value is passed through",
+    )
     parser.add_argument(
         "--thinking-kwarg",
         default="enable_thinking",
@@ -368,7 +381,9 @@ def _selected(name: str, cells_filter: str | None) -> bool:
 async def _run(args: argparse.Namespace) -> dict[str, Any]:
     import httpx
 
-    thinking_modes = [m.strip() == "on" for m in args.thinking.split(",") if m.strip()]
+    # Verbatim, never coerced: `== "on"` turned every unrecognised level into
+    # False, so a graded sweep silently ran one cell twice under one name.
+    thinking_modes = [m.strip() for m in args.thinking.split(",") if m.strip()]
     variants = {
         "base_plus_variant": load_prompt(args.prompt_set, args.surface),
         "current": load_prompt(args.prompt_set, f"current-{args.surface}"),
@@ -403,7 +418,7 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
             "model": args.model,
             "surface": args.surface,
             "repeats": args.repeats,
-            "thinking": [("on" if t else "off") for t in thinking_modes],
+            "thinking": list(thinking_modes),
             "thinking_kwarg": args.thinking_kwarg,
             "max_tokens": args.max_tokens,
             "timeout": args.timeout,
