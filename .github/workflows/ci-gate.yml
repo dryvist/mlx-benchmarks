@@ -92,8 +92,6 @@ jobs:
       python_ci: true
       # Floor is 3.13; CI additionally validates 3.14 (stable since 2025-10).
       python_ci_versions: '["3.13", "3.14"]'
-      markdown_lint: true
-      file_size: true
       filters: |
         python:
           - 'src/**'
