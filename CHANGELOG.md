@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.25.2...v0.26.0) (2026-09-12)
+
+
+### Features
+
+* **benchmarks:** record and publish the reasoning effort every run used ([#245](https://github.com/dryvist/mlx-benchmarks/issues/245)) ([507a253](https://github.com/dryvist/mlx-benchmarks/commit/507a25320d2d652fcf1837d0e48e954dbe8a1b96))
+
 ## [0.25.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.25.1...v0.25.2) (2026-09-11)
 
 
