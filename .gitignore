@@ -41,3 +41,18 @@ Thumbs.db
 
 # devenv
 .devenv/
+
+# Agent tooling state, written or delivered per machine. Most entries under
+# .claude/skills/ arrive as symlinks into a local store, so committing one records
+# a path that resolves nowhere else. This repo's own three skills are already
+# tracked and stay tracked — an ignore rule never affects a tracked path — but a
+# NEW repo-authored skill needs `git add -f`.
+.agents/
+.omo/
+.claude/plans/
+.claude/worktrees/
+.claude/settings.local.json
+.claude/skills/*
+
+# Raw bench JSON, same rule as the run outputs above: it belongs on the dataset.
+_bench-json/
