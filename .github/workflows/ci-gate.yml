@@ -47,7 +47,6 @@ jobs:
       schema: ${{ steps.filter.outputs.schema }}
       publisher: ${{ steps.filter.outputs.publisher }}
       space: ${{ steps.filter.outputs.space }}
-      lockfile: ${{ steps.filter.outputs.lockfile }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
@@ -68,14 +67,11 @@ jobs:
               - 'src/mlx_benchmarks/**'
               - 'pyproject.toml'
               - 'uv.lock'
-            lockfile:
-              - 'uv.lock'
-              - 'pyproject.toml'
 
   # ============================================================================
   # STANDARD CHECKS — delegated to the org orchestrator. This covers ruff
   # lint/format, pyright type-check, pytest (the `tests/` suite across the
-  # py3.13-only matrix), zizmor, markdown lint, and file size.
+  # py3.13-only matrix), pip-audit, OSV, zizmor, markdown lint, and file size.
   # ============================================================================
   standard-ci:
     name: Standard CI
@@ -92,6 +88,10 @@ jobs:
       python_ci: true
       # Floor is 3.13; CI additionally validates 3.14 (stable since 2025-10).
       python_ci_versions: '["3.13", "3.14"]'
+      # pip-audit (on the `python` filter) and the OSV differential scan (every
+      # PR — new advisories land against unchanged dependencies).
+      python_security: true
+      osv_scan: true
       filters: |
         python:
           - 'src/**'
@@ -109,26 +109,6 @@ jobs:
   # ============================================================================
   # BESPOKE CHECKS — not covered by the org gate (see header).
   # ============================================================================
-  python-security:
-    name: Python Security
-    needs: changes
-    if: needs.changes.outputs.lockfile == 'true'
-    uses: dryvist/.github/.github/workflows/_python-security.yml@main
-    with:
-      python-dirs: "."
-
-  osv-scan:
-    name: OSV Scan
-    needs: changes
-    # Always run — new advisories can land against unchanged dependencies, so
-    # scan on every PR regardless of whether the lockfile changed.
-    if: always()
-    uses: dryvist/.github/.github/workflows/_osv-scan.yml@main
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
   schema-validate:
     name: Schema Validate
     needs: changes
@@ -215,8 +195,6 @@ jobs:
     needs:
       - changes
       - standard-ci
-      - python-security
-      - osv-scan
       - schema-validate
       - space-viewer-test
       - dry-run-publish
@@ -226,5 +204,5 @@ jobs:
       - name: Check all results
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # release/v1
         with:
-          allowed-skips: python-security, osv-scan, schema-validate, space-viewer-test, dry-run-publish
+          allowed-skips: schema-validate, space-viewer-test, dry-run-publish
           jobs: ${{ toJSON(needs) }}
