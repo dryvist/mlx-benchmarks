@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.26.0...v0.27.0) (2026-09-18)
+
+
+### Features
+
+* **throughput:** add llama.cpp target and speculative-decoding A/B ([cde4b7b](https://github.com/dryvist/mlx-benchmarks/commit/cde4b7ba3035ba8ed6e4bf3bf9a0ae6eec678fa8))
+* **throughput:** add llama.cpp target and speculative-decoding A/B ([e822b8b](https://github.com/dryvist/mlx-benchmarks/commit/e822b8b5b3e799c54971a4801af9c83b4bd9a2d5))
+
 ## [0.26.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.25.2...v0.26.0) (2026-09-12)
 
 
