@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.0...v0.27.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **throughput:** catch UnicodeDecodeError and publish baseline_load_error ([b222a53](https://github.com/dryvist/mlx-benchmarks/commit/b222a5397c369dc49e29b293b18bdf5a89fe679f))
+* **throughput:** catch UnicodeDecodeError and publish baseline_load_error ([ce404b0](https://github.com/dryvist/mlx-benchmarks/commit/ce404b08602a1807e44993f50973041c427fef72))
+
 ## [0.27.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.26.0...v0.27.0) (2026-09-18)
 
 
