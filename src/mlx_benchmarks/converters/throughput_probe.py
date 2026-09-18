@@ -74,6 +74,21 @@ class ThroughputProbeConverter:
         ):
             if key in raw:
                 tags[key] = "unstated" if raw[key] is None else str(raw[key])
+        # No dedicated schema field for this — `tags` is already the envelope's
+        # free-form string bag, so speculative-decoding metadata folds in here
+        # rather than widening schema.json's additionalProperties:false shape.
+        spec = raw.get("speculative_decoding")
+        if isinstance(spec, dict):
+            for key in (
+                "draft_model",
+                "spec_type",
+                "draft_acceptance_rate",
+                "net_benefit",
+                "baseline_cumulative_tok_s",
+                "spec_cumulative_tok_s",
+            ):
+                if key in spec and spec[key] is not None:
+                    tags[f"spec_{key}"] = str(spec[key])
         sequential_runs = raw.get("sequential_runs")
         if isinstance(sequential_runs, list):
             tags["measured_repetitions"] = str(len(sequential_runs))

@@ -153,3 +153,79 @@ def summarize_and_check(runner_mod: ModuleType, runs: list[dict]) -> dict:
     summary = runner_mod.summarize(runs)
     assert summary["n_ok"] == len(runs)
     return summary
+
+
+# --- speculative decoding: draft acceptance rate parsing ----------------------
+
+
+def test_draft_acceptance_rate_from_timings_uses_raw_counts() -> None:
+    rate = runner.draft_acceptance_rate_from_timings({"draft_n": 304, "draft_n_accepted": 70})
+    assert rate == pytest.approx(70 / 304, abs=1e-5)
+
+
+def test_draft_acceptance_rate_from_timings_handles_missing_or_zero_generated() -> None:
+    assert runner.draft_acceptance_rate_from_timings(None) is None
+    assert runner.draft_acceptance_rate_from_timings({}) is None
+    assert runner.draft_acceptance_rate_from_timings({"draft_n": 0, "draft_n_accepted": 0}) is None
+
+
+def test_draft_acceptance_rate_from_log_matches_llama_cpp_stderr_format() -> None:
+    """Real llama.cpp log line (ggml-org/llama.cpp PR #12603 / issue threads)."""
+    line = "draft acceptance rate = 0.23026 ( 70 accepted / 304 generated)"
+    assert runner.draft_acceptance_rate_from_log(line) == pytest.approx(0.23026)
+
+
+def test_draft_acceptance_rate_from_log_returns_none_when_absent() -> None:
+    assert runner.draft_acceptance_rate_from_log("nothing relevant here") is None
+
+
+# --- speculative decoding: net benefit + baseline comparison ------------------
+
+
+def test_net_benefit_compares_cumulative_tok_s() -> None:
+    assert runner.net_benefit(60.0, 50.0) is True
+    assert runner.net_benefit(40.0, 50.0) is False
+
+
+def test_net_benefit_none_when_either_side_unmeasured() -> None:
+    assert runner.net_benefit(None, 50.0) is None
+    assert runner.net_benefit(60.0, None) is None
+
+
+def test_cumulative_median_extracts_headline_metric() -> None:
+    run_json = {"sequential": {"cumulative_tok_s": {"median": 51.09, "min": 48.0, "max": 55.0}}}
+    assert runner.cumulative_median(run_json) == 51.09
+
+
+def test_cumulative_median_none_when_shape_is_missing() -> None:
+    assert runner.cumulative_median({}) is None
+    assert runner.cumulative_median({"sequential": {}}) is None
+    assert runner.cumulative_median(None) is None
+
+
+# --- load_baseline_cumulative_median: never raises, so a bad --baseline-json --
+# --- can never cost the run that already finished measuring ------------------
+
+
+def test_load_baseline_cumulative_median_reads_a_valid_file(tmp_path) -> None:
+    path = tmp_path / "baseline.json"
+    path.write_text(runner.json.dumps({"sequential": {"cumulative_tok_s": {"median": 42.0}}}))
+    median, error = runner.load_baseline_cumulative_median(path)
+    assert median == 42.0
+    assert error is None
+
+
+def test_load_baseline_cumulative_median_degrades_on_a_missing_file(tmp_path) -> None:
+    median, error = runner.load_baseline_cumulative_median(tmp_path / "does-not-exist.json")
+    assert median is None
+    assert error is not None
+    assert "FileNotFoundError" in error
+
+
+def test_load_baseline_cumulative_median_degrades_on_malformed_json(tmp_path) -> None:
+    path = tmp_path / "baseline.json"
+    path.write_text("not json")
+    median, error = runner.load_baseline_cumulative_median(path)
+    assert median is None
+    assert error is not None
+    assert "JSONDecodeError" in error

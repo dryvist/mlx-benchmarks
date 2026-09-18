@@ -173,3 +173,40 @@ def test_no_kwarg_sent_is_distinguishable_from_asking_for_off() -> None:
     assert asked_nothing["think_kwarg_sent"] == "False"
     # An absent condition is unstated, never a value: "None" would read as one.
     assert asked_nothing["think_value"] == "unstated"
+
+
+def test_throughput_probe_folds_speculative_decoding_into_tags() -> None:
+    """No dedicated schema field for spec-decoding metadata — it folds into the
+    existing free-form `tags` bag rather than widening schema.json."""
+    raw = {
+        "model": "llama-cpp/some-model",
+        "started_utc": "2026-09-18T00:00:00Z",
+        "sequential": {
+            "n_ok": 4,
+            "n_err": 0,
+            "cumulative_tok_s": {"median": 60.0, "min": 58.0, "max": 62.0},
+        },
+        "speculative_decoding": {
+            "draft_model": "some-org/tiny-draft",
+            "spec_type": "draft-simple",
+            "draft_acceptance_rate": 0.23026,
+            "net_benefit": True,
+            "baseline_cumulative_tok_s": 50.0,
+            "spec_cumulative_tok_s": 60.0,
+        },
+    }
+    ctx = ConverterContext(
+        suite="throughput",
+        model=raw["model"],
+        git_sha="deadbeef",
+        system=detect_system(),
+    )
+
+    envelope = get_converter("throughput-probe").build_envelope(raw, ctx)
+    validate_envelope(envelope)
+
+    tags = envelope["results"][0]["tags"]
+    assert tags["spec_draft_model"] == "some-org/tiny-draft"
+    assert tags["spec_spec_type"] == "draft-simple"
+    assert tags["spec_draft_acceptance_rate"] == "0.23026"
+    assert tags["spec_net_benefit"] == "True"

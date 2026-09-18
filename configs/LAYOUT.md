@@ -18,6 +18,10 @@ configs/
 │   └── benchmark_serving.toml # vllm throughput cross-check; no local install
 ├── agentic/
 │   └── tool-calling.toml     # in-repo runner: harness/agentic/run.py
+├── llama-cpp/
+│   └── throughput.toml       # in-repo runner: harness/throughput/run.py,
+│                             # pointed at an llm-4080 llama.cpp/Vulkan guest;
+│                             # draft-model A/B sweep for speculative decoding
 ├── promptstack/
 │   ├── promptstack.toml      # in-repo runner: harness/promptstack/run.py
 │   ├── probes/               # frozen probe banks, one JSON per probe class

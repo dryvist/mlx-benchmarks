@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import statistics
 import sys
 import time
@@ -75,6 +76,10 @@ _SUMMARY_KEYS = (
     # separately in summarize().
     "answer_chars",
     "reasoning_chars",
+    # Only present when the server injected a `timings` object carrying
+    # draft_n/draft_n_accepted (see the speculative-decoding section below) —
+    # absent on every non-spec-decoding run and on targets that never send it.
+    "draft_acceptance_rate",
 )
 
 
@@ -94,6 +99,90 @@ def cumulative_tok_s(
     if total_s <= 0:
         return None
     return round(((prompt_tokens or 0) + (completion_tokens or 0)) / total_s, 2)
+
+
+# --- speculative decoding (llama.cpp draft-model A/B) --------------------------
+#
+# NEEDS LIVE VERIFICATION before first real use against a llama-server target:
+# llama.cpp's server injects draft_n/draft_n_accepted into its `timings`
+# object (ggml-org/llama.cpp PR #12603), confirmed present on the native
+# /completion response. Whether that `timings` object also rides along on an
+# OpenAI-compatible streamed /v1/chat/completions chunk (what this runner
+# actually speaks) has not been confirmed against a live server. If it does
+# not, draft_acceptance_rate_from_timings() never fires and the log-regex
+# fallback is the only path — but this runner has no access to the server's
+# own stderr/log stream (it only sees HTTP responses), so that fallback is
+# provided as a standalone helper for a log-scraping wrapper to use, not
+# wired into main() here.
+
+_DRAFT_ACCEPTANCE_LOG_RE = re.compile(
+    r"draft acceptance rate = ([\d.]+)\s*\(\s*\d+\s*accepted\s*/\s*\d+\s*generated\s*\)"
+)
+
+
+def draft_acceptance_rate_from_timings(timings: dict[str, Any] | None) -> float | None:
+    """accepted/generated draft tokens from a llama.cpp `timings` object.
+
+    Prefers the ratio of the raw counts (``draft_n_accepted / draft_n``) over
+    any pre-rounded rate field the server might also report, since the raw
+    counts are exact.
+    """
+    if not isinstance(timings, dict):
+        return None
+    accepted = timings.get("draft_n_accepted")
+    generated = timings.get("draft_n")
+    if isinstance(accepted, int | float) and isinstance(generated, int | float) and generated > 0:
+        return round(accepted / generated, 5)
+    return None
+
+
+def draft_acceptance_rate_from_log(text: str) -> float | None:
+    """Fallback parse of llama.cpp's stderr line, e.g.
+
+    ``draft acceptance rate = 0.23026 ( 70 accepted / 304 generated)``
+    """
+    m = _DRAFT_ACCEPTANCE_LOG_RE.search(text)
+    return float(m.group(1)) if m else None
+
+
+def net_benefit(spec_tokps: float | None, baseline_tokps: float | None) -> bool | None:
+    """Did a spec-decoding run actually beat its no-draft-model baseline?
+
+    Compares the same headline metric (``cumulative_tok_s``) used everywhere
+    else in this runner. Returns ``None`` when either side is unmeasured.
+    """
+    if spec_tokps is None or baseline_tokps is None:
+        return None
+    return spec_tokps > baseline_tokps
+
+
+def cumulative_median(run_json: dict[str, Any] | None) -> float | None:
+    """Pull the headline ``sequential.cumulative_tok_s.median`` out of a run's output JSON."""
+    if not isinstance(run_json, dict):
+        return None
+    sequential = run_json.get("sequential")
+    if not isinstance(sequential, dict):
+        return None
+    stats = sequential.get("cumulative_tok_s")
+    if not isinstance(stats, dict):
+        return None
+    median = stats.get("median")
+    return float(median) if isinstance(median, int | float) else None
+
+
+def load_baseline_cumulative_median(path: Path) -> tuple[float | None, str | None]:
+    """Read --baseline-json and pull its headline metric, never raising.
+
+    A bad path (typo, truncated write) must degrade to a missing comparison,
+    not crash — this is read after every measurement for the current run is
+    already collected, and an uncaught exception here would skip writing
+    --output entirely, discarding a completed benchmark over a baseline file
+    it didn't need to exist.
+    """
+    try:
+        return cumulative_median(json.loads(path.read_text())), None
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
 
 
 async def one(
@@ -129,6 +218,7 @@ async def _stream(client, url, body, t0, request_timeout_s) -> dict[str, Any]:
     answer_chars = 0
     reasoning_chars = 0
     finish_reason = None
+    timings = None
     async with client.stream("POST", url, json=body, timeout=request_timeout_s) as r:
         status = r.status_code
         if status != 200:
@@ -146,6 +236,13 @@ async def _stream(client, url, body, t0, request_timeout_s) -> dict[str, Any]:
                 continue
             if chunk.get("usage"):
                 usage = chunk["usage"]
+            # llama.cpp-specific, non-standard extension: a `timings` object
+            # (draft_n/draft_n_accepted) on the final chunk when the server
+            # was started with speculative decoding. Unverified against a
+            # live server on the OpenAI-compat streaming path — see the
+            # speculative-decoding section above.
+            if chunk.get("timings"):
+                timings = chunk["timings"]
             for ch in chunk.get("choices") or []:
                 if ch.get("finish_reason"):
                     finish_reason = ch["finish_reason"]
@@ -163,7 +260,7 @@ async def _stream(client, url, body, t0, request_timeout_s) -> dict[str, Any]:
         return {"error": "no tokens streamed", "total_s": total, "usage": usage}
     ptok = (usage or {}).get("prompt_tokens")
     ctok = (usage or {}).get("completion_tokens") or ntok
-    return {
+    out = {
         "ttft_s": round(ttft, 3),
         "total_s": round(total, 3),
         "prompt_tokens": ptok,
@@ -175,6 +272,10 @@ async def _stream(client, url, body, t0, request_timeout_s) -> dict[str, Any]:
         "reasoning_chars": reasoning_chars,
         "finish_reason": finish_reason,
     }
+    rate = draft_acceptance_rate_from_timings(timings)
+    if rate is not None:
+        out["draft_acceptance_rate"] = rate
+    return out
 
 
 async def one_retry(
@@ -346,6 +447,26 @@ async def main():
         "declared, and defaults to false because an unstated measurement "
         "environment is an untrusted one. Runs are comparable only within one "
         "value of this flag",
+    )
+    ap.add_argument(
+        "--draft-model",
+        default=None,
+        help="draft model id/path for a speculative-decoding run, recorded as run metadata only "
+        "— it does not start or configure any server; set the draft model on the server "
+        "out-of-band before running, same as this runner's --model target",
+    )
+    ap.add_argument(
+        "--spec-type",
+        default=None,
+        help="speculative-decoding method label, e.g. draft-simple, draft-eagle3, draft-mtp, or "
+        "'none' for an explicit baseline — recorded as run metadata only",
+    )
+    ap.add_argument(
+        "--baseline-json",
+        type=Path,
+        default=None,
+        help="path to a prior baseline run's output JSON (no draft model) — when set, compares "
+        "this run's cumulative_tok_s median against the baseline's and records net_benefit",
     )
     ap.add_argument("--output", required=True)
     a = ap.parse_args()
@@ -528,6 +649,28 @@ async def main():
                 "errors": [c["error"] for c in conc if "error" in c],
             }
             print(f"  concurrent: {res['concurrent']}", file=sys.stderr, flush=True)
+
+    if a.draft_model or a.spec_type or a.baseline_json:
+        spec_info: dict[str, Any] = {}
+        if a.draft_model:
+            spec_info["draft_model"] = a.draft_model
+        if a.spec_type:
+            spec_info["spec_type"] = a.spec_type
+        rate = res["sequential"].get("draft_acceptance_rate", {}).get("median")
+        if rate is not None:
+            spec_info["draft_acceptance_rate"] = rate
+        if a.baseline_json is not None:
+            baseline_tokps, baseline_load_error = load_baseline_cumulative_median(a.baseline_json)
+            if baseline_load_error is not None:
+                spec_info["baseline_load_error"] = baseline_load_error
+            spec_tokps = cumulative_median(res)
+            nb = net_benefit(spec_tokps, baseline_tokps)
+            if nb is not None:
+                spec_info["net_benefit"] = nb
+                spec_info["baseline_cumulative_tok_s"] = baseline_tokps
+                spec_info["spec_cumulative_tok_s"] = spec_tokps
+        if spec_info:
+            res["speculative_decoding"] = spec_info
 
     res["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     Path(a.output).write_text(json.dumps(res, indent=2))
