@@ -86,6 +86,7 @@ class ThroughputProbeConverter:
                 "net_benefit",
                 "baseline_cumulative_tok_s",
                 "spec_cumulative_tok_s",
+                "baseline_load_error",
             ):
                 if key in spec and spec[key] is not None:
                     tags[f"spec_{key}"] = str(spec[key])

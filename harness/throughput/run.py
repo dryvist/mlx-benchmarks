@@ -181,7 +181,7 @@ def load_baseline_cumulative_median(path: Path) -> tuple[float | None, str | Non
     """
     try:
         return cumulative_median(json.loads(path.read_text())), None
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         return None, f"{type(exc).__name__}: {exc}"
 
 
