@@ -210,3 +210,32 @@ def test_throughput_probe_folds_speculative_decoding_into_tags() -> None:
     assert tags["spec_spec_type"] == "draft-simple"
     assert tags["spec_draft_acceptance_rate"] == "0.23026"
     assert tags["spec_net_benefit"] == "True"
+
+
+def test_throughput_probe_publishes_a_degraded_baseline_load_error() -> None:
+    """A bad --baseline-json degrades gracefully in the runner (records
+    baseline_load_error, never crashes) — that signal must survive into the
+    published envelope, not get silently dropped at the converter boundary."""
+    raw = {
+        "model": "llama-cpp/some-model",
+        "started_utc": "2026-09-18T00:00:00Z",
+        "sequential": {
+            "n_ok": 4,
+            "n_err": 0,
+            "cumulative_tok_s": {"median": 60.0, "min": 58.0, "max": 62.0},
+        },
+        "speculative_decoding": {
+            "draft_model": "some-org/tiny-draft",
+            "spec_type": "draft-simple",
+            "baseline_load_error": "FileNotFoundError: [Errno 2] No such file or directory: 'baseline.json'",
+        },
+    }
+    ctx = ConverterContext(suite="throughput", model=raw["model"], git_sha="deadbeef", system=detect_system())
+
+    envelope = get_converter("throughput-probe").build_envelope(raw, ctx)
+    validate_envelope(envelope)
+
+    tags = envelope["results"][0]["tags"]
+    assert tags["spec_baseline_load_error"].startswith("FileNotFoundError")
+    # A failed comparison never fabricates a net_benefit verdict.
+    assert "spec_net_benefit" not in tags

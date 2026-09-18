@@ -229,3 +229,15 @@ def test_load_baseline_cumulative_median_degrades_on_malformed_json(tmp_path) ->
     assert median is None
     assert error is not None
     assert "JSONDecodeError" in error
+
+
+def test_load_baseline_cumulative_median_degrades_on_non_utf8_bytes(tmp_path) -> None:
+    """path.read_text() raises UnicodeDecodeError — a ValueError subclass, not
+    an OSError — so it was missing from the except tuple entirely and escaped
+    the "never raising" contract the docstring promises."""
+    path = tmp_path / "baseline.json"
+    path.write_bytes(b"\xff\xfe\x00\x01")
+    median, error = runner.load_baseline_cumulative_median(path)
+    assert median is None
+    assert error is not None
+    assert "UnicodeDecodeError" in error
