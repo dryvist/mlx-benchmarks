@@ -201,3 +201,31 @@ def test_cumulative_median_none_when_shape_is_missing() -> None:
     assert runner.cumulative_median({}) is None
     assert runner.cumulative_median({"sequential": {}}) is None
     assert runner.cumulative_median(None) is None
+
+
+# --- load_baseline_cumulative_median: never raises, so a bad --baseline-json --
+# --- can never cost the run that already finished measuring ------------------
+
+
+def test_load_baseline_cumulative_median_reads_a_valid_file(tmp_path) -> None:
+    path = tmp_path / "baseline.json"
+    path.write_text(runner.json.dumps({"sequential": {"cumulative_tok_s": {"median": 42.0}}}))
+    median, error = runner.load_baseline_cumulative_median(path)
+    assert median == 42.0
+    assert error is None
+
+
+def test_load_baseline_cumulative_median_degrades_on_a_missing_file(tmp_path) -> None:
+    median, error = runner.load_baseline_cumulative_median(tmp_path / "does-not-exist.json")
+    assert median is None
+    assert error is not None
+    assert "FileNotFoundError" in error
+
+
+def test_load_baseline_cumulative_median_degrades_on_malformed_json(tmp_path) -> None:
+    path = tmp_path / "baseline.json"
+    path.write_text("not json")
+    median, error = runner.load_baseline_cumulative_median(path)
+    assert median is None
+    assert error is not None
+    assert "JSONDecodeError" in error

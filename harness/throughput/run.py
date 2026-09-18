@@ -170,6 +170,21 @@ def cumulative_median(run_json: dict[str, Any] | None) -> float | None:
     return float(median) if isinstance(median, int | float) else None
 
 
+def load_baseline_cumulative_median(path: Path) -> tuple[float | None, str | None]:
+    """Read --baseline-json and pull its headline metric, never raising.
+
+    A bad path (typo, truncated write) must degrade to a missing comparison,
+    not crash — this is read after every measurement for the current run is
+    already collected, and an uncaught exception here would skip writing
+    --output entirely, discarding a completed benchmark over a baseline file
+    it didn't need to exist.
+    """
+    try:
+        return cumulative_median(json.loads(path.read_text())), None
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
 async def one(
     client, url, model, prompt, max_tokens, think_kwarg, think_val, request_timeout_s
 ) -> dict[str, Any]:
@@ -645,7 +660,9 @@ async def main():
         if rate is not None:
             spec_info["draft_acceptance_rate"] = rate
         if a.baseline_json is not None:
-            baseline_tokps = cumulative_median(json.loads(a.baseline_json.read_text()))
+            baseline_tokps, baseline_load_error = load_baseline_cumulative_median(a.baseline_json)
+            if baseline_load_error is not None:
+                spec_info["baseline_load_error"] = baseline_load_error
             spec_tokps = cumulative_median(res)
             nb = net_benefit(spec_tokps, baseline_tokps)
             if nb is not None:
