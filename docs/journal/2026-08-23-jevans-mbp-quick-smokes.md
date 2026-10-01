@@ -29,8 +29,8 @@ task definition they were scored against.
 - A pi-coding-agent (screenpipe) held the 9B's single concurrency slot during
   early probes (HTTP 429); it cleared before the scored runs — zero recorded
   request errors in any kept shard.
-- Publish needed `HF_TOKEN_REPOS_ADMIN` (fine-grained write) from Doppler
-  `ai-ci-automation/prd`; the config's plain `HF_TOKEN` is read-only and 403s.
+- Publish needed the fine-grained write token (`HF_WRITE_TOKEN`); the plain
+  `HF_TOKEN` is read-only and 403s.
 
 ## Cloud baselines (moved from RANKINGS.md, size budget)
 

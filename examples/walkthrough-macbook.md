@@ -33,13 +33,13 @@ MLX_EVAL_CONCURRENT=2 mlx-eval arc_challenge_chat \
   --limit 15 --output_path ./run-output/$SLUG
 ```
 
-Publish (dry-run, then real — note the Doppler write token):
+Publish (dry-run, then real — note the write token from `.env`):
 
 ```sh
 .venv/bin/mlx-bench-publish ./run-output/$SLUG/results_*.json \
   --kind lm-eval --suite reasoning --dry-run
 
-doppler run -p "$AI_DOPPLER_PROJECT" -c "$AI_DOPPLER_CONFIG" -- \
+HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish ./run-output/$SLUG/results_*.json \
   --kind lm-eval --suite reasoning
 ```

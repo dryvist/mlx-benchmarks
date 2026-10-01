@@ -132,8 +132,8 @@ read it before running anything. The essentials an agent must not get wrong:
   `--timeout 3600` for agent brains; `--gpu-memory-utilization ≤0.85`. Full
   detail: [`docs/benchmark-traps.md`](docs/benchmark-traps.md#traps-checklist).
 - **Publish flow + token:** the ambient `HF_TOKEN` is **read-only**. Publishing
-  needs the Doppler write token:
-  `doppler run -p "$AI_DOPPLER_PROJECT" -c "$AI_DOPPLER_CONFIG" -- .venv/bin/mlx-bench-publish <json>
+  needs the write token, `HF_WRITE_TOKEN` from `.env`:
+  `HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish <json>
   --kind <lm-eval|agentic|factual|promptstack|vllm> --suite <suite> --hostname <host>`. Dry-run
   first. Dataset: `JacobPEvans/mlx-benchmarks`.
 - **Ranking duty:** after every publish, update the model's row in

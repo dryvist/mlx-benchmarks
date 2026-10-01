@@ -87,7 +87,7 @@ Record the producing host even though you may publish from elsewhere:
 .venv/bin/mlx-bench-publish ~/bench-runs/agentic_${SLUG}.json \
   --kind agentic --suite tool-calling --hostname jevans-ms --dry-run
 
-doppler run -p "$AI_DOPPLER_PROJECT" -c "$AI_DOPPLER_CONFIG" -- \
+HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish ~/bench-runs/agentic_${SLUG}.json \
   --kind agentic --suite tool-calling --hostname jevans-ms
 ```

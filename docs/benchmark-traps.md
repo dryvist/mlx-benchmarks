@@ -97,20 +97,17 @@ gpt-oss → `harmony` (+ `--disable-prefix-cache`). Full map [above](#parser-map
 
 ### Trap 9: publish token
 
-Ambient `HF_TOKEN` is read-only, and **`doppler run` alone does not fix
-this** — the `ai-ci-automation`/`prd` config holds both `HF_TOKEN`
-(read-only) and `HF_TOKEN_REPOS_ADMIN` (write) as separate secrets,
-`mlx-bench-publish` reads the literal env var `HF_TOKEN`, and `doppler run`
-injects both — the ambient read-only one shadows the writer. Result: a 403
-("you must use a write token") on the real publish call. **`--dry-run` does
-not catch this** — it validates the envelope and schema but never makes the
-HTTP call that checks token scope, so a dry-run can pass clean and the real
-publish still 403. Override `HF_TOKEN` explicitly instead of trusting the
-ambient injection:
+Ambient `HF_TOKEN` is read-only, and `mlx-bench-publish` reads the literal
+env var `HF_TOKEN`. Loading `.env` alone does not fix this — it carries both
+`HF_TOKEN` (read-only) and `HF_WRITE_TOKEN` (write), and the read-only one is
+what the publisher sees. Result: a 403 ("you must use a write token") on the
+real publish call. **`--dry-run` does not catch this** — it validates the
+envelope and schema but never makes the HTTP call that checks token scope, so
+a dry-run can pass clean and the real publish still 403. Override `HF_TOKEN`
+explicitly:
 
 ```sh
-HF_TOKEN="$(doppler secrets get HF_TOKEN_REPOS_ADMIN --plain -p ai-ci-automation -c prd)" \
-  .venv/bin/mlx-bench-publish …
+HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish …
 ```
 
 ### Trap 10: run hygiene

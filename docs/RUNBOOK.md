@@ -46,7 +46,7 @@ model arrives
                           ├─ ISOLATED    → solo (managed window if it can't co-reside)
                           └─ UNDER-LOAD  → production stays live; NO managed window
                           └─ 4. Run the 5 suites — each a replicated pair (mind every trap)
-                                └─ 5. Validate the pair, then publish (Doppler token)
+                                └─ 5. Validate the pair, then publish (write token)
                                       └─ 6. Update RANKINGS.md; verdict PROVISIONAL, schedule re-bench
 ```
 
@@ -240,7 +240,7 @@ track's serving config. Full grid + pass gate: [`agentic.md`](agentic.md).
 
 The publisher validates against `schema.json` and uploads a content-addressed
 parquet shard. **Dry-run first.** The ambient `HF_TOKEN` is **read-only**;
-publishing needs the Doppler write token
+publishing needs the write token from `.env`
 ([trap 9](benchmark-traps.md#trap-9-publish-token)):
 
 ```sh
@@ -248,8 +248,8 @@ publishing needs the Doppler write token
 .venv/bin/mlx-bench-publish run-output/<...>.json \
   --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host> --dry-run
 
-# Publish with the write token injected
-doppler run -p "$AI_DOPPLER_PROJECT" -c "$AI_DOPPLER_CONFIG" -- \
+# Publish with the write token from .env
+HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish run-output/<...>.json \
   --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host>
 ```
