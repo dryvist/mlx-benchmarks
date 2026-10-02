@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.1...v0.27.2) (2026-10-02)
+
+
+### Documentation
+
+* load publish tokens from .env ([13700d1](https://github.com/dryvist/mlx-benchmarks/commit/13700d192a776afe14b57e9b3fef470d846ed67d))
+* read the publish write token from .env ([f03ba50](https://github.com/dryvist/mlx-benchmarks/commit/f03ba50b078dda235d5647470d27360c626a6865))
+
 ## [0.27.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.0...v0.27.1) (2026-09-18)
 
 
