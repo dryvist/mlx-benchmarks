@@ -23,10 +23,10 @@ Turns a raw suite JSON into a validated Parquet shard on the
    a real run.
 
 2. **Publish with the write token.** The ambient `HF_TOKEN` is read-only;
-   publishing needs the Doppler write token:
+   publishing needs the write token, `HF_WRITE_TOKEN` from `.env`:
 
    ```bash
-   doppler run -p "$AI_DOPPLER_PROJECT" -c "$AI_DOPPLER_CONFIG" -- \
+   HF_TOKEN="$HF_WRITE_TOKEN" \
      .venv/bin/mlx-bench-publish <results.json> --kind <...> --suite <...> --hostname <host>
    ```
 

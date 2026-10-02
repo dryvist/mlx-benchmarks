@@ -229,7 +229,7 @@ Two ways to cut that without breaking the protocol:
    `--tag caveat=<reason>` and file an issue instead.
 
    ```sh
-   doppler run -p "$AI_DOPPLER_PROJECT" -c "$AI_DOPPLER_CONFIG" -- \
+   HF_TOKEN="$HF_WRITE_TOKEN" \
      .venv/bin/mlx-bench-publish run-output/factual_<slug>.json \
      --kind factual --suite grounded-summary --hostname jevans-ms
    ```
