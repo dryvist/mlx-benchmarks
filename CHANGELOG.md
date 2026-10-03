@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.2...v0.27.3) (2026-10-03)
+
+
+### Documentation
+
+* **journal:** MacBook judge-screen test and MiMo vs Qwen3.8-27B measurements ([#263](https://github.com/dryvist/mlx-benchmarks/issues/263)) ([7b382aa](https://github.com/dryvist/mlx-benchmarks/commit/7b382aa7bb4113082ca84facfe3da42a5fd644cb))
+
 ## [0.27.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.1...v0.27.2) (2026-10-02)
 
 
