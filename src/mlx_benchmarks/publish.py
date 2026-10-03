@@ -170,7 +170,7 @@ def publish(
 
     effective_token = token or os.environ.get("HF_TOKEN")
     if not effective_token:
-        raise PublishError("HF_TOKEN not set — export HF_TOKEN before publishing, or pass token=...")
+        raise PublishError("HF_TOKEN not set — publishing needs HF_TOKEN or token=...")
 
     api = HfApi(token=effective_token)
     try:

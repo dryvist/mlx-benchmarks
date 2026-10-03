@@ -62,9 +62,8 @@ all four probe classes, then gets retired in a follow-up.
   inside the homelab reaches the fabric natively, unlike the org's AWS-hosted
   runs-on runners). Fabric jobs trigger only on `push` to main,
   `workflow_dispatch`, or same-repo labeled PRs — **never on fork PRs**.
-  Fabric endpoints, hostnames, and IPs are supplied as runner-side
-  environment values (OpenBao-sourced), never committed; API keys live in
-  GitHub environment secrets behind environment protection rules.
+  Fabric endpoints, hostnames, IPs, and API keys are read from environment
+  values and never committed.
 
 ## Evaluator lanes (complements, not the core)
 

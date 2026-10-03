@@ -101,7 +101,7 @@ lm_eval --model local-chat-completions \
   path — not just `/v1`.
 - Python 3.13+.
 - `HF_TOKEN` with write scope on the dataset namespace (for publish) and
-  on the space namespace (for deploy, stored as a repo secret).
+  on the space namespace (for deploy).
 
 ## Benchmarking a model (the playbook)
 
@@ -132,7 +132,7 @@ read it before running anything. The essentials an agent must not get wrong:
   `--timeout 3600` for agent brains; `--gpu-memory-utilization ≤0.85`. Full
   detail: [`docs/benchmark-traps.md`](docs/benchmark-traps.md#traps-checklist).
 - **Publish flow + token:** the ambient `HF_TOKEN` is **read-only**. Publishing
-  needs the write token, `HF_WRITE_TOKEN` from `.env`:
+  needs the write token, `HF_WRITE_TOKEN`:
   `HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish <json>
   --kind <lm-eval|agentic|factual|promptstack|vllm> --suite <suite> --hostname <host>`. Dry-run
   first. Dataset: `JacobPEvans/mlx-benchmarks`.

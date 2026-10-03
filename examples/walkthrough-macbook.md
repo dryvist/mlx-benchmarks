@@ -33,7 +33,7 @@ MLX_EVAL_CONCURRENT=2 mlx-eval arc_challenge_chat \
   --limit 15 --output_path ./run-output/$SLUG
 ```
 
-Publish (dry-run, then real — note the write token from `.env`):
+Publish (dry-run, then real — note the write token):
 
 ```sh
 .venv/bin/mlx-bench-publish ./run-output/$SLUG/results_*.json \
