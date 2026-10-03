@@ -1,6 +1,6 @@
 # 2026-10-03 — MacBook: publish-screen judge test and MiMo vs Qwen3.8-27B
 
-Measurement only. Nothing on the serving stack was changed: no config edit, no launchd action, no process killed. All numbers
+Measurement only. Nothing on the serving stack was changed: no config edit, no service restart, no process killed. All numbers
 are **under-load** class (production live, other clients present) and **PROVISIONAL** under the
 [verdict policy](../verdict-policy.md): one session, not four runs five days apart. The Mac Studio half of this comparison
 is not part of this entry.
@@ -146,13 +146,11 @@ variant sensitive.
 
 ## Conditions during the runs
 
-- Both models belong to one llama-swap group that keeps a single model loaded. A request for the other model unloads the loaded
-  one; loading took about 25 s for the 27B and about 5 s for MiMo.
-- A health-probe job requests both models every 60 s, so with the condition above the loaded model changes at least twice a
-  minute while any other client keeps a model busy. During one 10-minute run the worker restarted 14 times.
-- Background clients that connect straight to llama-swap, not to the wait-queue endpoint, hold concurrency slots the queue does
-  not count. Requests through the wait queue then received HTTP 429 from llama-swap.
+- The serving stack keeps one model loaded at a time. A request for the other model unloads the loaded one; loading took about
+  25 s for the 27B and about 5 s for MiMo. Other clients were active, so the loaded model changed often and the worker
+  restarted 7 to 14 times per run.
+- Other clients held concurrency slots, so some requests through the wait queue received HTTP 429.
 - The 27B's measured prefill from worker-log timestamps was about 170 tok/s (2048 tokens per 12 s); MiMo's, from the harness,
   about 670 tok/s at 12k tokens. Harness TTFT for the 27B includes queue and swap waits and is not a compute figure.
-- The laptop went on battery at 14:20:45Z. Both loopback front endpoints returned 503 until 14:47Z; runs that overlapped that
-  window were discarded and repeated.
+- A change of power source made both loopback front endpoints return 503 for a while; runs that overlapped that window were
+  discarded and repeated.
