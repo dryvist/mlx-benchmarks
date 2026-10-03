@@ -24,7 +24,7 @@ The Qwen3.8-27B card gives no date; its Hub repo was created 2026-08-05.
 | Serving | `mlx-lm-server` workers behind llama-swap, with a loopback wait-queue endpoint and a loopback direct endpoint in front |
 | MiMo serving | thinking disabled in the server's chat-template arguments, concurrency limit 2 |
 | 27B serving | reasoning effort medium, concurrency limit 1 |
-| Judge test | installed `gh-guard` in `--scan` mode, judge URL and model set by environment for the process only |
+| Judge test | installed `gh-guard` in `--scan` mode, judge endpoint and model overridden per run |
 | Throughput | `harness/throughput/run.py`, `max_tokens 300`, thinking off, discarded probe then 3 measured runs |
 | Tool calling | `harness/agentic/run.py`, thinking off |
 | Probes | `harness/promptstack/run.py`, `hermes` surface, four probe banks (13 cases), thinking off, 3 repeats |
