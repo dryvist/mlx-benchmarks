@@ -18,8 +18,7 @@ Expect an acknowledgement within 72 hours.
 
 - `HF_TOKEN` is read only from the environment (never from a file in the
   repo). The publisher exits early if it is unset for a live run.
-- Never commit `.env*` files with real tokens — `.envrc.local` is gitignored
-  as the canonical location for local secrets.
+- Never commit `.env*` files with real tokens.
 - CI workflows that need `HF_TOKEN` (only `deploy-space.yml`) reference it
   via `${{ secrets.HF_TOKEN }}` and pipe it through an `env:` block, never
   into a `run:` string.

@@ -23,7 +23,7 @@ Turns a raw suite JSON into a validated Parquet shard on the
    a real run.
 
 2. **Publish with the write token.** The ambient `HF_TOKEN` is read-only;
-   publishing needs the write token, `HF_WRITE_TOKEN` from `.env`:
+   publishing needs the write token, `HF_WRITE_TOKEN`:
 
    ```bash
    HF_TOKEN="$HF_WRITE_TOKEN" \

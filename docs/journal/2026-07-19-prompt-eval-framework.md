@@ -41,10 +41,9 @@ evals/week; free tiers are fine.
    never "best/worst". Re-run before adopting; single unreplicated runs
    do not decide adoption.
 6. Security: no secrets, fabric hostnames, IPs, or ports committed —
-   endpoints come from env vars (`.env` locally, runner env in CI). Fabric
+   endpoints come from env vars. Fabric
    CI jobs run only on the homelab self-hosted runner and never for fork
-   PRs (push/workflow_dispatch/same-repo labeled PRs only). API keys live
-   in GitHub environment secrets behind protection rules.
+   PRs (push/workflow_dispatch/same-repo labeled PRs only).
 7. Pin everything: promptfoo version in package.json, catalog submodule to
    a release commit, grader model id. Renovate manages bumps.
 

@@ -33,11 +33,10 @@ launchctl bootout gui/501/dev.vllm-mlx.server
 Pick parser flags from the [parser map](../docs/benchmark-traps.md#parser-map). Qwen3-Next
 is a hybrid-attention family: `hermes` tool parser, `qwen3` reasoning parser,
 **no** speculative decoding/MTP, no prefix cache. HF auth may be unset on the
-Studio, so export a token if the model needs downloading (cache lives on
+Studio; a model that needs downloading reads `HF_TOKEN` (cache lives on
 `/Volumes/HuggingFace`).
 
 ```sh
-export HF_TOKEN=…            # only if the model must be downloaded
 vllm-mlx serve "$MODEL" \
   --port 11434 \
   --tool-call-parser hermes \

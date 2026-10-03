@@ -56,13 +56,8 @@ To correct a wrong model name, change the envelope so it produces a different fi
 
 ### Q: HF upload fails with 401. What token scope do I need?
 
-**A:** Your HuggingFace token must have **write** scope on the target dataset.
-Generate one at <https://huggingface.co/settings/tokens> with "Write" permission,
-then export it before running the publisher:
-
-```bash
-export HF_TOKEN=<your-hf-write-token>
-```
+**A:** The publisher reads `HF_TOKEN`, which must have **write** scope on the
+target dataset.
 
 ### Q: I published successfully but the viewer does not show my result. Why?
 

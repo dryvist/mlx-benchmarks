@@ -171,8 +171,8 @@ curl -s http://127.0.0.1:11434/running
 ```
 
 Mind the [serving flags that bite](benchmark-traps.md#serving-flags-that-bite).
-On the Studio, HF auth may be unset — `export HF_TOKEN=…` if the model needs
-downloading (cache on `/Volumes/HuggingFace`).
+On the Studio, HF auth may be unset — a model that needs downloading reads
+`HF_TOKEN` (cache on `/Volumes/HuggingFace`).
 
 ## Step 4 — Run the required suites
 
@@ -240,7 +240,7 @@ track's serving config. Full grid + pass gate: [`agentic.md`](agentic.md).
 
 The publisher validates against `schema.json` and uploads a content-addressed
 parquet shard. **Dry-run first.** The ambient `HF_TOKEN` is **read-only**;
-publishing needs the write token from `.env`
+publishing needs the write token (`HF_WRITE_TOKEN`)
 ([trap 9](benchmark-traps.md#trap-9-publish-token)):
 
 ```sh
@@ -248,7 +248,7 @@ publishing needs the write token from `.env`
 .venv/bin/mlx-bench-publish run-output/<...>.json \
   --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host> --dry-run
 
-# Publish with the write token from .env
+# Publish with the write token
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish run-output/<...>.json \
   --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host>

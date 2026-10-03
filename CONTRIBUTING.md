@@ -88,15 +88,12 @@ converter and call `validate_envelope(envelope)` to confirm schema compliance.
 
 ## CI secrets (for forks)
 
-Two workflows depend on repository secrets that you'll need to provide on a
-fork for CI to be fully functional:
+Two workflows read repository secrets:
 
-- `release-please.yml` — needs a GitHub App with write access to **contents**
-  and **pull-requests**. See
-  [the release-please-action docs](https://github.com/googleapis/release-please-action#authentication)
-  for the App ID and private key setup.
-- `deploy-space.yml` — needs a Hugging Face token with **write** scope on the
-  target Space namespace, and `SPACE_REPO_ID` pointed at your Space.
+- `release-please.yml` — a GitHub App with write access to **contents**
+  and **pull-requests** (App ID and private key).
+- `deploy-space.yml` — a Hugging Face token with **write** scope on the
+  target Space namespace, and `SPACE_REPO_ID` for the Space.
 
 ## Questions
 

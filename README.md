@@ -172,9 +172,6 @@ python -m venv .venv && source .venv/bin/activate && pip install -e .
 # The Gradio result viewer (space/) installs its own deps separately:
 #   pip install -r space/requirements.txt
 
-# Token with write scope on the HF dataset, required for publishing
-export HF_TOKEN="hf_..."
-
 # Install pre-commit hooks (optional but encouraged)
 .venv/bin/pre-commit install
 ```
@@ -202,7 +199,7 @@ lm_eval --model local-chat-completions \
 .venv/bin/mlx-bench-publish ./run-output/<model-dir>/results_*.json \
   --kind lm-eval --suite reasoning --dry-run
 
-# 3. Publish — the ambient HF_TOKEN is read-only, so pass the write token from .env
+# 3. Publish — the ambient HF_TOKEN is read-only, so pass the write token
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish ./run-output/<model-dir>/results_*.json \
   --kind lm-eval --suite reasoning
