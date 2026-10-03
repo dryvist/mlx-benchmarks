@@ -7,7 +7,7 @@
 # llama-server, alongside the default local MLX/vllm-mlx endpoint.
 #
 # $LLAMA_CPP_HOST — the guest's base URL, e.g.
-#   "http://llm-4080.$HOMELAB_APEX_DOMAIN:10434/v1"
+#   "http://<guest-host>.$HOMELAB_APEX_DOMAIN:10434/v1"
 # Never hardcode the apex domain here — it stays an env var so this file
 # carries no real hostname.
 #
