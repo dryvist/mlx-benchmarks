@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.3...v0.27.4) (2026-10-03)
+
+
+### Documentation
+
+* remove secret-delivery explanations ([#265](https://github.com/dryvist/mlx-benchmarks/issues/265)) ([3f88cda](https://github.com/dryvist/mlx-benchmarks/commit/3f88cda86ea2001d33aec9ffa630ef344a7526b6))
+
 ## [0.27.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.2...v0.27.3) (2026-10-03)
 
 
