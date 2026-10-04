@@ -1,0 +1,37 @@
+# nvbandwidth GPU copy-bandwidth baseline (suite: nvbandwidth).
+#
+# Upstream: https://github.com/NVIDIA/nvbandwidth (v0.10.0 was the latest release on
+# 2026-10-04). Build per its README, then `./nvbandwidth -l` lists the testcases the
+# installed version has. `--format json` is the README's current spelling; the legacy
+# `-j` / `--json` flag is still accepted, but the two cannot be combined.
+#
+# JSON shape: {"nvbandwidth": {"version", "testcases": [{"name", "status",
+# "bandwidth_description", "bandwidth_matrix"}]}}. src/mlx_benchmarks/converters/
+# nvbandwidth.py (--kind nvbandwidth) turns each Passed testcase into one row (the mean
+# over measured pairs, GB/s, or ns for latency tests) and records every Waived/failed
+# testcase in the envelope's errors[] instead of dropping it.
+#
+# Defaults are 3 samples (median) and a 512 MiB buffer; set -i / -b only if you also tag
+# them, because they change the number.
+#
+# The single-GPU host-link tests below are the ones that bound weight loading and
+# CPU-offload; add the device_to_device_* tests on a multi-GPU host.
+#
+# A hardware baseline has no model: publish with --model hardware-baseline, from the
+# GPU host, after exporting the MLX_BENCH_GPU_* variables (configs/LAYOUT.md).
+
+[run]
+command = """
+./nvbandwidth \
+  -t host_to_device_memcpy_ce device_to_host_memcpy_ce device_local_copy \
+  --format json > run-output/nvbandwidth_${HOST_SLUG}.json
+"""
+
+# Dry-run first (add --dry-run).
+[publish]
+command = """
+mlx-bench-publish run-output/nvbandwidth_${HOST_SLUG}.json \
+  --kind nvbandwidth --suite nvbandwidth --model hardware-baseline \
+  --env-class isolated \
+  --tag campaign=nvidia
+"""

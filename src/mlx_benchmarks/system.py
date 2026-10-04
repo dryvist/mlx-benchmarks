@@ -70,6 +70,8 @@ def detect_system() -> dict[str, Any]:
     if topology:
         data["topology"] = topology
 
+    data.update(_detect_accelerator())
+
     return data
 
 
@@ -145,6 +147,53 @@ def _detect_topology() -> dict[str, Any] | None:
                 log.warning("MLX_BENCH_NODES must be a JSON array; ignoring")
 
     return topology or None
+
+
+# Env var that declares each system.gpu / system.engine / top-level accelerator field.
+_GPU_ENV = {
+    "model": "MLX_BENCH_GPU_MODEL",
+    "vram_gb": "MLX_BENCH_GPU_VRAM_GB",
+    "driver": "MLX_BENCH_GPU_DRIVER",
+    "cuda": "MLX_BENCH_GPU_CUDA",
+}
+_ENGINE_ENV = {"name": "MLX_BENCH_ENGINE_NAME", "version": "MLX_BENCH_ENGINE_VERSION"}
+_HOST_ENV = {"power_limit_w": "MLX_BENCH_POWER_LIMIT_W", "container": "MLX_BENCH_CONTAINER"}
+# Schema type is number: a non-numeric value is dropped with a warning, never published as a string.
+_NUMERIC_KEYS = frozenset({"vram_gb", "power_limit_w"})
+
+
+def _env_group(mapping: dict[str, str]) -> dict[str, Any]:
+    group: dict[str, Any] = {}
+    for key, var in mapping.items():
+        raw = os.environ.get(var, "").strip()
+        if not raw:
+            continue
+        if key not in _NUMERIC_KEYS:
+            group[key] = raw
+            continue
+        try:
+            group[key] = float(raw)
+        except ValueError:
+            log.warning("%s=%r is not a number; ignoring", var, raw)
+    return group
+
+
+def _detect_accelerator() -> dict[str, Any]:
+    """NVIDIA host facts from ``MLX_BENCH_*`` env vars — declared, never probed.
+
+    Same contract as :func:`_detect_topology`: the caller states what the run
+    used, because the publisher may run on a different machine than the GPU host
+    and probing ``nvidia-smi`` here would then record the wrong card.
+    ``configs/LAYOUT.md`` carries the ``nvidia-smi`` snippet that fills these in.
+    Returns only the ``gpu`` / ``engine`` / ``power_limit_w`` / ``container``
+    keys that were set, so Apple Silicon runs stay free of them.
+    """
+    data: dict[str, Any] = {}
+    for key, mapping in (("gpu", _GPU_ENV), ("engine", _ENGINE_ENV)):
+        if group := _env_group(mapping):
+            data[key] = group
+    data.update(_env_group(_HOST_ENV))
+    return data
 
 
 def _detect_kernel() -> str:

@@ -1,0 +1,39 @@
+# gpu-burn sustained-compute baseline (suite: gpu-burn).
+#
+# Upstream: https://github.com/wilicc/gpu-burn . It publishes no releases, so build the
+# repository head (`make`, then `./gpu_burn`) and record the commit in
+# $GPU_BURN_COMMIT. Run it on an otherwise idle GPU: stop the serving engine first, or
+# the figure measures the contention instead of the card.
+#
+# Usage is `gpu_burn [OPTIONS] [TIME]`; 60 seconds is the upstream example. Use a longer
+# $BURN_SECONDS when the question is sustained clocks under the board power limit.
+# `-tc` asks for tensor cores, `-d` for doubles; tag the mode so rows stay comparable.
+#
+# The tool redraws one progress line with carriage returns and ends with a per-GPU
+# `GPU n: OK|FAULTY`. `tee` it to a .log file: the CLI wraps .txt/.log input as
+# {"output": text} and src/mlx_benchmarks/converters/gpu_burn.py (--kind gpu-burn)
+# reports per GPU the median Gflop/s, the peak temperature and the OK/FAULTY verdict.
+#
+# A hardware baseline has no model: publish with --model hardware-baseline. Export the
+# MLX_BENCH_GPU_* / POWER_LIMIT_W variables first (configs/LAYOUT.md) and publish from
+# the GPU host so the system block describes the machine that ran it.
+
+[run]
+command = """
+./gpu_burn $BURN_SECONDS | tee run-output/gpu-burn_${HOST_SLUG}-fp32.log
+"""
+
+[run.tensor-core]
+command = """
+./gpu_burn -tc $BURN_SECONDS | tee run-output/gpu-burn_${HOST_SLUG}-tc.log
+"""
+
+# Dry-run first (add --dry-run). Use --tag mode=tensor-core for the -tc log.
+[publish]
+command = """
+mlx-bench-publish run-output/gpu-burn_${HOST_SLUG}-fp32.log \
+  --kind gpu-burn --suite gpu-burn --model hardware-baseline \
+  --env-class isolated \
+  --tag mode=fp32 --tag duration_s=$BURN_SECONDS --tag gpu_burn_commit=$GPU_BURN_COMMIT \
+  --tag campaign=nvidia
+"""

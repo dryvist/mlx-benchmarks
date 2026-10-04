@@ -1,0 +1,100 @@
+# NVIDIA / vLLM quality runbook: only benchmarks that are not already saturated.
+#
+# Selection comes from a 2026-10-04 research pass over leaderboard-reported scores
+# (not results reproduced in this repo). "Saturated" = the best reported open-weight
+# score is at or above 90%, i.e. the benchmark can no longer separate models.
+#
+# Runnable through lm-eval (this file's [run]):
+#   leaderboard_mmlu_pro   best reported open-weight ~87.8% (BenchLM, 2026-10-04)
+#
+# lm-eval parses with the existing converter: `mlx-bench-publish --kind lm-eval`.
+# lm-eval is not a dependency of this repo; run it from your own install.
+#
+# Why /v1/completions and not /v1/chat/completions (reasoning.toml's endpoint):
+# leaderboard_mmlu_pro is output_type=multiple_choice, scored by loglikelihood, and
+# lm-eval supports that only on completion endpoints (docs/API_guide.md). Consequences:
+#   - no --apply_chat_template, so the 5-shot prompt matches the leaderboard task;
+#   - the server must return prompt logprobs on /v1/completions. NOT yet verified
+#     against a live vLLM server: smoke it first and expect a finite accuracy.
+#
+# Contamination: a benchmark published after a model's cutoff is still not proof of a
+# clean score. Record the model's stated cutoff and the contamination status with every
+# score (--tag model_cutoff / --tag contamination at publish; "not-assessed" is a valid,
+# honest value). lm-eval documents n-gram decontamination (docs/decontamination.md).
+#
+# $VLLM_HOST is the server root with no path (see throughput.toml).
+
+[run]
+command = """
+lm_eval --model local-completions \
+  --model_args "base_url=$VLLM_HOST/v1/completions,model=$MODEL,num_concurrent=8,max_length=32768,timeout=3600" \
+  --tasks leaderboard_mmlu_pro \
+  --batch_size 1 \
+  --log_samples \
+  --output_path ./run-output
+"""
+
+[run.smoke]
+command = """
+lm_eval --model local-completions \
+  --model_args "base_url=$VLLM_HOST/v1/completions,model=$MODEL,num_concurrent=8,max_length=32768,timeout=3600" \
+  --tasks leaderboard_mmlu_pro \
+  --limit 15 \
+  --batch_size 1 \
+  --log_samples \
+  --output_path ./run-output
+"""
+
+# `knowledge` is the existing suite for MMLU-class scores. $MODEL_CUTOFF is the model's
+# stated training cutoff (YYYY-MM or "unstated"); $CONTAMINATION is "not-assessed",
+# "decontaminated" or a short finding.
+[publish]
+command = """
+mlx-bench-publish ./run-output/<model-dir>/results_*.json \
+  --kind lm-eval --suite knowledge --model $MODEL \
+  --env-class $ENV_CLASS \
+  --serving-stack vllm --serving-model $MODEL \
+  --tag campaign=nvidia --tag verdict_gate=relaxed \
+  --tag model_cutoff=$MODEL_CUTOFF --tag contamination=$CONTAMINATION
+"""
+
+# Not saturated, but NOT lm-eval tasks: each has its own official runner and its own
+# output format, and this repo has no converter for any of them. Add one only with a
+# <50-line converter (the glue rule) and a first published shard. Runner commands are as
+# quoted by the research, to be re-checked against the runner's README before use.
+[[deferred]]
+task = "hle"
+runner = "python run_model_predictions.py  (centerforaisafety/hle)"
+
+[[deferred]]
+task = "swe-bench-verified"
+runner = "swebench eval verified -p preds.jsonl --run-id $RUN_ID -j 16  (executes model-generated code; read SECURITY.md)"
+
+[[deferred]]
+task = "bfcl-v4"
+runner = "inspect eval inspect_evals/bfcl  (Inspect Evals)"
+
+[[deferred]]
+task = "ifbench"
+runner = "python -m run_eval  (allenai/IFBench)"
+
+[[deferred]]
+task = "longbench-v2"
+runner = "python pred.py, then python result.py  (THUDM/LongBench)"
+
+[[deferred]]
+task = "mrcr-1m"
+runner = "EvalScope task openai_mrcr"
+
+[[deferred]]
+task = "arena-hard-v2"
+runner = "python gen_judgment.py  (lmarena/arena-hard-auto; the judge must be a different model family from the model under test)"
+
+# Excluded as saturated (best reported open-weight score >= 90%, 2026-10-04):
+#   GPQA-Diamond, LiveCodeBench v6, AIME 2025, AIME 2026, tau2-bench, IFEval,
+#   RULER v1, NIAH
+# Excluded as unresolved: LiveBench (the top score in the retrieved snapshot carries no
+# open/closed label) and SimpleQA (retrieved scoreboards report 57.9% and 97.1% under
+# different protocols). Re-evaluate either only after the discrepancy is resolved.
+# Excluded as not reproducible: FrontierMath Tiers 1-3 (the full set is private; 12
+# problems are public).

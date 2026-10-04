@@ -20,6 +20,12 @@ tool-calling** — in **both** environment classes. See
 > under that protocol, so **every model currently sits at `1/4`** — one
 > pre-protocol run of four.
 
+> **NVIDIA-campaign rows relax the ≥4 runs / ≥5 days gate.** Rows measured by the
+> [NVIDIA campaign](README.md#nvidia-campaign) show `relaxed (NVIDIA)` in the Maturity
+> column instead of `N/4`; they are published with `verdict_gate=relaxed` and stay
+> "leads/lags as of N runs" — never a final verdict. See
+> [verdict policy](docs/verdict-policy.md#nvidia-campaign-relaxed-gate-1).
+
 ## How to read the columns
 
 - **Size GB** — approximate resident weight footprint of the quant, not the
@@ -36,6 +42,8 @@ tool-calling** — in **both** environment classes. See
   Multi-turn degradation, not single-shot validity, is the decisive signal.
 - **Maturity** — `N/4`: [protocol-valid runs](docs/verdict-policy.md)
   (validated pair, one env class, ≥5 days apart). All rows provisional.
+  `relaxed (NVIDIA)` marks a row from the NVIDIA campaign, which relaxes the
+  ≥4 runs / ≥5 days gate; it replaces the `N/4` count.
 - **Role** — the provisional verdict ("leads/lags as of N runs"): what this model
   is good for *this cycle*, not a permanent judgment.
 

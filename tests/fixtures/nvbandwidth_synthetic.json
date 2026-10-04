@@ -1,0 +1,72 @@
+{
+  "nvbandwidth": {
+    "version": "v0.10.0",
+    "Version Major": 0,
+    "Version Minor": 10,
+    "Version Patch": 0,
+    "git_version": "v0.10.0-synthetic",
+    "CUDA Runtime Version": 12080,
+    "CUDA Driver API Version": 12080,
+    "Driver Version": "570.172.08",
+    "GPU Device list": [
+      "0: NVIDIA Example GPU: (example-host)",
+      "1: NVIDIA Example GPU: (example-host)"
+    ],
+    "testcases": [
+      {
+        "name": "host_to_device_memcpy_ce",
+        "status": "Passed",
+        "bandwidth_description": "memcpy CE CPU(row) -> GPU(column) bandwidth (GB/s)",
+        "bandwidth_matrix": [
+          [
+            "25.3"
+          ]
+        ],
+        "sum": 25.3
+      },
+      {
+        "name": "device_to_host_memcpy_ce",
+        "status": "Passed",
+        "bandwidth_description": "memcpy CE CPU(row) <- GPU(column) bandwidth (GB/s)",
+        "bandwidth_matrix": [
+          [
+            "24.8"
+          ]
+        ],
+        "sum": 24.8
+      },
+      {
+        "name": "device_local_copy",
+        "status": "Passed",
+        "bandwidth_description": "memcpy CE local GPU(column) bandwidth (GB/s)",
+        "bandwidth_matrix": [
+          [
+            "1520.4"
+          ]
+        ],
+        "sum": 1520.4
+      },
+      {
+        "name": "device_to_device_latency_sm",
+        "status": "Passed",
+        "bandwidth_description": "Device to Device Latency SM GPU(row) <-> GPU(column) (ns)",
+        "bandwidth_matrix": [
+          [
+            "N/A",
+            "1480.2"
+          ],
+          [
+            "1479.8",
+            "N/A"
+          ]
+        ],
+        "sum": 2960.0
+      },
+      {
+        "name": "device_to_device_memcpy_read_ce",
+        "status": "Waived",
+        "waiver_reason": "Waived: requires at least 2 GPUs"
+      }
+    ]
+  }
+}

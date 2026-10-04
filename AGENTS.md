@@ -158,6 +158,8 @@ for agents:
   live, no window). A big isolated-vs-under-load gap is itself a finding.
 - **Maturity gate:** ≥4 validated runs ≥5 days apart in each class before a
   verdict moves from provisional to final. Record host + concurrent load per run.
+  The NVIDIA campaign (`configs/nvidia/`) relaxes this gate only, and labels its rows
+  `verdict_gate=relaxed` — see [verdict-policy](docs/verdict-policy.md#nvidia-campaign-relaxed-gate-1).
 
 ## Gotchas learned the hard way
 

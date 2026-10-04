@@ -18,7 +18,9 @@ walk-through. When the two disagree, `schema.json` wins — please open a PR.
 
 Closed suite set: `throughput`, `ttft`, `tool-calling`, `code-accuracy`,
 `framework-eval`, `capability-comparison`, `coding`, `reasoning`,
-`knowledge`, `evalplus`, `math-hard`. Adding a suite means editing
+`knowledge`, `evalplus`, `math-hard`, `promptstack`, `grounded-summary`, plus the
+four hardware baselines `gpu-burn`, `nvbandwidth`, `mbw` and `fio` (no model under
+test: publish them with `--model hardware-baseline`). Adding a suite means editing
 `schema.json` and filing a schema update PR.
 
 ## Optional top-level fields
@@ -65,6 +67,25 @@ chip/memory, e.g. a Mac Studio vs a MacBook Pro), `python_version`,
 `mlx_version`, `mlx_lm_version`, `lm_eval_version`, `kernel`,
 `runner` (for GitHub Actions), `vllm_mlx_version`.
 
+NVIDIA / CUDA hosts add four optional fields (absent on Apple Silicon runs):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `gpu` | object | `model` (driver-reported name), `vram_gb` (GiB, may be fractional), `driver`, `cuda` (highest CUDA version the driver supports). All optional. |
+| `engine` | object | `name` and `version` of the inference engine (e.g. `vllm` / `0.30.0`). Complements `serving.stack`, which names the endpoint. |
+| `power_limit_w` | number (≥0) | Enforced board power limit in watts; two limits are two arms. |
+| `container` | string | Image reference the engine ran in; absent for bare-metal runs. |
+
+These are **declared, not probed**: `detect_system()` reads them from
+`MLX_BENCH_GPU_MODEL`, `MLX_BENCH_GPU_VRAM_GB`, `MLX_BENCH_GPU_DRIVER`,
+`MLX_BENCH_GPU_CUDA`, `MLX_BENCH_ENGINE_NAME`, `MLX_BENCH_ENGINE_VERSION`,
+`MLX_BENCH_POWER_LIMIT_W` and `MLX_BENCH_CONTAINER`, because the publisher may run on a
+different machine than the GPU. A variable that is unset, blank, or non-numeric where a
+number is required is omitted. The `nvidia-smi` snippet that fills them is in
+[`configs/LAYOUT.md`](../configs/LAYOUT.md#nvidia-hosts-configsnvidia). In the Parquet
+shard `gpu` and `engine` ride as JSON-string columns (like `topology`); `power_limit_w`
+and `container` are plain columns.
+
 `topology` (object, multi-node runs only): `world_size`, `parallelism`
 (`pipeline` / `tensor` / `none`), `interconnect` (e.g. `tb5-rdma`), and
 `nodes[]` (`hostname` / `chip` / `memory_gb` per node). Populated from
@@ -85,7 +106,7 @@ chip/memory, e.g. a Mac Studio vs a MacBook Pro), `python_version`,
 | `total_tokens_per_second` | number | **Headline throughput metric.** Cumulative (prompt + completion) tokens / `duration_seconds`. |
 | `first_token_latency_ms` | number | Time to first token, when measurable (streaming-aware harnesses). |
 | `peak_rss_mb` | number | Peak RSS observed during this result, when available at per-result granularity. |
-| `tags` | object\[string\] | Free-form string key-value metadata. |
+| `tags` | object\[string\] | Free-form string key-value metadata; every value is a string, numbers included. Sweep-dimension keys: `prompt_tokens` (prompt length of each request in the cell, tokens), `concurrency` (in-flight requests; same meaning as the top-level field), `context_len` (the server's configured window in tokens — capacity, never the prompt length). |
 | `raw` | any | Original untransformed tool output (optional archive). |
 
 ### Headline throughput metric: `total_tokens_per_second`

@@ -34,7 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Convert a raw benchmark result to envelope v1 and publish to the HF dataset.",
     )
     parser.add_argument(
-        "results_json", type=Path, help="Path to the raw tool output (e.g. lm-eval results_*.json)"
+        "results_json",
+        type=Path,
+        help="Path to the raw tool output (e.g. lm-eval results_*.json; .jsonl is one record per "
+        "line; .txt/.log is wrapped as {'output': text} for the mbw and gpu-burn kinds)",
     )
     parser.add_argument(
         "--kind",
@@ -45,7 +48,11 @@ def build_parser() -> argparse.ArgumentParser:
             "bench-serve",
             "coding-replay",
             "factual",
+            "fio",
+            "gpu-burn",
             "lm-eval",
+            "mbw",
+            "nvbandwidth",
             "promptstack",
             "throughput-probe",
             "vllm",
@@ -118,7 +125,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         raw: Any
-        if args.results_json.suffix == ".jsonl":
+        if args.results_json.suffix in (".txt", ".log"):
+            raw = {"output": args.results_json.read_text(newline="")}  # keep gpu-burn's CRs
+        elif args.results_json.suffix == ".jsonl":
             raw = [json.loads(line) for line in args.results_json.read_text().splitlines() if line]
         else:
             raw = json.loads(args.results_json.read_text())
