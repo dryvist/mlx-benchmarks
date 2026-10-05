@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.1...v0.29.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **viewer:** make benchmark comparisons usable ([16922b2](https://github.com/dryvist/mlx-benchmarks/commit/16922b21b434629222989fc209000c8eecb2e380))
+
 ## [0.29.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.0...v0.29.1) (2026-10-05)
 
 
