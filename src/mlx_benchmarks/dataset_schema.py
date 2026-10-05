@@ -401,3 +401,20 @@ def normalize_legacy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         row["extra_json"] = json.dumps(extras, sort_keys=True, default=str)
         normalized_rows.append(row)
     return normalized_rows
+
+
+def canonical_shard_needs_refresh(existing: pa.Table, expected: pa.Table) -> bool:
+    """Check whether a canonical shard needs a safe schema-only refresh."""
+    if not expected.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+        raise ValueError("expected table does not use the canonical schema")
+    if existing.num_rows != expected.num_rows:
+        raise RuntimeError("canonical shard row count differs from its source")
+    if existing.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+        if existing.to_pylist() != expected.to_pylist():
+            raise RuntimeError("canonical shard differs from its normalized source")
+        return False
+
+    refreshed = pa.Table.from_pylist(normalize_legacy_rows(existing.to_pylist()), schema=PARQUET_ROW_SCHEMA)
+    if refreshed.to_pylist() != expected.to_pylist():
+        raise RuntimeError("older canonical shard data differs from its normalized source")
+    return True
