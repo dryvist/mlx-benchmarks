@@ -31,6 +31,7 @@ argv = [
   "--base-url", "{{ benchmark_endpoint }}",
   "--model", "{{ model_id }}",
   "--target-prompt-tokens", "{{ context }}",
+  "--window-limit-tokens", "{{ context_window_tokens }}",
   "--max-tokens", "128",
   "--repeats", "1",
   "--concurrency", "{{ concurrency }}",

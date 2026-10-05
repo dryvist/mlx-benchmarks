@@ -108,7 +108,10 @@ envelope field when the target has no cap. Before dispatch, the consumer also
 checks each selected prompt-plus-output reservation against an authoritative
 artifact/engine context limit and each requested concurrency against the
 selected serving profile's cap; if either limit is unavailable or exceeded,
-that cell must fail closed.
+that cell must fail closed. For throughput-probe rows, the consumer resolves
+`context_window_tokens` from the authoritative selected-model registry record
+and passes it as `--window-limit-tokens`; if the registry value is absent, it
+fails closed before dispatch.
 
 The repo owns conversion after a supported run: `vllm bench serve` output uses
 the existing `--kind vllm` converter; the OpenAI-compatible
@@ -117,9 +120,13 @@ JSON uses `--kind lm-eval`. `llama-bench -o json` and
 `mlx_lm.benchmark` produce raw stdout diagnostics only; no existing converter
 accepts either format. The campaign recipes do not claim those native outputs
 as envelope data. The llama.cpp native rows use the source procedure's 512 and
-8192 prompt sizes; the 32768-token depth row is conditional on artifact and
-target capacity. The batched diagnostic is limited to SMALL/MEDIUM models by
-the external consumer. See the top-level
+8192 prompt sizes; the 32768-token depth row declares a `requires_capability`
+check for `llama-bench -d 32768`. Before that row dispatches, the external
+consumer must prove the selected target's `llama-bench` supports `-d` and the
+authoritative model/target context window is at least 41088 tokens (32768
+depth + 8192 prompt + 128 output); otherwise it marks the row N/A or rejects
+it without dispatch. The batched diagnostic is limited to SMALL/MEDIUM models
+by the external consumer. See the top-level
 [README](../README.md) → "Run + publish a benchmark".
 
 ## qwen3-tasks overlay (the coding default)
