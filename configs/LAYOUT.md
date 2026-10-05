@@ -111,7 +111,10 @@ selected serving profile's cap; if either limit is unavailable or exceeded,
 that cell must fail closed. For throughput-probe rows, the consumer resolves
 `context_window_tokens` from the authoritative selected-model registry record
 and passes it as `--window-limit-tokens`; if the registry value is absent, it
-fails closed before dispatch.
+fails closed before dispatch. When conversion runs on the controller, it sets
+`MLX_BENCH_SYSTEM_OS`, `MLX_BENCH_SYSTEM_CHIP`, and
+`MLX_BENCH_SYSTEM_MEMORY_GB` from the selected target's inventory facts, so the
+envelope describes the benchmark target instead of the publisher.
 
 The repo owns conversion after a supported run: `vllm bench serve` output uses
 the existing `--kind vllm` converter; the OpenAI-compatible

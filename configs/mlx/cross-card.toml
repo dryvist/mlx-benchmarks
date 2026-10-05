@@ -14,7 +14,7 @@ argv = [
   "-m", "mlx_lm.benchmark",
   "--model", "{{ artifact_path }}",
   "--prompt-tokens", "{{ context }}",
-  "--generation-tokens", "128",
+  "--generation-tokens", "{{ output_tokens }}",
   "--num-trials", "1",
 ]
 dimensions = ["context_list"]
@@ -22,6 +22,7 @@ repetitions = 2
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true
+output_tokens = 128
 
 [[run]]
 name = "serving-throughput-envelope"
@@ -32,7 +33,7 @@ argv = [
   "--model", "{{ model_id }}",
   "--target-prompt-tokens", "{{ context }}",
   "--window-limit-tokens", "{{ context_window_tokens }}",
-  "--max-tokens", "128",
+  "--max-tokens", "{{ output_tokens }}",
   "--repeats", "1",
   "--concurrency", "{{ concurrency }}",
   "--output", "{{ result_path }}",
@@ -41,4 +42,6 @@ dimensions = ["context_list", "concurrency_list"]
 repetitions = 2
 artifact_id = "selected_model"
 run_on = "controller"
+capture_stdout = true
 converter = { executable = "mlx-bench-publish", kind = "throughput-probe", suite = "throughput", run_on = "controller" }
+output_tokens = 128

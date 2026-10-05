@@ -18,7 +18,7 @@ argv = [
   "--limit", "15",
   "--apply_chat_template",
   "--fewshot_as_multiturn",
-  "--gen_kwargs", "max_gen_toks=4096",
+  "--gen_kwargs", "max_gen_toks={{ output_tokens }}",
   "--log_samples",
   "--output_path", "{{ output_path }}",
 ]
@@ -26,4 +26,6 @@ dimensions = ["context_list", "concurrency_list"]
 repetitions = 1
 artifact_id = "selected_model"
 run_on = "benchmark_target"
+capture_stdout = true
 converter = { executable = "mlx-bench-publish", kind = "lm-eval", suite = "reasoning", run_on = "controller" }
+output_tokens = 4096

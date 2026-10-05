@@ -15,9 +15,9 @@ executable = "llama-bench"
 argv = [
   "-m", "{{ artifact_path }}",
   "-p", "512,8192",
-  "-n", "128",
+  "-n", "{{ output_tokens }}",
   "-r", "3",
-  "-fa", "1",
+  "-fa", "on",
   "-ngl", "99",
   "-d", "0",
   "-o", "json",
@@ -27,6 +27,8 @@ repetitions = 1
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true
+output_tokens = 128
+minimum_context_tokens = 8320
 
 [[run]]
 name = "native-32k-depth"
@@ -35,9 +37,9 @@ executable = "llama-bench"
 argv = [
   "-m", "{{ artifact_path }}",
   "-p", "512,8192",
-  "-n", "128",
+  "-n", "{{ output_tokens }}",
   "-r", "3",
-  "-fa", "1",
+  "-fa", "on",
   "-ngl", "99",
   "-d", "32768",
   "-o", "json",
@@ -47,17 +49,18 @@ repetitions = 1
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true
+output_tokens = 128
 
 [[run]]
 name = "native-batched-diagnostic"
 executable = "llama-batched-bench"
 argv = [
   "-m", "{{ artifact_path }}",
-  "-c", "32768",
+  "-c", "{{ context_window_tokens }}",
   "-b", "2048",
   "-ub", "512",
   "-npp", "512,8192",
-  "-ntg", "128",
+  "-ntg", "{{ output_tokens }}",
   "-npl", "{{ concurrency }}",
   "-pps",
   "-ngl", "999",
@@ -67,6 +70,8 @@ repetitions = 1
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true
+output_tokens = 128
+minimum_context_tokens = 8320
 
 [[run]]
 name = "serving-throughput-envelope"
@@ -77,7 +82,7 @@ argv = [
   "--model", "{{ model_id }}",
   "--target-prompt-tokens", "{{ context }}",
   "--window-limit-tokens", "{{ context_window_tokens }}",
-  "--max-tokens", "128",
+  "--max-tokens", "{{ output_tokens }}",
   "--repeats", "1",
   "--concurrency", "{{ concurrency }}",
   "--output", "{{ result_path }}",
@@ -86,4 +91,6 @@ dimensions = ["context_list", "concurrency_list"]
 repetitions = 2
 artifact_id = "selected_model"
 run_on = "controller"
+capture_stdout = true
 converter = { executable = "mlx-bench-publish", kind = "throughput-probe", suite = "throughput", run_on = "controller" }
+output_tokens = 128
