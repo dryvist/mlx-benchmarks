@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.28.0...v0.28.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **dataset:** normalize published parquet schemas ([f3b3516](https://github.com/dryvist/mlx-benchmarks/commit/f3b3516900287b7cd5cf73bd338c03669b903863))
+
 ## [0.28.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.4...v0.28.0) (2026-10-05)
 
 
