@@ -106,6 +106,28 @@ def test_machine_label_projection_updates_identity_fields_only() -> None:
     }
 
 
+def test_published_from_machine_id_overrides_generic_machine_label() -> None:
+    machine_id = "synthetic-machine-id"
+    [row] = normalize_legacy_rows(
+        [
+            {
+                "hostname": APPLE_MACHINE_FALLBACK,
+                "chip": "Apple M4 Max",
+                "memory_gb": 128,
+                "tag_published_from": machine_id,
+                "published_from": machine_id,
+            }
+        ],
+        machine_labels={machine_id: "MacBook Pro M4 Max 128GB"},
+    )
+
+    assert row["hostname"] == "MacBook Pro M4 Max 128GB"
+    assert row["tag_published_from"] == "MacBook Pro M4 Max 128GB"
+    assert json.loads(row["tags_json"])["published_from"] == "MacBook Pro M4 Max 128GB"
+    assert json.loads(row["extra_json"])["published_from"] == "MacBook Pro M4 Max 128GB"
+    assert machine_id not in json.dumps(row, sort_keys=True)
+
+
 def test_nvidia_hardware_fields_produce_public_machine_labels() -> None:
     rows = normalize_legacy_rows(
         [

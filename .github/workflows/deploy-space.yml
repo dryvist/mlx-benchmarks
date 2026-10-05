@@ -43,7 +43,7 @@ jobs:
       - name: Normalize canonical dataset shards
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN_WRITE_ALL }}
-          MACHINE_LABELS_JSON: ${{ secrets.MACHINE_LABELS_JSON }}
+          MACHINE_LABELS_JSON: ${{ vars.MLX_BENCHMARKS_MACHINE_LABELS_JSON || vars.MACHINE_LABELS_JSON || secrets.MACHINE_LABELS_JSON }}
         run: python scripts/normalize_dataset_schema.py --apply
 
       - name: Upload canonical run index
