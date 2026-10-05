@@ -93,28 +93,9 @@ The existing MLX suites use the thin `uvx` wrappers in the serving stack
   Confirm which backend a host runs before planning a throughput suite.
 - `mlx-wait` — health-gate the server before a run.
 
-The parameterized campaign TOMLs are inputs for a separate Ansible playbook
-that uses `community.general.from_toml` and argv-based command dispatch; this
-repository has no current TOML-to-argv runner. The external consumer's checkout
-path is supplied by its controller. `config_name` is an allow-listed recipe selector.
-The six survey values (`machine`, `engine`, `model_size`, `concurrency_list`,
-`context_list`, `power_cap_w`) are runtime inputs validated by that consumer.
-Recipes are machine-neutral: the target and cap are resolved from inventory,
-and model size resolves through the model registry. No host, endpoint, model ID,
-artifact location, or numeric power cap belongs in these files. The
-`power_cap_w = "inventory"` field is a validation instruction only; the
-consumer records an inventory-derived numeric cap when present and omits the
-envelope field when the target has no cap. Before dispatch, the consumer also
-checks each selected prompt-plus-output reservation against an authoritative
-artifact/engine context limit and each requested concurrency against the
-selected serving profile's cap; if either limit is unavailable or exceeded,
-that cell must fail closed. For throughput-probe rows, the consumer resolves
-`context_window_tokens` from the authoritative selected-model registry record
-and passes it as `--window-limit-tokens`; if the registry value is absent, it
-fails closed before dispatch. When conversion runs on the controller, it sets
-`MLX_BENCH_SYSTEM_OS`, `MLX_BENCH_SYSTEM_CHIP`, and
-`MLX_BENCH_SYSTEM_MEMORY_GB` from the selected target's inventory facts, so the
-envelope describes the benchmark target instead of the publisher.
+The parameterized campaign TOMLs are inputs for a separate Ansible consumer;
+its inventory, endpoint, cache, and power contract is documented in
+[`docs/benchmark-campaign-target-inputs.md`](../docs/benchmark-campaign-target-inputs.md).
 
 The repo owns conversion after a supported run: `vllm bench serve` output uses
 the existing `--kind vllm` converter; the OpenAI-compatible
