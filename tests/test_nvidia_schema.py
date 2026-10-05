@@ -136,14 +136,19 @@ def test_nvidia_envelope_converts_to_parquet_with_viewer_columns(nvidia_envelope
 
 def test_nvidia_envelope_publishes_in_dry_run(nvidia_envelope: dict) -> None:
     assert publish(nvidia_envelope, dry_run=True).startswith(
-        "data/run-2026-10-04T12-00-00-abc1234-throughput-"
+        "data/run-canonical-run-2026-10-04T12-00-00-abc1234-throughput-"
     )
 
 
-def test_legacy_envelope_parquet_has_no_nvidia_columns(valid_envelope: dict) -> None:
-    columns = set(_parquet_table(valid_envelope).column_names)
-    assert set(_viewer_columns()) <= columns
-    assert not columns & set(NVIDIA_SYSTEM_KEYS)
+def test_legacy_and_nvidia_envelopes_use_the_same_parquet_schema(
+    valid_envelope: dict, nvidia_envelope: dict
+) -> None:
+    legacy_table = _parquet_table(valid_envelope)
+    nvidia_table = _parquet_table(nvidia_envelope)
+    assert legacy_table.schema.equals(nvidia_table.schema, check_metadata=False)
+    assert set(_viewer_columns()) <= set(legacy_table.column_names)
+    legacy_row = legacy_table.to_pylist()[0]
+    assert all(legacy_row[key] is None for key in NVIDIA_SYSTEM_KEYS)
 
 
 def test_vllm_bench_serve_on_nvidia_host_end_to_end(

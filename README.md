@@ -212,8 +212,10 @@ HF_TOKEN="$HF_WRITE_TOKEN" \
 
 `detect_system()` records each run's `hostname`, keeping cross-machine runs
 distinct. Filenames are content-addressed
-(`data/run-<timestamp>-<git_sha>-<suite>-<model_slug>-<hash>.parquet`) so
-historical shards are never overwritten.
+(`data/run-canonical-run-<timestamp>-<git_sha>-<suite>-<model_slug>-<hash>.parquet`)
+so historical shards are never overwritten. Older source shards remain
+available at their original paths; normalized copies keep the default dataset
+schema stable.
 
 ### View results
 

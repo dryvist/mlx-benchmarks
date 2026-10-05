@@ -29,8 +29,8 @@ def envelope_events(envelope: Envelope, run_id: str) -> list[dict[str, Any]]:
     """Flat event dicts for every result row of ``envelope``.
 
     Reuses :func:`envelope_to_rows` (same flattening the parquet shard gets)
-    plus ``run_id`` — the shard's content-addressed basename — so events are
-    joinable back to their HF shard and idempotently deduplicable.
+    plus ``run_id`` — the original run-shard basename — so events are joinable
+    back to their HF shard and idempotently deduplicable.
     """
     return [{"run_id": run_id, **row} for row in envelope_to_rows(envelope)]
 
@@ -65,7 +65,7 @@ def replay(
     shard_paths = sorted(
         p
         for p in api.list_repo_files(repo_id=repo_id, repo_type=DEFAULT_REPO_TYPE)
-        if p.startswith("data/") and p.endswith(".parquet")
+        if p.startswith("data/run-canonical-") and p.endswith(".parquet")
     )
 
     if events_path is None:
@@ -75,7 +75,7 @@ def replay(
     total = 0
     with tmp_path.open("w", encoding="utf-8") as fh:
         for shard in shard_paths:
-            run_id = Path(shard).stem
+            run_id = Path(shard).stem.removeprefix("run-canonical-")
             local = api.hf_hub_download(repo_id=repo_id, repo_type=DEFAULT_REPO_TYPE, filename=shard)
             table = pq.read_table(local)
             for row in table.to_pylist():

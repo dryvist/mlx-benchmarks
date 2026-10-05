@@ -41,7 +41,7 @@ def test_publish_appends_events(valid_envelope: Envelope, tmp_path: Path) -> Non
     lines = [json.loads(line) for line in events_path.read_text().splitlines()]
     assert len(lines) == len(valid_envelope["results"])
     # run_id joins the event back to its HF shard.
-    assert all(e["run_id"] == Path(path).stem for e in lines)
+    assert all(e["run_id"] == Path(path).stem.removeprefix("run-canonical-") for e in lines)
 
 
 def test_publish_dry_run_emits_nothing(valid_envelope: Envelope, tmp_path: Path) -> None:
@@ -58,12 +58,18 @@ def test_replay_rebuilds_from_shards(valid_envelope: Envelope, tmp_path: Path) -
     events_path.write_text("stale line\n")
 
     api = MagicMock()
-    api.list_repo_files.return_value = ["data/run-a.parquet", "README.md"]
+    api.list_repo_files.return_value = [
+        "data/run-a.parquet",
+        "data/run-canonical-run-a.parquet",
+        "README.md",
+    ]
     api.hf_hub_download.return_value = str(shard)
     with patch("huggingface_hub.HfApi", return_value=api):
         total = replay(events_path=events_path)
 
     lines = [json.loads(line) for line in events_path.read_text().splitlines()]
     assert total == len(lines) == len(valid_envelope["results"])
-    # Stale content replaced atomically, run_id derived from shard name.
+    # Stale content replaced atomically, and original shards are not replayed twice.
     assert all(e["run_id"] == "run-a" for e in lines)
+    api.hf_hub_download.assert_called_once()
+    assert api.hf_hub_download.call_args.kwargs["filename"] == "data/run-canonical-run-a.parquet"

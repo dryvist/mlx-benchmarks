@@ -17,6 +17,14 @@ import pyarrow.parquet as pq
 from huggingface_hub import CommitOperationAdd, HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
+from mlx_benchmarks.dataset_schema import (
+    JSON_STRING_COLUMNS,
+    OPTIONAL_RESULT_COLUMNS,
+    PARQUET_ROW_SCHEMA,
+    SYSTEM_COLUMNS,
+    TAG_KEYS,
+    empty_parquet_row,
+)
 from mlx_benchmarks.envelope import Envelope, validate_envelope
 
 log = logging.getLogger(__name__)
@@ -44,16 +52,6 @@ def current_git_sha(fallback: str = "unknown") -> str:
         return fallback
 
 
-_OPTIONAL_RESULT_COLUMNS: tuple[str, ...] = (
-    "duration_seconds",
-    "prompt_tokens_per_second",
-    "decode_tokens_per_second",
-    "total_tokens_per_second",
-    "first_token_latency_ms",
-    "peak_rss_mb",
-)
-
-
 def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     """Explode ``envelope['results']`` into one flat row per measurement.
 
@@ -64,33 +62,43 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     later row has it would silently drop the column.
     """
     system = dict(envelope.get("system") or {})
-    base: dict[str, Any] = {
-        "schema_version": envelope.get("schema_version"),
-        "timestamp": envelope.get("timestamp"),
-        "git_sha": envelope.get("git_sha"),
-        "trigger": envelope.get("trigger"),
-        "suite": envelope.get("suite"),
-        "model": envelope.get("model"),
-    }
-    # Flatten every system field (os/chip/memory_gb, versions, kernel, runner,
-    # hostname, ...) into its own column. Nested fields (topology) can't be a
-    # scalar parquet cell, so they ride as a JSON string.
-    for key, value in system.items():
-        base[key] = json.dumps(value) if isinstance(value, dict | list) else value
+    base = empty_parquet_row()
+    base.update(
+        {
+            "schema_version": envelope.get("schema_version"),
+            "timestamp": envelope.get("timestamp"),
+            "git_sha": envelope.get("git_sha"),
+            "trigger": envelope.get("trigger"),
+            "suite": envelope.get("suite"),
+            "model": envelope.get("model"),
+        }
+    )
+    for key in SYSTEM_COLUMNS:
+        value = system.get(key)
+        if key in JSON_STRING_COLUMNS and isinstance(value, dict | list):
+            value = json.dumps(value, sort_keys=True)
+        base[key] = value
+    system_extra = {key: value for key, value in system.items() if key not in SYSTEM_COLUMNS}
+    base["system_extra"] = json.dumps(system_extra, sort_keys=True)
+    base["extra_json"] = "{}"
 
     # Dynamic-key access over a plain mapping view — these optional top-level
     # scalars are copied through verbatim; envelope is a JSON object at runtime.
     env_map = cast("dict[str, Any]", envelope)
-    for key in ("model_revision", "quantization", "seed", "env_class", "concurrency", "reasoning_effort"):
+    for key in (
+        "model_revision",
+        "quantization",
+        "seed",
+        "env_class",
+        "concurrency",
+        "reasoning_effort",
+    ):
         if key in env_map:
             base[key] = env_map[key]
     if "serving" in envelope:
-        base["serving"] = json.dumps(envelope["serving"])
+        base["serving"] = json.dumps(envelope["serving"], sort_keys=True)
 
     results = envelope.get("results", [])
-    present_optionals = {col for col in _OPTIONAL_RESULT_COLUMNS if any(col in r for r in results)}
-    present_tags = {f"tag_{k}" for r in results for k in (r.get("tags") or {})}
-
     rows: list[dict[str, Any]] = []
     for r in results:
         row: dict[str, Any] = {
@@ -100,11 +108,12 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
             "value": r.get("value"),
             "unit": r.get("unit"),
         }
-        for col in present_optionals:
+        for col in OPTIONAL_RESULT_COLUMNS:
             row[col] = r.get(col)
         tags = r.get("tags") or {}
-        for tag_col in present_tags:
-            row[tag_col] = tags.get(tag_col.removeprefix("tag_"))
+        for key in TAG_KEYS:
+            row[f"tag_{key}"] = tags.get(key)
+        row["tags_json"] = json.dumps(tags, sort_keys=True)
         rows.append(row)
     return rows
 
@@ -112,29 +121,46 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
 def rows_to_parquet(rows: list[dict[str, Any]]) -> bytes:
     if not rows:
         raise PublishError("No result rows to serialize — envelope has empty results[]")
-    table = pa.Table.from_pylist(rows)
+    unexpected = {key for row in rows for key in row} - set(PARQUET_ROW_SCHEMA.names)
+    if unexpected:
+        raise PublishError(
+            f"Rows contain columns outside the canonical schema: {', '.join(sorted(unexpected))}"
+        )
+    table = pa.Table.from_pylist(rows, schema=PARQUET_ROW_SCHEMA)
     buf = io.BytesIO()
     pq.write_table(table, buf)  # type: ignore[unused-ignore,no-untyped-call]
     return buf.getvalue()
 
 
+def canonical_shard_path(source_path: str) -> str:
+    """Return the immutable normalized path for a top-level dataset shard."""
+    filename = PurePosixPath(source_path).name
+    if (
+        not source_path.startswith("data/")
+        or "/" in source_path.removeprefix("data/")
+        or not filename.endswith(".parquet")
+        or filename.startswith("run-canonical-")
+    ):
+        raise ValueError(f"not an original dataset shard: {source_path}")
+    return f"data/run-canonical-{filename}"
+
+
 def target_path(envelope: Envelope, payload: bytes | None = None) -> str:
     """Deterministic HF-dataset path for this envelope.
 
-    Format: ``data/run-<ts_slug>-<git_sha>-<suite>-<model_slug>-<payload_hash>.parquet``.
+    Format: ``data/run-canonical-run-<ts_slug>-<git_sha>-<suite>-<model_slug>-<payload_hash>.parquet``.
 
     ``payload_hash`` is an 8-char SHA-256 prefix of the serialized parquet,
     which (a) guarantees that two runs producing different metrics in the same
     second cannot collide even if every other dimension matches, and (b)
     content-addresses the shard so a deterministic re-publish is a no-op
     instead of silently overwriting. Pass ``payload=None`` to get the
-    legacy-compatible pre-hash prefix (useful only for tests inspecting the
-    slug composition).
+    pre-hash prefix (useful only for tests inspecting the slug composition).
     """
     timestamp: str = envelope["timestamp"]
     ts_slug = timestamp.replace(":", "-").rstrip("Z")
     model_slug = slugify(envelope["model"])[:50]
-    prefix = f"data/run-{ts_slug}-{envelope['git_sha']}-{envelope['suite']}-{model_slug}"
+    prefix = f"data/run-canonical-run-{ts_slug}-{envelope['git_sha']}-{envelope['suite']}-{model_slug}"
     if payload is None:
         return f"{prefix}.parquet"
     digest = hashlib.sha256(payload).hexdigest()[:8]
@@ -188,8 +214,9 @@ def publish(
     from mlx_benchmarks.events import append_events
 
     try:
-        # run_id = content-addressed shard basename, joinable back to HF.
-        append_events(envelope, run_id=PurePosixPath(path).stem)
+        # Keep the original run basename while the stored path is canonical.
+        run_id = PurePosixPath(path).stem.removeprefix("run-canonical-")
+        append_events(envelope, run_id=run_id)
     except OSError as exc:
         # The feed is derived state (replayable from the dataset); never fail
         # a successful publish over it — but say so loudly.
