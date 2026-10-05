@@ -6,6 +6,10 @@ on:
     paths:
       - space/**
       - metadata/run-index-v1.json
+      - dataset-card/README.md
+      - scripts/normalize_dataset_schema.py
+      - src/mlx_benchmarks/dataset_schema.py
+      - src/mlx_benchmarks/publish.py
       - .github/workflows/deploy-space.yml
   workflow_dispatch:
 
@@ -31,7 +35,12 @@ jobs:
           python-version: "3.14"
 
       - name: Install huggingface_hub
-        run: python -m pip install --no-cache-dir "huggingface_hub[cli]>=0.30"
+        run: python -m pip install --no-cache-dir "huggingface_hub[cli]>=0.30" "pyarrow>=25.0.1"
+
+      - name: Normalize immutable dataset shards
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN_WRITE_ALL }}
+        run: python scripts/normalize_dataset_schema.py --apply
 
       - name: Upload canonical run index
         env:

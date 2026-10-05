@@ -159,7 +159,7 @@ def load_data() -> pd.DataFrame:
 
         fs = HfFileSystem()
         try:
-            paths = sorted(f"hf://{p}" for p in fs.glob(f"{DATASET}/data/*.parquet"))
+            paths = sorted(f"hf://{p}" for p in fs.glob(f"{DATASET}/data/run-canonical-*.parquet"))
         except (FileNotFoundError, OSError):
             paths = []
 

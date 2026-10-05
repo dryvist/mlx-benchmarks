@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from mlx_benchmarks.dataset_schema import PARQUET_ROW_SCHEMA
 from mlx_benchmarks.envelope import EnvelopeValidationError
 from mlx_benchmarks.publish import (
     PublishError,
@@ -24,7 +25,7 @@ def test_slugify_strips_special_chars() -> None:
 
 def test_target_path_format(valid_envelope: dict) -> None:
     path = target_path(valid_envelope)
-    assert path.startswith("data/run-")
+    assert path.startswith("data/run-canonical-")
     assert path.endswith(".parquet")
     # No colons (filesystem-hostile on Windows/CI, and HF commit paths)
     assert ":" not in path
@@ -68,6 +69,7 @@ def test_rows_to_parquet_roundtrip(valid_envelope: dict) -> None:
     assert parquet_bytes[:4] == b"PAR1"  # parquet magic
     table = pq.read_table(io.BytesIO(parquet_bytes))
     assert table.num_rows == len(rows)
+    assert table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
 
 
 def test_rows_to_parquet_rejects_empty() -> None:
@@ -127,9 +129,8 @@ def test_envelope_to_rows_promotes_tok_per_sec_fields(valid_envelope: dict) -> N
     assert row["total_tokens_per_second"] == 1902.3
 
 
-def test_envelope_to_rows_omits_absent_tok_per_sec(valid_envelope: dict) -> None:
-    """When no result records throughput, the parquet columns must be absent
-    entirely so historical schemas stay stable."""
+def test_envelope_to_rows_keeps_absent_optional_fields_as_null(valid_envelope: dict) -> None:
+    """Every optional field remains in each row so shard schemas stay stable."""
     no_throughput = {
         **valid_envelope,
         "results": [
@@ -142,9 +143,11 @@ def test_envelope_to_rows_omits_absent_tok_per_sec(valid_envelope: dict) -> None
         ],
     }
     [row] = envelope_to_rows(no_throughput)
-    assert "decode_tokens_per_second" not in row
-    assert "prompt_tokens_per_second" not in row
-    assert "total_tokens_per_second" not in row
+    assert row["decode_tokens_per_second"] is None
+    assert row["prompt_tokens_per_second"] is None
+    assert row["total_tokens_per_second"] is None
+    assert row["first_token_latency_ms"] is None
+    assert row["peak_rss_mb"] is None
 
 
 def test_envelope_to_rows_normalizes_columns_across_mixed_rows(valid_envelope: dict) -> None:
@@ -173,8 +176,25 @@ def test_envelope_to_rows_normalizes_columns_across_mixed_rows(valid_envelope: d
     }
     rows = envelope_to_rows(mixed)
     assert len(rows) == 2
+    assert rows[0].keys() == rows[1].keys()
+    assert set(rows[0]) == set(PARQUET_ROW_SCHEMA.names)
     for row in rows:
         assert "decode_tokens_per_second" in row
         assert "duration_seconds" in row
     assert rows[0]["decode_tokens_per_second"] is None
     assert rows[1]["decode_tokens_per_second"] == 42.0
+
+
+def test_unlisted_tag_keys_do_not_change_the_parquet_columns(valid_envelope: dict) -> None:
+    envelope = {
+        **valid_envelope,
+        "results": [
+            {
+                **valid_envelope["results"][0],
+                "tags": {"future_dimension": "kept"},
+            }
+        ],
+    }
+    [row] = envelope_to_rows(envelope)
+    assert "tag_future_dimension" not in row
+    assert json.loads(row["tags_json"]) == {"future_dimension": "kept"}
