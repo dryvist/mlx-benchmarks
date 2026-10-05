@@ -4,6 +4,7 @@ import pyarrow as pa
 import pytest
 
 from mlx_benchmarks.dataset_schema import (
+    APPLE_MACHINE_FALLBACK,
     PARQUET_ROW_SCHEMA,
     canonical_shard_needs_refresh,
     normalize_legacy_rows,
@@ -70,3 +71,42 @@ def test_canonical_rows_refresh_from_fallback_to_configured_label() -> None:
         machine_labels=labels,
         prior_projection=fallback,
     )
+
+
+def test_canonical_projection_prefers_specific_tag_label_over_generic_hostname() -> None:
+    source = pa.Table.from_pylist(
+        [
+            {
+                "chip": "Apple M4 Max",
+                "memory_gb": 128,
+                "hostname": APPLE_MACHINE_FALLBACK,
+                "tag_published_from": "synthetic-machine-id",
+                "tags_json": '{"published_from":"synthetic-machine-id"}',
+            }
+        ],
+        schema=PARQUET_ROW_SCHEMA,
+    )
+    labels = {"synthetic-machine-id": "Mac Studio M4 Max 128GB"}
+    expected = pa.Table.from_pylist(
+        normalize_legacy_rows(source.to_pylist(), machine_labels=labels),
+        schema=PARQUET_ROW_SCHEMA,
+    )
+    prior_projection = pa.Table.from_pylist(
+        normalize_legacy_rows(source.to_pylist()),
+        schema=PARQUET_ROW_SCHEMA,
+    )
+    existing_rows = normalize_legacy_rows(source.to_pylist(), machine_labels=labels)
+    existing_rows[0]["hostname"] = APPLE_MACHINE_FALLBACK
+    existing = pa.Table.from_pylist(existing_rows, schema=PARQUET_ROW_SCHEMA)
+
+    assert canonical_shard_needs_refresh(
+        existing,
+        expected,
+        machine_labels=labels,
+        prior_projection=prior_projection,
+    )
+    refreshed = pa.Table.from_pylist(
+        normalize_legacy_rows(existing.to_pylist(), machine_labels=labels),
+        schema=PARQUET_ROW_SCHEMA,
+    )
+    assert refreshed.to_pylist() == expected.to_pylist()

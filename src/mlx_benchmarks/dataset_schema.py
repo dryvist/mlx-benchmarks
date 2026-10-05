@@ -468,9 +468,12 @@ def _machine_label_for_row(
                 raise ValueError("machine label configuration contains an invalid entry")
             break
     else:
+        valid_labels = [
+            value for value in identity_values if isinstance(value, str) and _machine_label_is_valid(value)
+        ]
         label = next(
-            (value for value in identity_values if isinstance(value, str) and _machine_label_is_valid(value)),
-            "",
+            (value for value in valid_labels if value != APPLE_MACHINE_FALLBACK),
+            valid_labels[0] if valid_labels else "",
         )
 
     hardware = _machine_label_hardware_text(row)
