@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.28.1...v0.28.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **ci:** install dataset publisher in deploy workflow ([d0e208a](https://github.com/dryvist/mlx-benchmarks/commit/d0e208a40a8b2bef240112912620557917d6fc81))
+
 ## [0.28.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.28.0...v0.28.1) (2026-10-05)
 
 
