@@ -42,7 +42,7 @@ test: publish them with `--model hardware-baseline`). Adding a suite means editi
 | `campaign` | object | Immutable `id`, `cell_id`, and serving `profile` for a coordinated campaign. |
 | `cell_status` | enum | Only `success` rows may be scored; all other listed states preserve a non-scored outcome. |
 | `context` | object | Context dimensions: model/catalog/proxy/worker maxima when known, selected window, requested and actual prompt, and output reservation. |
-| `campaign_dimensions` | object | Optional first-class hardware, software, model, run, speed, resource, quality, provenance, and cost dimensions. Each field accepts a typed value or explicit `null`. |
+| `campaign_dimensions` | object | Optional typed fields in nine campaign groups; each leaf accepts explicit `null`. |
 | `dimension_null_reasons` | object of string | Optional field-path-to-reason-code map for null values in `campaign_dimensions`. |
 | `readiness` | object | First request, excluded from warmed scoring. Stores initial residency and discarded timings. |
 
@@ -62,17 +62,27 @@ reason code. Use a reason for each explicit null in newly enriched campaign
 envelopes; a missing property remains distinct from an observed-but-unknown
 value.
 
-| Group | Fields |
-| --- | --- |
-| `hardware` | machine, accelerator model and memory, memory bandwidth, host CPU/RAM/speed, PCIe generation/width, power cap, UPS/circuit, chassis/container |
-| `software` | OS, kernel, driver, accelerator runtime, engine/version/commit, backend, GPU architectures, build flags, flash attention |
-| `model` | family/ID/HF repo/revision, total/active parameters, architecture, total/active experts, quantization, bits per weight, file size, license, native context, single-file SHA-256 |
-| `run` | allocated context, KV dtype, prompt/depth/output tokens, concurrency, batch/ubatch, parallel slots, prefix cache, speculative/MTP, draft model, temperature, thinking, chat template, seed, repeats, warm/cold state |
-| `speed` | TTFT p50/p90/p99, prefill/decode/aggregate/total throughput, TPOT, ITL p50/p99, MTP acceptance, request success rate |
-| `resource` | accelerator/host memory peak, CPU offload, average/max GPU utilization, accelerator/system/SoC/component power, energy per token, tokens per watt, temperature, GPU/CPU clocks, throttling, fan |
-| `quality` | benchmark/version/subset/sample count, score, standard error/confidence interval, judge model, contamination note |
-| `provenance` | UTC timestamp, run ID, config name/SHA, operator/agent, raw output path, schema version |
-| `cost` | kWh and local electricity cost per million output tokens, median rental and API cost per million |
+- **hardware:** machine; accelerator model, memory, and bandwidth; host CPU, RAM, and speed;
+  PCIe generation/width; power cap; UPS/circuit; chassis/container.
+- **software:** OS; kernel; driver; accelerator runtime; engine/version/commit;
+  backend; GPU architectures; build flags; flash attention.
+- **model:** family/ID/HF repo/revision; total/active parameters; architecture;
+  total/active experts; quantization; bits per weight; file size; license;
+  native context; single-file SHA-256.
+- **run:** allocated context; KV dtype; prompt/depth/output tokens; concurrency;
+  batch/ubatch; parallel slots; prefix cache; speculative/MTP; draft model;
+  temperature; thinking; chat template; seed; repeats; warm/cold state.
+- **speed:** TTFT p50/p90/p99; prefill/decode/aggregate/total throughput; TPOT;
+  ITL p50/p99; MTP acceptance; request success rate.
+- **resource:** accelerator/host memory peak; CPU offload; average/max GPU utilization;
+  accelerator/system/SoC/component power; energy per token; tokens per watt;
+  temperature; GPU/CPU clocks; throttling; fan.
+- **quality:** benchmark/version/subset/sample count; score; standard error and
+  confidence interval; judge model; contamination note.
+- **provenance:** UTC timestamp; run ID; config name/SHA; operator/agent; raw
+  output path; schema version.
+- **cost:** kWh and local electricity cost per million output tokens; median
+  rental and API cost per million.
 
 ### `reasoning_effort`
 
