@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.4...v0.28.0) (2026-10-05)
+
+
+### Features
+
+* add NVIDIA benchmark schema fields ([d741412](https://github.com/dryvist/mlx-benchmarks/commit/d741412719244afc305f2bceca1de72d4ba73d50))
+
 ## [0.27.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.27.3...v0.27.4) (2026-10-03)
 
 
