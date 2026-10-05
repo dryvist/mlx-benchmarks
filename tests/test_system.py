@@ -16,6 +16,12 @@ _TOPOLOGY_VARS = (
     "MLX_BENCH_NODES",
 )
 
+_SYSTEM_VARS = (
+    "MLX_BENCH_SYSTEM_OS",
+    "MLX_BENCH_SYSTEM_CHIP",
+    "MLX_BENCH_SYSTEM_MEMORY_GB",
+)
+
 
 _ACCELERATOR_VARS = (
     "MLX_BENCH_GPU_MODEL",
@@ -43,6 +49,21 @@ def test_detect_system_returns_required_fields() -> None:
     assert isinstance(system["chip"], str) and system["chip"]
     assert isinstance(system["memory_gb"], int)
     assert system["memory_gb"] >= 0
+
+
+def test_detect_system_uses_declared_benchmark_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var, value in zip(_SYSTEM_VARS, ("Linux 9", "Target CPU", "96"), strict=True):
+        monkeypatch.setenv(var, value)
+
+    detect_system.cache_clear()
+    try:
+        system = detect_system()
+    finally:
+        detect_system.cache_clear()
+
+    assert system["os"] == "Linux 9"
+    assert system["chip"] == "Target CPU"
+    assert system["memory_gb"] == 96
 
 
 def test_detect_system_includes_python_version() -> None:

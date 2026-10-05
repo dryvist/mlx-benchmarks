@@ -1,0 +1,96 @@
+# Machine-neutral llama.cpp comparison recipe.
+# The Ansible consumer resolves the target, model artifact, endpoint, and cap.
+# `context_list` is the serving-probe prompt-token axis. Native llama-bench uses
+# the source procedure's 512/8192 prompts; its 32k depth row is conditional on
+# the selected artifact and target capacity. Batched concurrency is for SMALL/MEDIUM.
+config_name = "llama-cpp/cross-card"
+engines = ["llama_cpp"]
+concurrency_list = [1, 2, 4, 8]
+context_list = [8192, 32768, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "native-prompt-baseline"
+executable = "llama-bench"
+argv = [
+  "-m", "{{ artifact_path }}",
+  "-p", "512,8192",
+  "-n", "{{ output_tokens }}",
+  "-r", "3",
+  "-fa", "on",
+  "-ngl", "99",
+  "-d", "0",
+  "-o", "json",
+]
+dimensions = []
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 128
+minimum_context_tokens = 8320
+
+[[run]]
+name = "native-32k-depth"
+requires_capability = { executable = "llama-bench", flag = "-d", value = "32768", minimum_context_tokens = 41088 }
+executable = "llama-bench"
+argv = [
+  "-m", "{{ artifact_path }}",
+  "-p", "512,8192",
+  "-n", "{{ output_tokens }}",
+  "-r", "3",
+  "-fa", "on",
+  "-ngl", "99",
+  "-d", "32768",
+  "-o", "json",
+]
+dimensions = []
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 128
+
+[[run]]
+name = "native-batched-diagnostic"
+executable = "llama-batched-bench"
+argv = [
+  "-m", "{{ artifact_path }}",
+  "-c", "{{ context_window_tokens }}",
+  "-b", "2048",
+  "-ub", "512",
+  "-npp", "512,8192",
+  "-ntg", "{{ output_tokens }}",
+  "-npl", "{{ concurrency }}",
+  "-pps",
+  "-ngl", "999",
+]
+dimensions = ["concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 128
+minimum_context_tokens = 8320
+
+[[run]]
+name = "serving-throughput-envelope"
+executable = "uv"
+argv = [
+  "run", "harness/throughput/run.py",
+  "--base-url", "{{ benchmark_endpoint }}",
+  "--model", "{{ model_id }}",
+  "--target-prompt-tokens", "{{ context }}",
+  "--window-limit-tokens", "{{ context_window_tokens }}",
+  "--max-tokens", "{{ output_tokens }}",
+  "--repeats", "1",
+  "--concurrency", "{{ concurrency }}",
+  "--output", "{{ result_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "controller"
+capture_stdout = true
+converter = { executable = "mlx-bench-publish", kind = "throughput-probe", suite = "throughput", run_on = "controller" }
+output_tokens = 128

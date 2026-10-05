@@ -1,0 +1,75 @@
+# Machine-neutral vLLM serving comparison recipe.
+# The Ansible consumer resolves the target, registry model, and inventory cap.
+# Prompt length is varied by context_list; each concurrency/context cell is a
+# paired run with distinct vLLM seeds and result files.
+config_name = "vllm/cross-card"
+engines = ["vllm"]
+concurrency_list = [1, 2, 4, 8, 16]
+context_list = [1024, 8192, 32768, 131072, 194560, 196352, 260096, 261888]
+power_cap_w = "inventory"
+
+[[run]]
+name = "serving-throughput-o256-envelope"
+executable = "vllm"
+argv = [
+  "bench", "serve",
+  "--backend", "openai-chat",
+  "--base-url", "{{ benchmark_endpoint_root }}",
+  "--endpoint", "/v1/chat/completions",
+  "--model", "{{ model_id }}",
+  "--dataset-name", "random",
+  "--random-input-len", "{{ context }}",
+  "--random-output-len", "{{ output_tokens }}",
+  "--random-prefix-len", "0",
+  "--ignore-eos",
+  "--num-prompts", "{{ concurrency }}",
+  "--request-rate", "inf",
+  "--max-concurrency", "{{ concurrency }}",
+  "--seed", "{{ repetition }}",
+  "--percentile-metrics", "ttft,tpot,itl",
+  "--metric-percentiles", "50,90",
+  "--save-result",
+  "--save-detailed",
+  "--result-dir", "{{ result_dir }}",
+  "--result-filename", "{{ result_filename }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+converter = { executable = "mlx-bench-publish", kind = "vllm", suite = "throughput", run_on = "controller" }
+output_tokens = 256
+
+[[run]]
+name = "serving-throughput-o2048-envelope"
+executable = "vllm"
+argv = [
+  "bench", "serve",
+  "--backend", "openai-chat",
+  "--base-url", "{{ benchmark_endpoint_root }}",
+  "--endpoint", "/v1/chat/completions",
+  "--model", "{{ model_id }}",
+  "--dataset-name", "random",
+  "--random-input-len", "{{ context }}",
+  "--random-output-len", "{{ output_tokens }}",
+  "--random-prefix-len", "0",
+  "--ignore-eos",
+  "--num-prompts", "{{ concurrency }}",
+  "--request-rate", "inf",
+  "--max-concurrency", "{{ concurrency }}",
+  "--seed", "{{ repetition }}",
+  "--percentile-metrics", "ttft,tpot,itl",
+  "--metric-percentiles", "50,90",
+  "--save-result",
+  "--save-detailed",
+  "--result-dir", "{{ result_dir }}",
+  "--result-filename", "{{ result_filename }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+converter = { executable = "mlx-bench-publish", kind = "vllm", suite = "throughput", run_on = "controller" }
+output_tokens = 2048
