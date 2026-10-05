@@ -1,19 +1,48 @@
 # Machine-neutral llama.cpp comparison recipe.
 # The Ansible consumer resolves the target, model artifact, endpoint, and cap.
-# `context_list` is the prompt-token axis; `concurrency_list` also drives the
-# batched diagnostic and OpenAI-compatible serving probe. Native output is diagnostic.
+# `context_list` is the serving-probe prompt-token axis. Native llama-bench uses
+# the source procedure's 512/8192 prompts; its 32k depth row is conditional on
+# the selected artifact and target capacity. Batched concurrency is for SMALL/MEDIUM.
 config_name = "llama-cpp/cross-card"
 engines = ["llama_cpp"]
-concurrency_list = [1, 4, 8]
-context_list = [8192, 65536, 131072]
+concurrency_list = [1, 2, 4, 8]
+context_list = [8192, 32768, 65536, 131072]
 power_cap_w = "inventory"
 
 [[run]]
-name = "native-diagnostic"
+name = "native-prompt-baseline"
 executable = "llama-bench"
-argv = ["-m", "{{ artifact_path }}", "-p", "{{ context }}", "-n", "128", "-r", "1", "-ngl", "999", "-o", "json"]
-dimensions = ["context_list"]
-repetitions = 2
+argv = [
+  "-m", "{{ artifact_path }}",
+  "-p", "512,8192",
+  "-n", "128",
+  "-r", "3",
+  "-fa", "1",
+  "-ngl", "99",
+  "-d", "0",
+  "-o", "json",
+]
+dimensions = []
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+
+[[run]]
+name = "native-32k-depth"
+executable = "llama-bench"
+argv = [
+  "-m", "{{ artifact_path }}",
+  "-p", "512,8192",
+  "-n", "128",
+  "-r", "3",
+  "-fa", "1",
+  "-ngl", "99",
+  "-d", "32768",
+  "-o", "json",
+]
+dimensions = []
+repetitions = 1
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true
@@ -23,17 +52,17 @@ name = "native-batched-diagnostic"
 executable = "llama-batched-bench"
 argv = [
   "-m", "{{ artifact_path }}",
-  "-c", "132096",
+  "-c", "32768",
   "-b", "2048",
   "-ub", "512",
-  "-npp", "{{ context }}",
+  "-npp", "512,8192",
   "-ntg", "128",
   "-npl", "{{ concurrency }}",
   "-pps",
   "-ngl", "999",
 ]
-dimensions = ["context_list", "concurrency_list"]
-repetitions = 2
+dimensions = ["concurrency_list"]
+repetitions = 1
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true

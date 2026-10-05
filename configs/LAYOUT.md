@@ -104,7 +104,11 @@ and model size resolves through the model registry. No host, endpoint, model ID,
 artifact location, or numeric power cap belongs in these files. The
 `power_cap_w = "inventory"` field is a validation instruction only; the
 consumer records an inventory-derived numeric cap when present and omits the
-envelope field when the target has no cap.
+envelope field when the target has no cap. Before dispatch, the consumer also
+checks each selected prompt-plus-output reservation against an authoritative
+artifact/engine context limit and each requested concurrency against the
+selected serving profile's cap; if either limit is unavailable or exceeded,
+that cell must fail closed.
 
 The repo owns conversion after a supported run: `vllm bench serve` output uses
 the existing `--kind vllm` converter; the OpenAI-compatible
@@ -112,7 +116,10 @@ the existing `--kind vllm` converter; the OpenAI-compatible
 JSON uses `--kind lm-eval`. `llama-bench -o json` and
 `mlx_lm.benchmark` produce raw stdout diagnostics only; no existing converter
 accepts either format. The campaign recipes do not claim those native outputs
-as envelope data. See the top-level
+as envelope data. The llama.cpp native rows use the source procedure's 512 and
+8192 prompt sizes; the 32768-token depth row is conditional on artifact and
+target capacity. The batched diagnostic is limited to SMALL/MEDIUM models by
+the external consumer. See the top-level
 [README](../README.md) → "Run + publish a benchmark".
 
 ## qwen3-tasks overlay (the coding default)

@@ -4,8 +4,8 @@
 # paired run with distinct vLLM seeds and result files.
 config_name = "vllm/cross-card"
 engines = ["vllm"]
-concurrency_list = [1, 4, 8]
-context_list = [8192, 65536, 131072]
+concurrency_list = [1, 2, 4, 8]
+context_list = [8192, 32768, 65536, 131072]
 power_cap_w = "inventory"
 
 [[run]]

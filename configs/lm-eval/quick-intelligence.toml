@@ -2,8 +2,8 @@
 # registry model. `context_list` maps to the server-side max_length setting.
 config_name = "lm-eval/quick-intelligence"
 engines = ["llama_cpp", "vllm", "mlx_lm"]
-concurrency_list = [1, 4]
-context_list = [32768]
+concurrency_list = [1, 2, 4, 8]
+context_list = [32768, 65536, 131072]
 power_cap_w = "inventory"
 
 [[run]]
@@ -18,6 +18,7 @@ argv = [
   "--limit", "15",
   "--apply_chat_template",
   "--fewshot_as_multiturn",
+  "--gen_kwargs", "max_gen_toks=4096",
   "--log_samples",
   "--output_path", "{{ output_path }}",
 ]
