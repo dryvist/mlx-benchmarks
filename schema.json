@@ -3,7 +3,7 @@
   "$id": "https://github.com/JacobPEvans/mlx-benchmarks/schema/v1.json",
   "title": "MLX Benchmark Result",
   "description": "Structured result envelope for a single benchmark suite run. Backwards-compatible v1 — optional fields may be added without bumping schema_version; breaking changes bump the version and change $id.",
-  "$comment": "v1 additive fields (no version bump): top-level env_class, concurrency, reasoning_effort, serving; system.topology for multi-node cluster runs. 2026-07-27: results[].total_tokens_per_second is now the headline throughput metric (cumulative prompt+completion tok/s) — decode_tokens_per_second and prompt_tokens_per_second remain as supporting detail; no field added or removed, descriptions updated only. 2026-10-04: NVIDIA/CUDA hosts — system.gpu, system.engine, system.power_limit_w, system.container are optional additions; suite enum gains gpu-burn, nvbandwidth, mbw, fio; results[].tags documents the prompt_tokens / concurrency / context_len keys. All additive, legacy envelopes validate unchanged.",
+  "$comment": "v1 additive fields (no version bump): top-level env_class, concurrency, reasoning_effort, serving; system.topology for multi-node cluster runs. 2026-07-27: results[].total_tokens_per_second is now the headline throughput metric (cumulative prompt+completion tok/s) — decode_tokens_per_second and prompt_tokens_per_second remain as supporting detail; no field added or removed, descriptions updated only. 2026-10-04: NVIDIA/CUDA hosts — system.gpu, system.engine, system.power_limit_w, system.container are optional additions; suite enum gains gpu-burn, nvbandwidth, mbw, fio; results[].tags documents the prompt_tokens / concurrency / context_len keys. All additive, legacy envelopes validate unchanged. 2026-10-05: optional campaign_dimensions and dimension_null_reasons record hardware, software, model, run, speed, resource, quality, provenance, and cost dimensions. The publisher flattens these into a fixed nullable Parquet schema. Top-level git_sha remains required but accepts null when the runtime code revision was not captured.",
   "type": "object",
   "required": [
     "schema_version",
@@ -28,7 +28,7 @@
       "description": "ISO 8601 UTC timestamp of when the run started"
     },
     "git_sha": {
-      "type": "string",
+      "type": ["string", "null"],
       "minLength": 7,
       "pattern": "^[0-9a-fA-F]{7,64}$",
       "description": "Full or short git commit SHA of the repo at run time"
@@ -85,6 +85,651 @@
         "id": { "type": "string", "minLength": 1 },
         "cell_id": { "type": "string", "minLength": 1 },
         "profile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "campaign_dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional first-class performance campaign dimensions. Each category is optional so legacy envelopes remain valid; unknown values may be explicit nulls.",
+      "properties": {
+        "hardware": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional hardware dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "machine": {
+              "type": ["string", "null"],
+              "description": "Machine product/model label; omit the private hostname."
+            },
+            "accelerator_model": {
+              "type": ["string", "null"],
+              "description": "Accelerator model or integrated GPU model."
+            },
+            "accelerator_memory_gb": {
+              "type": ["number", "null"],
+              "description": "Accelerator or unified memory capacity in GB.",
+              "minimum": 0
+            },
+            "memory_bandwidth_gbps": {
+              "type": ["number", "null"],
+              "description": "Memory bandwidth in GB/s; identify a vendor-rated value in result tags.",
+              "minimum": 0
+            },
+            "host_cpu": {
+              "type": ["string", "null"],
+              "description": "Host CPU model and core layout."
+            },
+            "host_ram_gb": {
+              "type": ["number", "null"],
+              "description": "Host physical RAM capacity in GB.",
+              "minimum": 0
+            },
+            "host_ram_speed_mts": {
+              "type": ["number", "null"],
+              "description": "Host memory transfer rate in MT/s, when reported separately.",
+              "minimum": 0
+            },
+            "pcie_generation": {
+              "type": ["number", "null"],
+              "description": "Active PCIe generation for a discrete accelerator.",
+              "minimum": 0
+            },
+            "pcie_width_lanes": {
+              "type": ["integer", "null"],
+              "description": "Active PCIe link width in lanes.",
+              "minimum": 0
+            },
+            "power_cap_w": {
+              "type": ["number", "null"],
+              "description": "Configured accelerator power cap in watts.",
+              "minimum": 0
+            },
+            "ups_circuit": {
+              "type": ["string", "null"],
+              "description": "UPS and circuit assignment, when available."
+            },
+            "chassis_container": {
+              "type": ["string", "null"],
+              "description": "Host chassis or container class.",
+              "enum": ["host-interim", "lxc", "macos", null]
+            }
+          }
+        },
+        "software": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional software dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "operating_system": {
+              "type": ["string", "null"],
+              "description": "Operating system and version."
+            },
+            "kernel": {
+              "type": ["string", "null"],
+              "description": "Operating system kernel version."
+            },
+            "driver_version": {
+              "type": ["string", "null"],
+              "description": "Accelerator driver version, when applicable."
+            },
+            "accelerator_runtime": {
+              "type": ["string", "null"],
+              "description": "CUDA, Metal, or ROCm runtime version."
+            },
+            "engine": {
+              "type": ["string", "null"],
+              "description": "Inference engine name.",
+              "enum": ["llama.cpp", "vLLM", "MLX", "SGLang", null]
+            },
+            "engine_version": {
+              "type": ["string", "null"],
+              "description": "Inference engine version."
+            },
+            "engine_commit": {
+              "type": ["string", "null"],
+              "description": "Inference engine source commit SHA, when available."
+            },
+            "backend": {
+              "type": ["string", "null"],
+              "description": "Execution backend such as CUDA, Metal, Vulkan, or ROCm.",
+              "enum": ["CUDA", "Metal", "Vulkan", "ROCm", null]
+            },
+            "gpu_architectures": {
+              "type": ["array", "null"],
+              "description": "GPU architecture targets included in the build.",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "build_flags": {
+              "type": ["object", "null"],
+              "description": "Additional engine build flags recorded as JSON-compatible scalar values.",
+              "additionalProperties": {
+                "type": ["string", "number", "boolean", "null"]
+              }
+            },
+            "flash_attention": {
+              "type": ["boolean", "null"],
+              "description": "Whether flash attention was enabled in the build or run."
+            }
+          }
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional model dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "family": {
+              "type": ["string", "null"],
+              "description": "Model family."
+            },
+            "id": {
+              "type": ["string", "null"],
+              "description": "Model identifier used for inference."
+            },
+            "hf_repo": {
+              "type": ["string", "null"],
+              "description": "Hugging Face repository identifier."
+            },
+            "revision_sha": {
+              "type": ["string", "null"],
+              "description": "Immutable Hugging Face model revision SHA."
+            },
+            "total_parameters": {
+              "type": ["integer", "null"],
+              "description": "Total parameter count.",
+              "minimum": 0
+            },
+            "active_parameters": {
+              "type": ["integer", "null"],
+              "description": "Active parameter count per token.",
+              "minimum": 0
+            },
+            "architecture": {
+              "type": ["string", "null"],
+              "description": "Model architecture class.",
+              "enum": ["dense", "MoE", "hybrid-attention", null]
+            },
+            "experts_total": {
+              "type": ["integer", "null"],
+              "description": "Total expert count for MoE models.",
+              "minimum": 0
+            },
+            "experts_active": {
+              "type": ["integer", "null"],
+              "description": "Active expert count per token for MoE models.",
+              "minimum": 0
+            },
+            "quantization": {
+              "type": ["string", "null"],
+              "description": "Quantization format."
+            },
+            "bits_per_weight": {
+              "type": ["number", "null"],
+              "description": "Effective bits per weight when reported.",
+              "minimum": 0
+            },
+            "file_size_gb": {
+              "type": ["number", "null"],
+              "description": "Model weight file size in GB.",
+              "minimum": 0
+            },
+            "license": {
+              "type": ["string", "null"],
+              "description": "License reported by the pinned model source."
+            },
+            "native_max_context_tokens": {
+              "type": ["integer", "null"],
+              "description": "Model-native maximum context in tokens.",
+              "minimum": 0
+            },
+            "file_sha256": {
+              "type": ["string", "null"],
+              "description": "SHA-256 of a single model weight file, when recorded.",
+              "pattern": "^[0-9a-fA-F]{64}$"
+            }
+          }
+        },
+        "run": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional run dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "allocated_context_tokens": {
+              "type": ["integer", "null"],
+              "description": "Configured context capacity in tokens.",
+              "minimum": 0
+            },
+            "kv_cache_dtype": {
+              "type": ["string", "null"],
+              "description": "KV-cache data type."
+            },
+            "prompt_tokens": {
+              "type": ["integer", "null"],
+              "description": "Prompt token count for each request.",
+              "minimum": 0
+            },
+            "depth_tokens": {
+              "type": ["integer", "null"],
+              "description": "Existing context tokens before generation.",
+              "minimum": 0
+            },
+            "output_tokens": {
+              "type": ["integer", "null"],
+              "description": "Requested output token count.",
+              "minimum": 0
+            },
+            "concurrent_agents": {
+              "type": ["integer", "null"],
+              "description": "Number of concurrent requests or agents.",
+              "minimum": 0
+            },
+            "batch_size": {
+              "type": ["integer", "null"],
+              "description": "Inference batch size.",
+              "minimum": 0
+            },
+            "ubatch_size": {
+              "type": ["integer", "null"],
+              "description": "Microbatch size.",
+              "minimum": 0
+            },
+            "parallel_slots": {
+              "type": ["integer", "null"],
+              "description": "Serving parallel-slot count.",
+              "minimum": 0
+            },
+            "prefix_cache": {
+              "type": ["boolean", "null"],
+              "description": "Whether prefix caching was enabled."
+            },
+            "speculative_mtp": {
+              "type": ["boolean", "null"],
+              "description": "Whether speculative or multi-token prediction was enabled."
+            },
+            "draft_model": {
+              "type": ["string", "null"],
+              "description": "Draft model used for speculative decoding."
+            },
+            "temperature": {
+              "type": ["number", "null"],
+              "description": "Sampling temperature.",
+              "minimum": 0
+            },
+            "thinking": {
+              "type": ["boolean", "null"],
+              "description": "Whether reasoning or thinking mode was enabled."
+            },
+            "chat_template": {
+              "type": ["string", "null"],
+              "description": "Chat-template identity, revision, or content hash."
+            },
+            "seed": {
+              "type": ["integer", "null"],
+              "description": "Generation random seed.",
+              "minimum": 0
+            },
+            "repeats": {
+              "type": ["integer", "null"],
+              "description": "Number of measured repeats.",
+              "minimum": 0
+            },
+            "warm_cold": {
+              "type": ["string", "null"],
+              "description": "Whether weights and runtime were warm or cold.",
+              "enum": ["warm", "cold", null]
+            }
+          }
+        },
+        "speed": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional speed dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "ttft_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median time to first token in milliseconds.",
+              "minimum": 0
+            },
+            "ttft_p90_ms": {
+              "type": ["number", "null"],
+              "description": "90th percentile time to first token in milliseconds.",
+              "minimum": 0
+            },
+            "ttft_p99_ms": {
+              "type": ["number", "null"],
+              "description": "99th percentile time to first token in milliseconds.",
+              "minimum": 0
+            },
+            "prefill_tokens_per_second": {
+              "type": ["number", "null"],
+              "description": "Prompt prefill throughput in tokens per second.",
+              "minimum": 0
+            },
+            "decode_tokens_per_second_per_agent": {
+              "type": ["number", "null"],
+              "description": "Per-request decode throughput in tokens per second.",
+              "minimum": 0
+            },
+            "aggregate_output_tokens_per_second": {
+              "type": ["number", "null"],
+              "description": "Aggregate output throughput across concurrent requests.",
+              "minimum": 0
+            },
+            "total_tokens_per_second": {
+              "type": ["number", "null"],
+              "description": "Prompt plus output tokens divided by wall time.",
+              "minimum": 0
+            },
+            "tpot_ms": {
+              "type": ["number", "null"],
+              "description": "Average time per output token in milliseconds.",
+              "minimum": 0
+            },
+            "itl_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median inter-token latency in milliseconds.",
+              "minimum": 0
+            },
+            "itl_p99_ms": {
+              "type": ["number", "null"],
+              "description": "99th percentile inter-token latency in milliseconds.",
+              "minimum": 0
+            },
+            "mtp_acceptance_rate": {
+              "type": ["number", "null"],
+              "description": "Accepted speculative or MTP tokens divided by proposed tokens.",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "request_success_rate": {
+              "type": ["number", "null"],
+              "description": "Successful requests divided by all attempted requests.",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "resource": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional resource dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "accelerator_memory_peak_gb": {
+              "type": ["number", "null"],
+              "description": "Peak VRAM or unified memory used in GB.",
+              "minimum": 0
+            },
+            "host_ram_peak_gb": {
+              "type": ["number", "null"],
+              "description": "Peak host RAM used in GB.",
+              "minimum": 0
+            },
+            "cpu_offload_layers": {
+              "type": ["integer", "null"],
+              "description": "Model layers placed on CPU instead of the accelerator.",
+              "minimum": 0
+            },
+            "gpu_utilization_avg_percent": {
+              "type": ["number", "null"],
+              "description": "Average GPU utilization percentage over the recorded run window.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "gpu_utilization_max_percent": {
+              "type": ["number", "null"],
+              "description": "Maximum GPU utilization percentage over the recorded run window.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "cpu_performance_utilization_avg_percent": {
+              "type": ["number", "null"],
+              "description": "Average utilization of performance CPU cores over the recorded run window.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "cpu_efficiency_utilization_avg_percent": {
+              "type": ["number", "null"],
+              "description": "Average utilization of efficiency CPU cores over the recorded run window.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average primary accelerator or system power in watts; describe the measurement scope in result tags.",
+              "minimum": 0
+            },
+            "power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum primary accelerator or system power in watts; describe the measurement scope in result tags.",
+              "minimum": 0
+            },
+            "system_power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average whole-system power in watts.",
+              "minimum": 0
+            },
+            "system_power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum whole-system power in watts.",
+              "minimum": 0
+            },
+            "soc_power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average combined SoC power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "soc_power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum combined SoC power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "cpu_power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average CPU power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "cpu_power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum CPU power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "memory_power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average main-memory power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "memory_power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum main-memory power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "accelerator_memory_power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average accelerator-memory power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "accelerator_memory_power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum accelerator-memory power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "ane_power_avg_w": {
+              "type": ["number", "null"],
+              "description": "Average neural-engine power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "ane_power_max_w": {
+              "type": ["number", "null"],
+              "description": "Maximum neural-engine power in watts, when the runtime reports it.",
+              "minimum": 0
+            },
+            "energy_j_per_output_token": {
+              "type": ["number", "null"],
+              "description": "Energy in joules divided by measured output tokens.",
+              "minimum": 0
+            },
+            "tokens_per_second_per_watt": {
+              "type": ["number", "null"],
+              "description": "Output tokens per second divided by watts.",
+              "minimum": 0
+            },
+            "temperature_max_c": {
+              "type": ["number", "null"],
+              "description": "Maximum accelerator or SoC temperature in Celsius."
+            },
+            "average_clocks_mhz": {
+              "type": ["number", "null"],
+              "description": "Average accelerator clock frequency in MHz.",
+              "minimum": 0
+            },
+            "cpu_performance_clock_avg_mhz": {
+              "type": ["number", "null"],
+              "description": "Average performance-core CPU frequency in MHz, when reported.",
+              "minimum": 0
+            },
+            "cpu_efficiency_clock_avg_mhz": {
+              "type": ["number", "null"],
+              "description": "Average efficiency-core CPU frequency in MHz, when reported.",
+              "minimum": 0
+            },
+            "throttle_reasons": {
+              "type": ["array", "null"],
+              "description": "Thermal, power, or reliability throttle reasons observed.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fan_percent": {
+              "type": ["number", "null"],
+              "description": "Fan speed as a percentage of maximum.",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional quality dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "benchmark_name": {
+              "type": ["string", "null"],
+              "description": "Quality benchmark name."
+            },
+            "benchmark_version": {
+              "type": ["string", "null"],
+              "description": "Quality benchmark version."
+            },
+            "subset": {
+              "type": ["string", "null"],
+              "description": "Benchmark subset or task set."
+            },
+            "sample_count": {
+              "type": ["integer", "null"],
+              "description": "Number of scored samples.",
+              "minimum": 0
+            },
+            "score": {
+              "type": ["number", "null"],
+              "description": "Aggregate quality score."
+            },
+            "standard_error": {
+              "type": ["number", "null"],
+              "description": "Score standard error.",
+              "minimum": 0
+            },
+            "confidence_interval_low": {
+              "type": ["number", "null"],
+              "description": "Lower confidence interval bound."
+            },
+            "confidence_interval_high": {
+              "type": ["number", "null"],
+              "description": "Upper confidence interval bound."
+            },
+            "judge_model": {
+              "type": ["string", "null"],
+              "description": "Judge model identifier and revision."
+            },
+            "contamination_note": {
+              "type": ["string", "null"],
+              "description": "Contamination evaluation or caveat."
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional provenance dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "timestamp_utc": {
+              "type": ["string", "null"],
+              "description": "UTC timestamp for the measured run.",
+              "format": "date-time"
+            },
+            "run_id": {
+              "type": ["string", "null"],
+              "description": "Unique benchmark run identifier."
+            },
+            "config_name": {
+              "type": ["string", "null"],
+              "description": "Declarative benchmark configuration name."
+            },
+            "config_git_sha": {
+              "type": ["string", "null"],
+              "description": "Git commit SHA of the benchmark configuration.",
+              "pattern": "^[0-9a-fA-F]{7,64}$"
+            },
+            "operator_agent": {
+              "type": ["string", "null"],
+              "description": "Operator or automation agent label."
+            },
+            "raw_output_path": {
+              "type": ["string", "null"],
+              "description": "Path to the matching raw benchmark output."
+            },
+            "schema_version": {
+              "type": ["string", "null"],
+              "description": "Envelope schema version used for this result."
+            }
+          }
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional cost dimensions for detailed benchmark campaigns. Explicit null values are retained in the stable Parquet columns.",
+          "properties": {
+            "kwh_per_million_output_tokens": {
+              "type": ["number", "null"],
+              "description": "Energy in kWh per million output tokens.",
+              "minimum": 0
+            },
+            "local_electricity_usd_per_million_tokens": {
+              "type": ["number", "null"],
+              "description": "Local electricity cost in USD per million output tokens.",
+              "minimum": 0
+            },
+            "median_rental_usd_per_million_tokens": {
+              "type": ["number", "null"],
+              "description": "Median rental cost in USD per million output tokens.",
+              "minimum": 0
+            },
+            "median_api_usd_per_million_tokens": {
+              "type": ["number", "null"],
+              "description": "Median API cost in USD per million output tokens.",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "dimension_null_reasons": {
+      "type": "object",
+      "description": "Optional field-path to reason-code map for explicit nulls in campaign_dimensions.",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
       }
     },
     "cell_status": {
@@ -166,15 +811,15 @@
       "additionalProperties": false,
       "properties": {
         "os": {
-          "type": "string",
+          "type": ["string", "null"],
           "description": "Operating system and version (e.g. macOS 15.3.2)"
         },
         "chip": {
-          "type": "string",
+          "type": ["string", "null"],
           "description": "CPU/chip model (e.g. Apple M4 Max)"
         },
         "memory_gb": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "description": "Total system RAM in GB"
         },
         "hostname": {

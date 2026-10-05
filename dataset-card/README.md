@@ -91,9 +91,18 @@ each pair and keep the corresponding unit:
     COALESCE(value, metric_value) AS value,
     COALESCE(unit, metric_unit) AS unit
 
-Optional system and workload columns include **hostname**, **chip**, **gpu**,
+Optional system and workload columns include **machine label**, **chip**, **gpu**,
 **engine**, **quantization**, **concurrency**, and projected **tag_*** fields
 such as **tag_context_tokens_actual**, **tag_prompt_tokens**, and
 **tag_max_gen_toks**. These fields are null when the run did not record or use
 that dimension. **tags_json** retains arbitrary tags, and **extra_json** retains
 historical fields outside the stable schema.
+
+Detailed campaign envelopes add stable `campaign_<group>_<field>` columns for
+hardware, software, model, run, speed, resource, quality, provenance, and cost
+dimensions. `campaign_dimension_null_reasons_json` retains the reason codes for
+explicit unknown or inapplicable values. Historical shards receive nulls in
+these columns during schema normalization.
+
+Canonical rows use hardware labels for machine identity. Original shards remain
+at their original paths as historical source data.

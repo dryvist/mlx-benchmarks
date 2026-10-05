@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import io
 import json
 
 import pytest
 
-from mlx_benchmarks.dataset_schema import PARQUET_ROW_SCHEMA
+from mlx_benchmarks.dataset_schema import (
+    CAMPAIGN_DIMENSION_TYPES,
+    PARQUET_ROW_SCHEMA,
+    campaign_dimension_column,
+)
 from mlx_benchmarks.envelope import EnvelopeValidationError
 from mlx_benchmarks.publish import (
     PublishError,
@@ -70,8 +75,6 @@ def test_envelope_to_rows_explodes_results(valid_envelope: dict) -> None:
 
 
 def test_rows_to_parquet_roundtrip(valid_envelope: dict) -> None:
-    import io
-
     import pyarrow.parquet as pq
 
     rows = envelope_to_rows(valid_envelope)
@@ -80,6 +83,53 @@ def test_rows_to_parquet_roundtrip(valid_envelope: dict) -> None:
     table = pq.read_table(io.BytesIO(parquet_bytes))
     assert table.num_rows == len(rows)
     assert table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
+
+
+def test_campaign_dimensions_keep_a_fixed_nullable_parquet_schema(valid_envelope: dict) -> None:
+    import pyarrow.parquet as pq
+
+    legacy_rows = envelope_to_rows(valid_envelope)
+    enriched = {
+        **valid_envelope,
+        "campaign_dimensions": {
+            "hardware": {"machine": "Mac Studio", "pcie_generation": None},
+            "software": {
+                "gpu_architectures": ["sm_120"],
+                "build_flags": {"GGML_CUDA": True, "CMAKE_BUILD_TYPE": "Release"},
+                "flash_attention": True,
+            },
+            "model": {
+                "file_sha256": "a" * 64,
+            },
+            "speed": {"ttft_p50_ms": 14.5},
+        },
+        "dimension_null_reasons": {"hardware.pcie_generation": "N/A_SOC"},
+    }
+    enriched_rows = envelope_to_rows(enriched)
+    legacy_table = pq.read_table(io.BytesIO(rows_to_parquet(legacy_rows)))
+    enriched_table = pq.read_table(io.BytesIO(rows_to_parquet(enriched_rows)))
+
+    assert legacy_table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
+    assert enriched_table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
+    legacy = legacy_table.to_pylist()[0]
+    row = enriched_table.to_pylist()[0]
+    dimension_columns = {
+        campaign_dimension_column(category, field)
+        for category, fields in CAMPAIGN_DIMENSION_TYPES.items()
+        for field in fields
+    }
+    assert dimension_columns <= set(legacy)
+    assert dimension_columns <= set(row)
+    assert all(legacy[column] is None for column in dimension_columns)
+    assert row["campaign_hardware_machine"] == "Mac Studio"
+    assert row["campaign_hardware_pcie_generation"] is None
+    assert json.loads(row["campaign_software_gpu_architectures_json"]) == ["sm_120"]
+    assert json.loads(row["campaign_software_build_flags_json"]) == {
+        "CMAKE_BUILD_TYPE": "Release",
+        "GGML_CUDA": True,
+    }
+    assert row["campaign_model_file_sha256"] == "a" * 64
+    assert json.loads(row["campaign_dimension_null_reasons_json"]) == {"hardware.pcie_generation": "N/A_SOC"}
 
 
 def test_rows_to_parquet_rejects_empty() -> None:

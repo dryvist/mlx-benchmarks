@@ -22,7 +22,10 @@ log = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def detect_system() -> dict[str, Any]:
-    """Build a ``system`` dict reflecting the machine actually running the benchmark.
+    """Build a ``system`` dict describing the benchmark target.
+
+    A remote publisher can provide ``MLX_BENCH_SYSTEM_*`` declarations; when
+    those are absent, the local machine remains the source of detected values.
 
     The schema-required fields ``os`` / ``chip`` / ``memory_gb`` are always
     populated — when a detector fails they fall back to ``"unknown"`` or
@@ -38,8 +41,8 @@ def detect_system() -> dict[str, Any]:
     late (or a test) does not need a fresh interpreter to pick it up.
     """
     data: dict[str, Any] = {
-        "os": _detect_os(),
-        "chip": _detect_chip(),
+        "os": os.environ.get("MLX_BENCH_SYSTEM_OS", "").strip() or _detect_os(),
+        "chip": os.environ.get("MLX_BENCH_SYSTEM_CHIP", "").strip() or _detect_chip(),
         "memory_gb": _detect_memory_gb(),
         "kernel": _detect_kernel(),
         "python_version": platform.python_version(),
@@ -98,6 +101,17 @@ def _detect_chip() -> str:
 
 
 def _detect_memory_gb() -> int:
+    declared = os.environ.get("MLX_BENCH_SYSTEM_MEMORY_GB", "").strip()
+    if declared:
+        try:
+            memory_gb = int(declared)
+        except ValueError:
+            log.warning("MLX_BENCH_SYSTEM_MEMORY_GB=%r is not an integer; detecting locally", declared)
+        else:
+            if memory_gb >= 0:
+                return memory_gb
+            log.warning("MLX_BENCH_SYSTEM_MEMORY_GB=%r is negative; detecting locally", declared)
+
     if sys.platform == "darwin":
         try:
             out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True, timeout=3).strip()

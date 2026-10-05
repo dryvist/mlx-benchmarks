@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.29.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.0...v0.29.1) (2026-10-05)
+
+
+### Documentation
+
+* **benchmarks:** describe target campaign parameters ([bb9c9bf](https://github.com/dryvist/mlx-benchmarks/commit/bb9c9bf605c55972d7fbd3123d22716357629f56))
+
+## [0.29.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.28.2...v0.29.0) (2026-10-05)
+
+
+### Features
+
+* **schema:** add optional campaign dimensions ([9a497d4](https://github.com/dryvist/mlx-benchmarks/commit/9a497d445fd700e5b013d74c8df5bbd2207802c5))
+* **schema:** add optional campaign dimensions ([d538b1b](https://github.com/dryvist/mlx-benchmarks/commit/d538b1bf1c554a2831a351a9c72ac37d23269a5b))
+
+
+### Bug Fixes
+
+* **schema:** refresh outdated canonical parquet shards ([8f34ed7](https://github.com/dryvist/mlx-benchmarks/commit/8f34ed7127c20aef8cb72ed4314d23b630ec0d52))
+
+
+### Documentation
+
+* **schema:** wrap campaign dimension documentation ([5060615](https://github.com/dryvist/mlx-benchmarks/commit/5060615cbf2fac8f04eb2737ac96ee6587984b53))
+
 ## [0.28.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.28.1...v0.28.2) (2026-10-05)
 
 
