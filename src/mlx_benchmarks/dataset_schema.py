@@ -312,6 +312,7 @@ _MACHINE_ID_FIELDS = (
     "machine",
     "hostname",
     "host",
+    "published_from",
 )
 _NESTED_MACHINE_ID_FIELDS = frozenset(
     {"campaign_hardware_machine", "machine", "hostname", "host", "node_name"}
@@ -461,17 +462,16 @@ def _machine_label_for_row(
 ) -> str | None:
     identity_values = _machine_identity_values(row, tags, extras)
     for value in identity_values:
-        if isinstance(value, str):
-            if value in labels:
-                label = labels[value]
-                if not _machine_label_is_valid(label):
-                    raise ValueError("machine label configuration contains an invalid entry")
-                break
-            if _machine_label_is_valid(value):
-                label = value
-                break
+        if isinstance(value, str) and value in labels:
+            label = labels[value]
+            if not _machine_label_is_valid(label):
+                raise ValueError("machine label configuration contains an invalid entry")
+            break
     else:
-        label = ""
+        label = next(
+            (value for value in identity_values if isinstance(value, str) and _machine_label_is_valid(value)),
+            "",
+        )
 
     hardware = _machine_label_hardware_text(row)
     if not label:
