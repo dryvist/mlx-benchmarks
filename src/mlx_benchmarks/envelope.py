@@ -32,6 +32,18 @@ class Topology(TypedDict, total=False):
     nodes: list[TopologyNode]
 
 
+class Gpu(TypedDict, total=False):
+    model: str
+    vram_gb: float
+    driver: str
+    cuda: str
+
+
+class Engine(TypedDict, total=False):
+    name: str
+    version: str
+
+
 class System(TypedDict, total=False):
     os: str
     chip: str
@@ -44,6 +56,10 @@ class System(TypedDict, total=False):
     mlx_lm_version: str
     lm_eval_version: str
     kernel: str
+    gpu: Gpu
+    engine: Engine
+    power_limit_w: float
+    container: str
     topology: Topology
 
 

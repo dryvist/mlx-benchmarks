@@ -102,6 +102,22 @@ Because every current shard predates the protocol, **every benchmarked model sit
 at `1/4` today**, even ones with shards on several dates — date count alone does
 not mature a verdict.
 
+## NVIDIA campaign: relaxed Gate 1
+
+The NVIDIA/CUDA campaign ([`configs/nvidia/`](../configs/nvidia/)) relaxes **Gate 1
+only**: a model row from that campaign may be reported without ≥4 runs ≥5 days apart.
+The relaxation is labelled, never silent:
+
+- The runbooks publish every campaign model row with `--tag campaign=nvidia --tag
+  verdict_gate=relaxed`, so the label travels with the data into the dataset.
+- In [`RANKINGS.md`](../RANKINGS.md) such a row reads `relaxed (NVIDIA)` in the Maturity
+  column instead of `N/4`, and its Role keeps the "leads/lags as of N runs" wording. A
+  relaxed row is never a final verdict.
+- Hardware baselines (gpu-burn, nvbandwidth, mbw, fio) have no model under test and make
+  no verdict, so they carry `campaign=nvidia` but no gate label.
+
+This section amends Gate 1 only; Gates 2 and 3 are unchanged here.
+
 ## Language rule
 
 Before writing that a model is the best or worst anywhere — docs, PR bodies,

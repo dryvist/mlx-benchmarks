@@ -1,0 +1,28 @@
+# mbw host-RAM bandwidth baseline (suite: mbw).
+#
+# Upstream: mbw (https://github.com/raas/mbw; Debian ships it as the `mbw` package).
+# `mbw [options] arraysize_in_MiB` copies one array to another, so it needs twice the
+# array size in free RAM; switch swap off and run it on an idle host. 1024 MiB over 10
+# runs is the documented example.
+#
+# Run it WITHOUT -a: the converter reads the per-method `AVG` lines
+# (MEMCPY, DUMB, MCBLOCK), and -a suppresses them. Per-run lines are only counted.
+# `tee` the output to a .txt file: the CLI wraps .txt/.log input as {"output": text}
+# and src/mlx_benchmarks/converters/mbw.py (--kind mbw) emits one MiB/s row per method.
+#
+# A hardware baseline has no model: publish with --model hardware-baseline, from the
+# host that ran it.
+
+[run]
+command = """
+mbw -n 10 1024 | tee run-output/mbw_${HOST_SLUG}.txt
+"""
+
+# Dry-run first (add --dry-run).
+[publish]
+command = """
+mlx-bench-publish run-output/mbw_${HOST_SLUG}.txt \
+  --kind mbw --suite mbw --model hardware-baseline \
+  --env-class isolated \
+  --tag campaign=nvidia
+"""

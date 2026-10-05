@@ -124,6 +124,11 @@ Accuracy and throughput suites run on external tools —
 [`configs/LAYOUT.md`](configs/LAYOUT.md) is the single source of truth for which
 suites are wired to which tool.
 
+## NVIDIA campaign
+
+Campaign runbooks, envelope fields, baseline suites, and the relaxed verdict
+gate are described in [`docs/nvidia-campaign.md`](docs/nvidia-campaign.md).
+
 ## Benchmarking playbook
 
 To benchmark **any** model on either Apple Silicon host, follow

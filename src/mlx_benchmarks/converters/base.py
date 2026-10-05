@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from mlx_benchmarks.envelope import Envelope, Serving
+from mlx_benchmarks.envelope import Envelope, Result, Serving, System
 
 
 @dataclass(slots=True)
@@ -60,6 +61,34 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
     if ctx.serving is not None:
         envelope["serving"] = ctx.serving
     return envelope
+
+
+def simple_envelope(
+    ctx: ConverterContext,
+    results: list[Result],
+    errors: list[str] | None = None,
+    timestamp: str | None = None,
+) -> Envelope:
+    """Build an envelope around ``results`` for tools whose output carries no run metadata.
+
+    The hardware-baseline converters (fio, nvbandwidth, mbw, gpu-burn) differ only
+    in how they parse; the envelope around the rows is identical, so it lives here
+    once. ``timestamp`` is the tool's own start time when it prints one.
+    """
+    now = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    system: System = ctx.system or {}  # type: ignore[assignment]
+    envelope: Envelope = {
+        "schema_version": "1",
+        "timestamp": ctx.timestamp_override or timestamp or now,
+        "git_sha": ctx.git_sha,
+        "trigger": ctx.trigger,
+        "suite": ctx.suite,
+        "model": ctx.model,
+        "system": system,
+        "results": results,
+        "errors": errors or [],
+    }
+    return apply_optional_fields(envelope, ctx)
 
 
 def thinking_level(value: Any) -> str:

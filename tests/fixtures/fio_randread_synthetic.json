@@ -1,0 +1,84 @@
+{
+  "fio version": "fio-3.43",
+  "timestamp": 1791115200,
+  "time": "Sun Oct  4 12:00:00 2026",
+  "global options": {
+    "direct": "1"
+  },
+  "jobs": [
+    {
+      "jobname": "iops-test-job",
+      "groupid": 0,
+      "job options": {
+        "filename": "/dev/nvme0n1",
+        "direct": "1",
+        "rw": "randread",
+        "bs": "4k",
+        "ioengine": "libaio",
+        "iodepth": "256",
+        "runtime": "120",
+        "numjobs": "4",
+        "readonly": "1"
+      },
+      "read": {
+        "io_bytes": 2048000000,
+        "io_kbytes": 2000000,
+        "bw_bytes": 17066666,
+        "bw": 16666,
+        "iops": 4166.666666666667,
+        "runtime": 120000,
+        "total_ios": 500000,
+        "short_ios": 0,
+        "drop_ios": 0,
+        "slat_ns": {
+          "min": 0,
+          "max": 0,
+          "mean": 0.0,
+          "stddev": 0.0,
+          "N": 0
+        },
+        "clat_ns": {
+          "min": 90000,
+          "max": 9000000,
+          "mean": 2048000.0,
+          "stddev": 40000.0,
+          "N": 500000,
+          "percentile": {
+            "50.000000": 2048000,
+            "99.000000": 3195904,
+            "99.900000": 6391808
+          }
+        },
+        "lat_ns": {
+          "min": 90000,
+          "max": 9000000,
+          "mean": 2050000.0,
+          "stddev": 41000.0,
+          "N": 500000
+        }
+      },
+      "write": {
+        "io_bytes": 0,
+        "io_kbytes": 0,
+        "bw_bytes": 0,
+        "bw": 0,
+        "iops": 0.0,
+        "runtime": 0,
+        "total_ios": 0,
+        "short_ios": 0,
+        "drop_ios": 0
+      },
+      "trim": {
+        "io_bytes": 0,
+        "io_kbytes": 0,
+        "bw_bytes": 0,
+        "bw": 0,
+        "iops": 0.0,
+        "runtime": 0,
+        "total_ios": 0,
+        "short_ios": 0,
+        "drop_ios": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+# NVIDIA / vLLM serving-throughput runbook: concurrency x prompt-length matrix.
+#
+# Upstream tool: `vllm bench serve` (vLLM v0.30.0 was the latest release on
+# 2026-10-04; the standalone benchmark_serving.py is deprecated in its favour).
+# Its `--save-result` JSON carries the keys the existing `--kind vllm` converter
+# already reads, so this runbook needs no new code. GenAI-Perf is deliberately not
+# wired: NVIDIA states it is being phased out, and no converter exists for its export.
+#
+# Same shape as configs/llama-cpp/throughput.toml: this repo never starts a server.
+# Launch vLLM out-of-band, with prefix caching OFF and a window covering the longest
+# cell plus its output:
+#   vllm serve $MODEL --no-enable-prefix-caching --max-model-len $CONTEXT_LEN
+# 131072 prompt + 512 output tokens needs CONTEXT_LEN >= 131584; 139264 leaves headroom.
+# Prefix caching is a server setting this repo cannot observe, so it is declared with
+# `--tag prefix_caching=disabled` at publish. `--seed` also varies per repeat, so the
+# random prompts differ between the two halves of a pair even if caching were on.
+#
+# $VLLM_HOST is the server root with no path, e.g. "http://<gpu-host>:8000" (the
+# llama-cpp runbook's $LLAMA_CPP_HOST includes /v1; this one does not). Keep it an env
+# var: this file must carry no real hostname.
+#
+# System block: export the MLX_BENCH_GPU_* / ENGINE_* / POWER_LIMIT_W / CONTAINER
+# variables first (snippet in configs/LAYOUT.md) and publish from the GPU host, so
+# os/chip/memory_gb describe the machine that ran the benchmark.
+#
+# Metric notes (from the research behind this runbook): `vllm bench serve` reports TTFT,
+# TPOT, ITL, output-token and total-token throughput. It has no separate prefill tok/s;
+# [run.probe] below does (prefill_tok_s = prompt_tokens / ttft).
+
+# Documentation of the sweep, mirrored in [run]. Nothing reads this table.
+[matrix]
+prompt_tokens = [8192, 65536, 131072] # 8k / 64k / 128k
+concurrency = [1, 4, 8]
+output_tokens = 512
+repeats = 2 # a consecutive pair per cell (verdict-policy Gate 2); a divergent pair is discarded
+
+[run]
+# $NUM_PROMPTS: 4 x the largest concurrency (32) keeps every cell above one full wave.
+command = """
+for P in 8192 65536 131072; do
+  for C in 1 4 8; do
+    for REP in 1 2; do
+      vllm bench serve \
+        --base-url $VLLM_HOST \
+        --model $MODEL \
+        --dataset-name random \
+        --random-input-len $P \
+        --random-output-len 512 \
+        --ignore-eos \
+        --num-prompts $NUM_PROMPTS \
+        --max-concurrency $C \
+        --num-warmups 1 \
+        --seed $REP \
+        --save-result \
+        --result-dir run-output \
+        --result-filename vllm_${MODEL_SLUG}_p${P}_c${C}_r${REP}.json
+    done
+  done
+done
+"""
+
+[run.smoke]
+command = """
+vllm bench serve \
+  --base-url $VLLM_HOST \
+  --model $MODEL \
+  --dataset-name random \
+  --random-input-len 8192 \
+  --random-output-len 128 \
+  --ignore-eos \
+  --num-prompts 4 \
+  --max-concurrency 1 \
+  --num-warmups 1 \
+  --save-result \
+  --result-dir run-output \
+  --result-filename vllm_${MODEL_SLUG}_smoke.json
+"""
+
+# Cross-check and the only source of prefill tok/s: the in-repo probe speaks plain
+# OpenAI-compatible /v1/chat/completions, so it runs unchanged against vLLM. It
+# calibrates the prompt to an exact server-reported token count, varies the prompt per
+# repeat, and sends its concurrent phase as one burst of $C requests. Add --dedicated
+# only if this arm was the sole consumer of the endpoint.
+[run.probe]
+command = """
+uv run harness/throughput/run.py \
+  --base-url $VLLM_HOST/v1 \
+  --model $MODEL \
+  --target-prompt-tokens $P \
+  --window-limit-tokens $CONTEXT_LEN \
+  --max-tokens 512 \
+  --repeats 2 \
+  --concurrency $C \
+  --output run-output/probe_${MODEL_SLUG}_p${P}_c${C}.json
+"""
+
+# One call per cell and per repeat. Dry-run first (add --dry-run). The three sweep tags
+# are the schema's documented results[].tags keys; campaign/verdict_gate label the row as
+# part of the NVIDIA campaign's relaxed >=4-runs/>=5-days gate (docs/verdict-policy.md).
+# $ENV_CLASS is `isolated` or `under-load`.
+[publish]
+command = """
+mlx-bench-publish run-output/vllm_${MODEL_SLUG}_p${P}_c${C}_r${REP}.json \
+  --kind vllm --suite throughput --model $MODEL \
+  --env-class $ENV_CLASS --concurrency $C \
+  --serving-stack vllm --serving-model $MODEL \
+  --tag prompt_tokens=$P --tag concurrency=$C --tag context_len=$CONTEXT_LEN \
+  --tag num_prompts=$NUM_PROMPTS --tag prefix_caching=disabled \
+  --tag campaign=nvidia --tag verdict_gate=relaxed
+"""
+
+[publish.probe]
+command = """
+mlx-bench-publish run-output/probe_${MODEL_SLUG}_p${P}_c${C}.json \
+  --kind throughput-probe --suite throughput --model $MODEL \
+  --env-class $ENV_CLASS --concurrency $C \
+  --serving-stack vllm --serving-model $MODEL \
+  --tag prompt_tokens=$P --tag concurrency=$C --tag context_len=$CONTEXT_LEN \
+  --tag prefix_caching=disabled --tag campaign=nvidia --tag verdict_gate=relaxed
+"""

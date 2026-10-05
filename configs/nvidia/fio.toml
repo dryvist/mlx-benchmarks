@@ -1,0 +1,45 @@
+# fio storage baseline (suite: fio): what bounds model-weight load time.
+#
+# Upstream: fio (https://github.com/axboe/fio; 3.43 was the latest release on
+# 2026-10-04). Both profiles add `--output-format=json --output=FILE`, which is what
+# src/mlx_benchmarks/converters/fio.py (--kind fio) parses: per job and per direction
+# that moved data, bandwidth (MiB/s), IOPS and p99 completion latency (ms). Job options
+# worth comparing (rw, bs, iodepth, numjobs, ioengine) become tags; paths never do.
+#
+# Profiles are the documented vendor examples, kept as written except for the JSON
+# output flags and the parameterised target:
+#   randread  4k random read, queue depth 256, 4 jobs, 120 s, against a raw NVMe device.
+#             `--readonly` makes fio refuse any write, so it is safe on a live device.
+#   seqread   1M sequential read, 8 jobs, 60 s, against a directory (e.g. a network mount).
+#             fio LAYS OUT the test files before reading them: with --filesize=10G and
+#             --numjobs=8 that is 80 GiB written into the directory. Point it at a scratch
+#             directory, never at the model store, and delete the files afterwards.
+#
+# A hardware baseline has no model: publish with --model hardware-baseline, from the
+# host that ran it. $FIO_DEVICE is a block device such as /dev/nvme0n1; $FIO_SCRATCH_DIR
+# is the scratch directory.
+
+[run.randread]
+command = """
+fio --filename=$FIO_DEVICE --direct=1 --rw=randread --bs=4k --ioengine=libaio \
+  --iodepth=256 --runtime=120 --numjobs=4 --time_based --group_reporting \
+  --name=iops-test-job --readonly \
+  --output-format=json --output=run-output/fio_${HOST_SLUG}-randread.json
+"""
+
+[run.seqread]
+command = """
+fio --name=seq_read_bw --ioengine=libaio --directory=$FIO_SCRATCH_DIR --direct=1 \
+  --blocksize=1M --readwrite=read --filesize=10G --numjobs=8 --iodepth=1024 \
+  --runtime=60 --group_reporting --time_based=1 \
+  --output-format=json --output=run-output/fio_${HOST_SLUG}-seqread.json
+"""
+
+# Dry-run first (add --dry-run). Repeat for the seqread JSON with --tag profile=seqread.
+[publish]
+command = """
+mlx-bench-publish run-output/fio_${HOST_SLUG}-randread.json \
+  --kind fio --suite fio --model hardware-baseline \
+  --env-class isolated \
+  --tag profile=randread --tag campaign=nvidia
+"""

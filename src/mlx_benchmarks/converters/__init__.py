@@ -6,7 +6,11 @@ from mlx_benchmarks.converters.base import Converter, ConverterContext
 from mlx_benchmarks.converters.bench_serve import BenchServeConverter
 from mlx_benchmarks.converters.coding_replay import CodingReplayConverter
 from mlx_benchmarks.converters.factual import FactualConverter
+from mlx_benchmarks.converters.fio import FioConverter
+from mlx_benchmarks.converters.gpu_burn import GpuBurnConverter
 from mlx_benchmarks.converters.lm_eval import LmEvalConverter
+from mlx_benchmarks.converters.mbw import MbwConverter
+from mlx_benchmarks.converters.nvbandwidth import NvbandwidthConverter
 from mlx_benchmarks.converters.promptstack import PromptstackConverter
 from mlx_benchmarks.converters.throughput_probe import ThroughputProbeConverter
 from mlx_benchmarks.converters.vllm import VllmConverter
@@ -19,7 +23,11 @@ __all__ = [
     "Converter",
     "ConverterContext",
     "FactualConverter",
+    "FioConverter",
+    "GpuBurnConverter",
     "LmEvalConverter",
+    "MbwConverter",
+    "NvbandwidthConverter",
     "PromptstackConverter",
     "ThroughputProbeConverter",
     "VllmConverter",
@@ -39,7 +47,11 @@ def get_converter(kind: str) -> Converter:
         "bench-serve": BenchServeConverter,
         "coding-replay": CodingReplayConverter,
         "factual": FactualConverter,
+        "fio": FioConverter,
+        "gpu-burn": GpuBurnConverter,
         "lm-eval": LmEvalConverter,
+        "mbw": MbwConverter,
+        "nvbandwidth": NvbandwidthConverter,
         "promptstack": PromptstackConverter,
         "throughput-probe": ThroughputProbeConverter,
         "vllm": VllmConverter,
