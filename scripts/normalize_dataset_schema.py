@@ -5,29 +5,17 @@ from __future__ import annotations
 import argparse
 import io
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 from huggingface_hub import CommitOperationAdd, HfApi
 
 from mlx_benchmarks.dataset_schema import PARQUET_ROW_SCHEMA, normalize_legacy_rows
+from mlx_benchmarks.publish import canonical_shard_path
 
 DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
 DATASET_CARD_PATH = Path("dataset-card/README.md")
-
-
-def canonical_path(source_path: str) -> str:
-    """Return the immutable mirror path for an original dataset shard."""
-    filename = PurePosixPath(source_path).name
-    if (
-        not source_path.startswith("data/")
-        or "/" in source_path.removeprefix("data/")
-        or not filename.endswith(".parquet")
-        or filename.startswith("run-canonical-")
-    ):
-        raise ValueError(f"not an original run shard: {source_path}")
-    return f"data/run-canonical-{filename}"
 
 
 def normalize_legacy_table(table: pa.Table) -> pa.Table:
@@ -72,7 +60,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     canonical_to_add = 0
     for source_path in originals:
         source = _read_table(api, repo_id, source_path)
-        target_path = canonical_path(source_path)
+        target_path = canonical_shard_path(source_path)
         source_rows += source.num_rows
         normalized = normalize_legacy_table(source)
         if normalized.num_rows != source.num_rows:

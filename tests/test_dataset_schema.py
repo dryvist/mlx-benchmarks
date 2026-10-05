@@ -3,16 +3,8 @@ from __future__ import annotations
 import json
 
 import pyarrow as pa
-from scripts.normalize_dataset_schema import canonical_path
 
 from mlx_benchmarks.dataset_schema import PARQUET_ROW_SCHEMA, normalize_legacy_rows
-
-
-def test_canonical_path_covers_run_and_aggregate_shards() -> None:
-    assert canonical_path("data/run-2026-07-01.parquet") == "data/run-canonical-run-2026-07-01.parquet"
-    assert canonical_path("data/train-00000-of-00001.parquet") == (
-        "data/run-canonical-train-00000-of-00001.parquet"
-    )
 
 
 def test_historical_row_variants_normalize_to_one_schema() -> None:

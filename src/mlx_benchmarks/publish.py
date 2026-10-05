@@ -132,6 +132,19 @@ def rows_to_parquet(rows: list[dict[str, Any]]) -> bytes:
     return buf.getvalue()
 
 
+def canonical_shard_path(source_path: str) -> str:
+    """Return the immutable normalized path for a top-level dataset shard."""
+    filename = PurePosixPath(source_path).name
+    if (
+        not source_path.startswith("data/")
+        or "/" in source_path.removeprefix("data/")
+        or not filename.endswith(".parquet")
+        or filename.startswith("run-canonical-")
+    ):
+        raise ValueError(f"not an original dataset shard: {source_path}")
+    return f"data/run-canonical-{filename}"
+
+
 def target_path(envelope: Envelope, payload: bytes | None = None) -> str:
     """Deterministic HF-dataset path for this envelope.
 

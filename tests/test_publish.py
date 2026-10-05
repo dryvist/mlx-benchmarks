@@ -10,6 +10,7 @@ from mlx_benchmarks.dataset_schema import PARQUET_ROW_SCHEMA
 from mlx_benchmarks.envelope import EnvelopeValidationError
 from mlx_benchmarks.publish import (
     PublishError,
+    canonical_shard_path,
     envelope_to_rows,
     publish,
     rows_to_parquet,
@@ -32,6 +33,15 @@ def test_target_path_format(valid_envelope: dict) -> None:
     # Contains git_sha and suite
     assert valid_envelope["git_sha"] in path
     assert valid_envelope["suite"] in path
+
+
+def test_canonical_shard_path_covers_run_and_aggregate_files() -> None:
+    assert canonical_shard_path("data/run-2026-07-01.parquet") == (
+        "data/run-canonical-run-2026-07-01.parquet"
+    )
+    assert canonical_shard_path("data/train-00000-of-00001.parquet") == (
+        "data/run-canonical-train-00000-of-00001.parquet"
+    )
 
 
 def test_target_path_includes_payload_hash(valid_envelope: dict) -> None:
