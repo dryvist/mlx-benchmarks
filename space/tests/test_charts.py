@@ -45,6 +45,16 @@ def _sample_df() -> pd.DataFrame:
     return df
 
 
+def test_canonical_paths_resolve_to_original_run_index_paths() -> None:
+    base = f"hf://{app.DATASET}/"
+    assert app._dataset_path(f"{base}data/run-canonical-run-2026-07-01.parquet") == (
+        "data/run-2026-07-01.parquet"
+    )
+    assert app._dataset_path(f"{base}data/run-canonical-train-00000-of-00001.parquet") == (
+        "data/train-00000-of-00001.parquet"
+    )
+
+
 def test_empty_data_returns_annotated_figure() -> None:
     fig = app.bar_chart(app.empty_data(), "reasoning", "gsm8k_cot_zeroshot", "exact_match_flexible")
     assert isinstance(fig, go.Figure)

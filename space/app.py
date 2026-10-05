@@ -39,8 +39,12 @@ def empty_data() -> pd.DataFrame:
 
 
 def _dataset_path(uri: str) -> str:
-    """Turn an HF URI back into its dataset-relative path."""
-    return uri.removeprefix(f"hf://{DATASET}/")
+    """Return the original shard path represented by a canonical HF URI."""
+    path = uri.removeprefix(f"hf://{DATASET}/")
+    canonical_prefix = "data/run-canonical-"
+    if path.startswith(canonical_prefix):
+        return f"data/{path.removeprefix(canonical_prefix)}"
+    return path
 
 
 def load_run_index(fs: HfFileSystem) -> tuple[dict[str, dict[str, object]], pd.Timestamp | None]:
