@@ -18,11 +18,14 @@ from huggingface_hub import CommitOperationAdd, HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
 from mlx_benchmarks.dataset_schema import (
+    CAMPAIGN_DIMENSION_JSON_FIELDS,
+    CAMPAIGN_DIMENSION_TYPES,
     JSON_STRING_COLUMNS,
     OPTIONAL_RESULT_COLUMNS,
     PARQUET_ROW_SCHEMA,
     SYSTEM_COLUMNS,
     TAG_KEYS,
+    campaign_dimension_column,
     empty_parquet_row,
 )
 from mlx_benchmarks.envelope import Envelope, validate_envelope
@@ -85,6 +88,18 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     # Dynamic-key access over a plain mapping view — these optional top-level
     # scalars are copied through verbatim; envelope is a JSON object at runtime.
     env_map = cast("dict[str, Any]", envelope)
+    campaign_dimensions = env_map.get("campaign_dimensions") or {}
+    for category, fields in CAMPAIGN_DIMENSION_TYPES.items():
+        values = campaign_dimensions.get(category) or {}
+        for field in fields:
+            value = values.get(field)
+            if value is not None and (category, field) in CAMPAIGN_DIMENSION_JSON_FIELDS:
+                value = json.dumps(value, sort_keys=True)
+            base[campaign_dimension_column(category, field)] = value
+    base["campaign_dimension_null_reasons_json"] = json.dumps(
+        env_map.get("dimension_null_reasons") or {}, sort_keys=True
+    )
+
     for key in (
         "model_revision",
         "quantization",
