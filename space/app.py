@@ -446,31 +446,18 @@ def add_evidence_metadata(
         return f"{joined}|{efforts.iloc[position] or 'unstated'}"
 
     df["series_key"] = [comparison_key(position, row) for position, (_, row) in enumerate(df.iterrows())]
-    df["series_label"] = df.apply(
-        lambda row: (
-            " / ".join(
-                value
-                for value in (
-                    _clean_value(row.get("model_short")),
-                    _clean_value(row.get("machine")),
-                    _clean_value(row.get("accelerator")),
-                    "/".join(
-                        value
-                        for value in (
-                            _clean_value(row.get("engine"), ("engine", "name", "runtime")),
-                            _clean_value(row.get("backend"), ("backend", "name")),
-                        )
-                        if value
-                    )
-                    or None,
-                    _clean_value(row.get("quant_format")),
-                )
-                if value
-            )
-            or "Benchmark run"
-        ),
-        axis="columns",
-    )
+
+    def series_label(row: pd.Series) -> str:
+        model = _clean_value(row.get("model_short"))
+        machine = _clean_value(row.get("machine")) or _clean_value(row.get("accelerator"))
+        parts = list(dict.fromkeys(value for value in (model, machine) if value))
+        label = " / ".join(parts) or "Benchmark run"
+        timestamp = pd.to_datetime(row.get("timestamp"), utc=True, errors="coerce")
+        if pd.notna(timestamp):
+            label += f" ({timestamp:%Y-%m-%d})"
+        return label
+
+    df["series_label"] = df.apply(series_label, axis="columns")
     return df
 
 
@@ -697,30 +684,13 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
     if df.empty:
         return {}
     latest = df.sort_values("timestamp").drop_duplicates("series_key", keep="last")
-    duplicates = latest["series_label"].value_counts()
-    labels = {}
-    for row in latest.itertuples(index=False):
-        label = row.series_label or "Benchmark run"
-        if duplicates.get(label, 0) > 1:
-            suffixes = []
-            for name, label_part in (
-                ("context_tokens", "context"),
-                ("prompt_tokens", "prompt"),
-                ("output_budget_tokens", "output"),
-            ):
-                value = format_tokens(getattr(row, name, None))
-                if value is not None:
-                    suffixes.append(f"{label_part} {value} tokens")
-            suffix = ", ".join(suffixes) or pd.Timestamp(row.timestamp).strftime("%Y-%m-%d")
-            label = f"{label} ({suffix})"
-        labels[row.series_key] = label
+    labels = {row.series_key: row.series_label or "Benchmark run" for row in latest.itertuples(index=False)}
     grouped = {}
     for key, label in labels.items():
         grouped.setdefault(label, []).append(key)
     for label, keys in grouped.items():
-        if len(keys) > 1:
-            for number, key in enumerate(sorted(keys), start=1):
-                labels[key] = f"{label} (run {number})"
+        for number, key in enumerate(sorted(keys), start=1):
+            labels[key] = f"{label} (run {number})"
     return labels
 
 

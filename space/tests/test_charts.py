@@ -269,12 +269,29 @@ def test_incomplete_workload_rows_remain_distinct_and_labels_hide_placeholders()
     assert "unspecified" not in label.casefold()
     assert "{" not in label
     assert "Machine A" in label
-    assert "Accelerator A" in label
-    assert "MLX/Metal" in label
-    assert "4-bit" in label
+    assert "Accelerator A" not in label
+    assert "Metal" not in label
     visible_labels = app.series_labels(rows)
     assert len(set(visible_labels.values())) == len(rows)
     assert all("(run " in value for value in visible_labels.values())
+
+
+def test_viewer_labels_show_matching_machine_and_accelerator_once_with_date_and_run() -> None:
+    raw = _workload_rows()
+    raw["hostname"] = "Apple M4 Max"
+    raw["chip"] = "Apple M4 Max"
+    rows = app.add_evidence_metadata(raw, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
+
+    labels = app.series_labels(rows)
+
+    assert set(labels.values()) == {
+        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 1)",
+        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 2)",
+    }
+    assert all(label.count("Apple M4 Max") == 1 for label in labels.values())
+    assert list(app.series_labels(rows.iloc[[0]]).values()) == [
+        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 1)"
+    ]
 
 
 def test_cascade_options_are_only_row_backed_and_summary_uses_task_and_unit() -> None:
