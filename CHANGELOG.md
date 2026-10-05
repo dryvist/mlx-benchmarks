@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.2...v0.29.3) (2026-10-05)
+
+
+### Bug Fixes
+
+* **dataset:** map published_from machine identities ([#280](https://github.com/dryvist/mlx-benchmarks/issues/280)) ([4b773ce](https://github.com/dryvist/mlx-benchmarks/commit/4b773cecdb39dc823943360126876d1ab5d30706))
+
 ## [0.29.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.1...v0.29.2) (2026-10-05)
 
 
