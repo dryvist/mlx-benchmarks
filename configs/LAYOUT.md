@@ -1,8 +1,12 @@
 # configs/ layout
 
-One TOML file per `(upstream-tool, suite)` pair. These are **runbooks**: they
-record the task list and tool-native options for a suite. No file here is read
-by in-repo code — they document *what to run* so a run is reproducible.
+One TOML file per `(upstream-tool, suite)` pair. Most files are documentation
+runbooks that record the task list and tool-native options. The four
+`cross-card` / `quick-intelligence` campaign files below are structured recipes
+for the external Ansible consumer. They are not executable in this repository:
+the TOML reader/dispatcher lives separately and uses `community.general.from_toml`
+to parse a selected allow-listed file, validate survey values against inventory
+and the model registry, then dispatch its argv entries.
 
 ## Layout (as shipped)
 
@@ -13,15 +17,19 @@ configs/
 │   ├── reasoning.toml        # arc_challenge_chat (quick) / gsm8k (canonical)
 │   ├── coding.toml           # humaneval, mbpp
 │   ├── math-hard.toml        # minerva_math500
+│   ├── quick-intelligence.toml # registry-selected arc_challenge_chat quick pass
 │   └── qwen3-tasks/          # optional <think>-stripping overlay (see below)
 ├── vllm/
-│   └── benchmark_serving.toml # vllm throughput cross-check; no local install
+│   ├── benchmark_serving.toml # vllm throughput cross-check; no local install
+│   └── cross-card.toml       # declarative vllm bench serve matrix
 ├── agentic/
 │   └── tool-calling.toml     # in-repo runner: harness/agentic/run.py
 ├── llama-cpp/
-│   └── throughput.toml       # in-repo runner: harness/throughput/run.py,
-│                             # pointed at an llm-4080 llama.cpp/Vulkan guest;
+│   ├── throughput.toml       # historical OpenAI-compatible serving recipe;
 │                             # draft-model A/B sweep for speculative decoding
+│   └── cross-card.toml       # llama-bench and batched-bench diagnostics + probe envelope
+├── mlx/
+│   └── cross-card.toml       # mlx_lm.benchmark diagnostics + throughput-probe envelope
 ├── nvidia/                   # NVIDIA/CUDA campaign; see "NVIDIA hosts" below
 │   ├── throughput.toml       # `vllm bench serve`, 1/4/8 concurrent x 8k/64k/128k
 │   │                         # prompts -> existing --kind vllm converter
@@ -58,8 +66,8 @@ next sweep does not re-litigate the same rejections.
 
 ## Where the run command lives (single source of truth)
 
-The canonical way to run these suites is the thin `uvx` wrappers in the serving
-stack (nix-ai `modules/mlx/packages.nix`), **not** a script in this repo:
+The existing MLX suites use the thin `uvx` wrappers in the serving stack
+(`modules/mlx/packages.nix`), **not** a script in this repo:
 
 - `mlx-eval <tasks…>` — lm-eval against the live vllm-mlx server. It owns the
   connection args: `base_url`, `max_length=32768`, `num_concurrent`
@@ -85,8 +93,26 @@ stack (nix-ai `modules/mlx/packages.nix`), **not** a script in this repo:
   Confirm which backend a host runs before planning a throughput suite.
 - `mlx-wait` — health-gate the server before a run.
 
-This repo owns only the step *after* a run: convert the tool's JSON to envelope
-v1 and publish it (`mlx-bench-publish`). See the top-level
+The parameterized campaign TOMLs are inputs for a separate Ansible playbook
+that uses `community.general.from_toml` and argv-based command dispatch; this
+repository has no current TOML-to-argv runner. The external consumer's checkout
+path is supplied by its controller. `config_name` is an allow-listed recipe selector.
+The six survey values (`machine`, `engine`, `model_size`, `concurrency_list`,
+`context_list`, `power_cap_w`) are runtime inputs validated by that consumer.
+Recipes are machine-neutral: the target and cap are resolved from inventory,
+and model size resolves through the model registry. No host, endpoint, model ID,
+artifact location, or numeric power cap belongs in these files. The
+`power_cap_w = "inventory"` field is a validation instruction only; the
+consumer records an inventory-derived numeric cap when present and omits the
+envelope field when the target has no cap.
+
+The repo owns conversion after a supported run: `vllm bench serve` output uses
+the existing `--kind vllm` converter; the OpenAI-compatible
+`harness/throughput/run.py` output uses `--kind throughput-probe`; and lm-eval
+JSON uses `--kind lm-eval`. `llama-bench -o json` and
+`mlx_lm.benchmark` produce raw stdout diagnostics only; no existing converter
+accepts either format. The campaign recipes do not claim those native outputs
+as envelope data. See the top-level
 [README](../README.md) → "Run + publish a benchmark".
 
 ## qwen3-tasks overlay (the coding default)
@@ -103,9 +129,16 @@ as an extraction artifact. Reserve the plain tasks for completion-style
 
 ## TOML shape
 
-Keep configs declarative and tool-native. The runner injects per-invocation
-values (`model`, output paths); the converter maps the tool's JSON to
-[`schema.json`](../schema.json).
+Keep configs declarative and tool-native. Campaign entries use `[[run]]` tables
+with `executable`, `argv`, `dimensions`, `repetitions`, and the symbolic
+`artifact_id = "selected_model"`. The consumer supplies the selected registry
+artifact, endpoint, repetition number, and output paths. `run_on` is either
+`benchmark_target` (native tools and the vLLM client) or `controller` (tools
+that require the pinned benchmark checkout). Converter metadata also names its
+controller execution location. Argv contains no shell commands. Only runs with
+an existing compatible converter declare converter metadata. Raw stdout
+diagnostics set `capture_stdout = true` and omit converter metadata; the
+consumer captures and fetches them as supplemental files.
 
 ## NVIDIA hosts (`configs/nvidia/`)
 

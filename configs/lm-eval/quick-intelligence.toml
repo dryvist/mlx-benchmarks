@@ -1,0 +1,28 @@
+# Fast ARC-Challenge chat evaluation; the survey selects the serving target and
+# registry model. `context_list` maps to the server-side max_length setting.
+config_name = "lm-eval/quick-intelligence"
+engines = ["llama_cpp", "vllm", "mlx_lm"]
+concurrency_list = [1, 4]
+context_list = [32768]
+power_cap_w = "inventory"
+
+[[run]]
+name = "arc-challenge-quick"
+executable = "lm_eval"
+argv = [
+  "--model", "local-chat-completions",
+  "--model_args", "base_url={{ benchmark_endpoint }}/chat/completions,model={{ model_id }},max_length={{ context }},num_concurrent={{ concurrency }},timeout=3600",
+  "--tasks", "arc_challenge_chat",
+  "--batch_size", "1",
+  "--num_fewshot", "0",
+  "--limit", "15",
+  "--apply_chat_template",
+  "--fewshot_as_multiturn",
+  "--log_samples",
+  "--output_path", "{{ output_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+converter = { executable = "mlx-bench-publish", kind = "lm-eval", suite = "reasoning", run_on = "controller" }

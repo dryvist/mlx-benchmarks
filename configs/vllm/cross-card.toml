@@ -1,0 +1,34 @@
+# Machine-neutral vLLM serving comparison recipe.
+# The Ansible consumer resolves the target, registry model, and inventory cap.
+# Prompt length is varied by context_list; each concurrency/context cell is a
+# paired run with distinct vLLM seeds and result files.
+config_name = "vllm/cross-card"
+engines = ["vllm"]
+concurrency_list = [1, 4, 8]
+context_list = [8192, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "serving-throughput-envelope"
+executable = "vllm"
+argv = [
+  "bench", "serve",
+  "--base-url", "{{ benchmark_endpoint_root }}",
+  "--model", "{{ model_id }}",
+  "--dataset-name", "random",
+  "--random-input-len", "{{ context }}",
+  "--random-output-len", "512",
+  "--ignore-eos",
+  "--num-prompts", "32",
+  "--max-concurrency", "{{ concurrency }}",
+  "--num-warmups", "1",
+  "--seed", "{{ repetition }}",
+  "--save-result",
+  "--result-dir", "{{ result_dir }}",
+  "--result-filename", "{{ result_filename }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+converter = { executable = "mlx-bench-publish", kind = "vllm", suite = "throughput", run_on = "controller" }

@@ -1,0 +1,58 @@
+# Machine-neutral llama.cpp comparison recipe.
+# The Ansible consumer resolves the target, model artifact, endpoint, and cap.
+# `context_list` is the prompt-token axis; `concurrency_list` also drives the
+# batched diagnostic and OpenAI-compatible serving probe. Native output is diagnostic.
+config_name = "llama-cpp/cross-card"
+engines = ["llama_cpp"]
+concurrency_list = [1, 4, 8]
+context_list = [8192, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "native-diagnostic"
+executable = "llama-bench"
+argv = ["-m", "{{ artifact_path }}", "-p", "{{ context }}", "-n", "128", "-r", "1", "-ngl", "999", "-o", "json"]
+dimensions = ["context_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+
+[[run]]
+name = "native-batched-diagnostic"
+executable = "llama-batched-bench"
+argv = [
+  "-m", "{{ artifact_path }}",
+  "-c", "132096",
+  "-b", "2048",
+  "-ub", "512",
+  "-npp", "{{ context }}",
+  "-ntg", "128",
+  "-npl", "{{ concurrency }}",
+  "-pps",
+  "-ngl", "999",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+
+[[run]]
+name = "serving-throughput-envelope"
+executable = "uv"
+argv = [
+  "run", "harness/throughput/run.py",
+  "--base-url", "{{ benchmark_endpoint }}",
+  "--model", "{{ model_id }}",
+  "--target-prompt-tokens", "{{ context }}",
+  "--max-tokens", "128",
+  "--repeats", "1",
+  "--concurrency", "{{ concurrency }}",
+  "--output", "{{ result_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "controller"
+converter = { executable = "mlx-bench-publish", kind = "throughput-probe", suite = "throughput", run_on = "controller" }

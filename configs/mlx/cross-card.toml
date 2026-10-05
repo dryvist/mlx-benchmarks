@@ -1,0 +1,43 @@
+# Machine-neutral MLX comparison recipe.
+# mlx_lm.benchmark produces native diagnostic stdout, not converter input.
+# The envelope run measures the selected OpenAI-compatible serving endpoint.
+config_name = "mlx/cross-card"
+engines = ["mlx_lm"]
+concurrency_list = [1, 4, 8]
+context_list = [8192, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "native-diagnostic"
+executable = "python"
+argv = [
+  "-m", "mlx_lm.benchmark",
+  "--model", "{{ artifact_path }}",
+  "--prompt-tokens", "{{ context }}",
+  "--generation-tokens", "128",
+  "--num-trials", "1",
+]
+dimensions = ["context_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+
+[[run]]
+name = "serving-throughput-envelope"
+executable = "uv"
+argv = [
+  "run", "harness/throughput/run.py",
+  "--base-url", "{{ benchmark_endpoint }}",
+  "--model", "{{ model_id }}",
+  "--target-prompt-tokens", "{{ context }}",
+  "--max-tokens", "128",
+  "--repeats", "1",
+  "--concurrency", "{{ concurrency }}",
+  "--output", "{{ result_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 2
+artifact_id = "selected_model"
+run_on = "controller"
+converter = { executable = "mlx-bench-publish", kind = "throughput-probe", suite = "throughput", run_on = "controller" }
