@@ -143,6 +143,160 @@ SYSTEM_COLUMNS = (
     "topology",
 )
 
+CAMPAIGN_DIMENSION_TYPES = {
+    "hardware": {
+        "machine": pa.string(),
+        "accelerator_model": pa.string(),
+        "accelerator_memory_gb": pa.float64(),
+        "memory_bandwidth_gbps": pa.float64(),
+        "host_cpu": pa.string(),
+        "host_ram_gb": pa.float64(),
+        "host_ram_speed_mts": pa.float64(),
+        "pcie_generation": pa.float64(),
+        "pcie_width_lanes": pa.int64(),
+        "power_cap_w": pa.float64(),
+        "ups_circuit": pa.string(),
+        "chassis_container": pa.string(),
+    },
+    "software": {
+        "operating_system": pa.string(),
+        "kernel": pa.string(),
+        "driver_version": pa.string(),
+        "accelerator_runtime": pa.string(),
+        "engine": pa.string(),
+        "engine_version": pa.string(),
+        "engine_commit": pa.string(),
+        "backend": pa.string(),
+        "gpu_architectures": pa.string(),
+        "build_flags": pa.string(),
+        "flash_attention": pa.bool_(),
+    },
+    "model": {
+        "family": pa.string(),
+        "id": pa.string(),
+        "hf_repo": pa.string(),
+        "revision_sha": pa.string(),
+        "total_parameters": pa.int64(),
+        "active_parameters": pa.int64(),
+        "architecture": pa.string(),
+        "experts_total": pa.int64(),
+        "experts_active": pa.int64(),
+        "quantization": pa.string(),
+        "bits_per_weight": pa.float64(),
+        "file_size_gb": pa.float64(),
+        "license": pa.string(),
+        "native_max_context_tokens": pa.int64(),
+        "file_sha256": pa.string(),
+    },
+    "run": {
+        "allocated_context_tokens": pa.int64(),
+        "kv_cache_dtype": pa.string(),
+        "prompt_tokens": pa.int64(),
+        "depth_tokens": pa.int64(),
+        "output_tokens": pa.int64(),
+        "concurrent_agents": pa.int64(),
+        "batch_size": pa.int64(),
+        "ubatch_size": pa.int64(),
+        "parallel_slots": pa.int64(),
+        "prefix_cache": pa.bool_(),
+        "speculative_mtp": pa.bool_(),
+        "draft_model": pa.string(),
+        "temperature": pa.float64(),
+        "thinking": pa.bool_(),
+        "chat_template": pa.string(),
+        "seed": pa.int64(),
+        "repeats": pa.int64(),
+        "warm_cold": pa.string(),
+    },
+    "speed": {
+        "ttft_p50_ms": pa.float64(),
+        "ttft_p90_ms": pa.float64(),
+        "ttft_p99_ms": pa.float64(),
+        "prefill_tokens_per_second": pa.float64(),
+        "decode_tokens_per_second_per_agent": pa.float64(),
+        "aggregate_output_tokens_per_second": pa.float64(),
+        "total_tokens_per_second": pa.float64(),
+        "tpot_ms": pa.float64(),
+        "itl_p50_ms": pa.float64(),
+        "itl_p99_ms": pa.float64(),
+        "mtp_acceptance_rate": pa.float64(),
+        "request_success_rate": pa.float64(),
+    },
+    "resource": {
+        "accelerator_memory_peak_gb": pa.float64(),
+        "host_ram_peak_gb": pa.float64(),
+        "cpu_offload_layers": pa.int64(),
+        "gpu_utilization_avg_percent": pa.float64(),
+        "gpu_utilization_max_percent": pa.float64(),
+        "cpu_performance_utilization_avg_percent": pa.float64(),
+        "cpu_efficiency_utilization_avg_percent": pa.float64(),
+        "power_avg_w": pa.float64(),
+        "power_max_w": pa.float64(),
+        "system_power_avg_w": pa.float64(),
+        "system_power_max_w": pa.float64(),
+        "soc_power_avg_w": pa.float64(),
+        "soc_power_max_w": pa.float64(),
+        "cpu_power_avg_w": pa.float64(),
+        "cpu_power_max_w": pa.float64(),
+        "memory_power_avg_w": pa.float64(),
+        "memory_power_max_w": pa.float64(),
+        "accelerator_memory_power_avg_w": pa.float64(),
+        "accelerator_memory_power_max_w": pa.float64(),
+        "ane_power_avg_w": pa.float64(),
+        "ane_power_max_w": pa.float64(),
+        "energy_j_per_output_token": pa.float64(),
+        "tokens_per_second_per_watt": pa.float64(),
+        "temperature_max_c": pa.float64(),
+        "average_clocks_mhz": pa.float64(),
+        "cpu_performance_clock_avg_mhz": pa.float64(),
+        "cpu_efficiency_clock_avg_mhz": pa.float64(),
+        "throttle_reasons": pa.string(),
+        "fan_percent": pa.float64(),
+    },
+    "quality": {
+        "benchmark_name": pa.string(),
+        "benchmark_version": pa.string(),
+        "subset": pa.string(),
+        "sample_count": pa.int64(),
+        "score": pa.float64(),
+        "standard_error": pa.float64(),
+        "confidence_interval_low": pa.float64(),
+        "confidence_interval_high": pa.float64(),
+        "judge_model": pa.string(),
+        "contamination_note": pa.string(),
+    },
+    "provenance": {
+        "timestamp_utc": pa.string(),
+        "run_id": pa.string(),
+        "config_name": pa.string(),
+        "config_git_sha": pa.string(),
+        "operator_agent": pa.string(),
+        "raw_output_path": pa.string(),
+        "schema_version": pa.string(),
+    },
+    "cost": {
+        "kwh_per_million_output_tokens": pa.float64(),
+        "local_electricity_usd_per_million_tokens": pa.float64(),
+        "median_rental_usd_per_million_tokens": pa.float64(),
+        "median_api_usd_per_million_tokens": pa.float64(),
+    },
+}
+
+CAMPAIGN_DIMENSION_JSON_FIELDS = frozenset(
+    {
+        ("software", "gpu_architectures"),
+        ("software", "build_flags"),
+        ("resource", "throttle_reasons"),
+    }
+)
+
+
+def campaign_dimension_column(category: str, field: str) -> str:
+    """Return the fixed Parquet column name for one campaign dimension."""
+    suffix = "_json" if (category, field) in CAMPAIGN_DIMENSION_JSON_FIELDS else ""
+    return f"campaign_{category}_{field}{suffix}"
+
+
 JSON_STRING_COLUMNS = frozenset({"serving", "gpu", "engine", "container", "topology"})
 
 PARQUET_ROW_SCHEMA = pa.schema(
@@ -176,6 +330,12 @@ PARQUET_ROW_SCHEMA = pa.schema(
         ("container", pa.string()),
         ("topology", pa.string()),
         ("system_extra", pa.string()),
+        *[
+            (campaign_dimension_column(category, field), column_type)
+            for category, fields in CAMPAIGN_DIMENSION_TYPES.items()
+            for field, column_type in fields.items()
+        ],
+        ("campaign_dimension_null_reasons_json", pa.string()),
         ("name", pa.string()),
         ("metric", pa.string()),
         ("value", pa.float64()),
@@ -241,3 +401,20 @@ def normalize_legacy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         row["extra_json"] = json.dumps(extras, sort_keys=True, default=str)
         normalized_rows.append(row)
     return normalized_rows
+
+
+def canonical_shard_needs_refresh(existing: pa.Table, expected: pa.Table) -> bool:
+    """Check whether a canonical shard needs a safe schema-only refresh."""
+    if not expected.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+        raise ValueError("expected table does not use the canonical schema")
+    if existing.num_rows != expected.num_rows:
+        raise RuntimeError("canonical shard row count differs from its source")
+    if existing.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+        if existing.to_pylist() != expected.to_pylist():
+            raise RuntimeError("canonical shard differs from its normalized source")
+        return False
+
+    refreshed = pa.Table.from_pylist(normalize_legacy_rows(existing.to_pylist()), schema=PARQUET_ROW_SCHEMA)
+    if refreshed.to_pylist() != expected.to_pylist():
+        raise RuntimeError("older canonical shard data differs from its normalized source")
+    return True

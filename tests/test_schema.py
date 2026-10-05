@@ -5,6 +5,11 @@ from __future__ import annotations
 import pytest
 from jsonschema import Draft7Validator
 
+from mlx_benchmarks.dataset_schema import (
+    CAMPAIGN_DIMENSION_TYPES,
+    PARQUET_ROW_SCHEMA,
+    campaign_dimension_column,
+)
 from mlx_benchmarks.envelope import (
     EnvelopeValidationError,
     load_schema,
@@ -24,6 +29,10 @@ def test_schema_declares_id_and_examples() -> None:
 
 def test_valid_envelope_passes(valid_envelope: dict) -> None:
     validate_envelope(valid_envelope)
+
+
+def test_unknown_runtime_git_sha_can_be_null(valid_envelope: dict) -> None:
+    validate_envelope({**valid_envelope, "git_sha": None})
 
 
 def test_invalid_envelope_fails(invalid_envelope: dict) -> None:
@@ -50,6 +59,60 @@ def test_new_optional_top_level_fields_validate(valid_envelope: dict) -> None:
         "serving": {"stack": "vllm-mlx", "endpoint_port": 8000, "served_model": "m"},
     }
     validate_envelope(env)
+
+
+def test_campaign_dimensions_are_optional_and_accept_explicit_nulls(valid_envelope: dict) -> None:
+    # Legacy envelopes remain valid without campaign-specific dimensions.
+    validate_envelope(valid_envelope)
+
+    env = {
+        **valid_envelope,
+        "campaign_dimensions": {
+            "hardware": {"machine": "Mac Studio", "pcie_generation": None},
+            "software": {
+                "backend": "Metal",
+                "gpu_architectures": None,
+                "build_flags": {"ENABLE_METAL": True},
+            },
+            "speed": {"ttft_p50_ms": 14.5, "itl_p99_ms": None},
+        },
+        "dimension_null_reasons": {
+            "hardware.pcie_generation": "N/A_SOC",
+            "software.gpu_architectures": "N/A_MLX",
+            "speed.itl_p99_ms": "NOT_REPORTED",
+        },
+    }
+    validate_envelope(env)
+
+
+def test_campaign_dimensions_reject_unknown_fields(valid_envelope: dict) -> None:
+    env = {
+        **valid_envelope,
+        "campaign_dimensions": {"hardware": {"invented_field": "value"}},
+    }
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope(env)
+
+
+def test_blocked_run_can_preserve_unknown_required_system_values_as_null(valid_envelope: dict) -> None:
+    env = {
+        **valid_envelope,
+        "cell_status": "aborted",
+        "system": {"os": None, "chip": None, "memory_gb": None},
+    }
+    validate_envelope(env)
+
+
+def test_campaign_dimension_fields_match_the_fixed_parquet_schema() -> None:
+    dimension_groups = load_schema()["properties"]["campaign_dimensions"]["properties"]
+    assert set(dimension_groups) == set(CAMPAIGN_DIMENSION_TYPES)
+    parquet_columns = set(PARQUET_ROW_SCHEMA.names)
+    for group, fields in CAMPAIGN_DIMENSION_TYPES.items():
+        properties = dimension_groups[group]["properties"]
+        assert set(properties) == set(fields)
+        for field in fields:
+            assert "null" in properties[field]["type"]
+            assert campaign_dimension_column(group, field) in parquet_columns
 
 
 def test_env_class_enum_is_enforced(valid_envelope: dict) -> None:

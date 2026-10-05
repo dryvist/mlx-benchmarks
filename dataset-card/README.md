@@ -34,3 +34,9 @@ and extra_json retains historical columns outside the stable schema.
 Original Parquet shards remain in the repository at their original paths. The
 normalized shards used by the default configuration preserve their rows and add
 null-valued columns where an original shard did not contain a field.
+
+Detailed campaign envelopes add stable `campaign_<group>_<field>` columns for
+hardware, software, model, run, speed, resource, quality, provenance, and cost
+dimensions. `campaign_dimension_null_reasons_json` retains the reason codes for
+explicit unknown or inapplicable values. Historical shards receive nulls in
+these columns during schema normalization.

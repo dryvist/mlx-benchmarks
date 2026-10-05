@@ -45,9 +45,9 @@ class Engine(TypedDict, total=False):
 
 
 class System(TypedDict, total=False):
-    os: str
-    chip: str
-    memory_gb: int
+    os: str | None
+    chip: str | None
+    memory_gb: int | None
     hostname: str
     vllm_mlx_version: str
     runner: str
@@ -104,6 +104,18 @@ class Campaign(TypedDict, total=False):
     profile: str
 
 
+class CampaignDimensions(TypedDict, total=False):
+    hardware: dict[str, Any]
+    software: dict[str, Any]
+    model: dict[str, Any]
+    run: dict[str, Any]
+    speed: dict[str, Any]
+    resource: dict[str, Any]
+    quality: dict[str, Any]
+    provenance: dict[str, Any]
+    cost: dict[str, Any]
+
+
 class ContextDimensions(TypedDict, total=False):
     model_max_tokens: int
     catalog_max_tokens: int
@@ -122,7 +134,7 @@ class Envelope(TypedDict, total=False):
     # always sets them), so indexing them is safe. The rest stay optional.
     schema_version: Required[str]
     timestamp: Required[str]
-    git_sha: Required[str]
+    git_sha: Required[str | None]
     trigger: Required[str]
     pr_number: int | None
     env_class: str
@@ -134,6 +146,8 @@ class Envelope(TypedDict, total=False):
     model_revision: str
     quantization: str
     campaign: Campaign
+    campaign_dimensions: CampaignDimensions
+    dimension_null_reasons: dict[str, str]
     cell_status: str
     context: ContextDimensions
     skipped: bool

@@ -11,7 +11,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from huggingface_hub import CommitOperationAdd, HfApi
 
-from mlx_benchmarks.dataset_schema import PARQUET_ROW_SCHEMA, normalize_legacy_rows
+from mlx_benchmarks.dataset_schema import (
+    PARQUET_ROW_SCHEMA,
+    canonical_shard_needs_refresh,
+    normalize_legacy_rows,
+)
 from mlx_benchmarks.publish import canonical_shard_path
 
 DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
@@ -38,8 +42,9 @@ def _read_table(api: HfApi, repo_id: str, path: str) -> pa.Table:
 def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     """Add canonical copies and the dataset card in one Hub commit.
 
-    Original paths are retained. Existing canonical paths are checked and
-    skipped, so rerunning this command never overwrites a published result.
+    Original paths are retained. Current canonical paths are checked and
+    skipped. Older schemas are refreshed only when their normalized rows match
+    the retained source exactly.
     """
     token = os.environ.get("HF_TOKEN")
     if apply and not token:
@@ -58,6 +63,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     source_rows = 0
     existing_copies = 0
     canonical_to_add = 0
+    canonical_to_refresh = 0
     for source_path in originals:
         source = _read_table(api, repo_id, source_path)
         target_path = canonical_shard_path(source_path)
@@ -69,12 +75,16 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
             raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
         if target_path in repo_paths:
             existing = _read_table(api, repo_id, target_path)
-            if not existing.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
-                raise RuntimeError(f"canonical shard has an unexpected schema: {target_path}")
-            if existing.num_rows != source.num_rows:
-                raise RuntimeError(f"canonical shard row count differs from its source: {target_path}")
-            if existing.to_pylist() != normalized.to_pylist():
-                raise RuntimeError(f"canonical shard differs from its source: {target_path}")
+            needs_refresh = canonical_shard_needs_refresh(existing, normalized)
+            if needs_refresh:
+                operations.append(
+                    CommitOperationAdd(
+                        path_in_repo=target_path,
+                        path_or_fileobj=_parquet_bytes(normalized),
+                    )
+                )
+                canonical_to_refresh += 1
+                continue
             existing_copies += 1
             continue
         operations.append(
@@ -94,6 +104,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     print(
         f"source_shards={len(originals)} source_rows={source_rows} "
         f"canonical_existing={existing_copies} canonical_to_add={canonical_to_add} "
+        f"canonical_to_refresh={canonical_to_refresh} "
         f"dataset_card_update={str(card_changed).lower()}"
     )
     if not apply:
