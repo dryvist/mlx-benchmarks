@@ -126,19 +126,8 @@ suites are wired to which tool.
 
 ## NVIDIA campaign
 
-[`configs/nvidia/`](configs/nvidia/) holds runbooks for a vLLM serving host with an
-NVIDIA GPU: serving throughput (1/4/8 concurrent requests × 8k/64k/128k prompts through
-`vllm bench serve`), quality (lm-eval tasks that are not already saturated), and raw
-hardware baselines (gpu-burn, nvbandwidth, mbw, fio). The envelope gained optional
-`system.gpu` / `engine` / `power_limit_w` / `container` fields and four baseline
-suites for it; legacy envelopes validate unchanged
-([`docs/schema.md`](docs/schema.md)).
-
-**This campaign relaxes the verdict policy's ≥4 runs / ≥5 days gate** (Gate 1 of
-[`docs/verdict-policy.md`](docs/verdict-policy.md)). Its model rows are published with
-`campaign=nvidia` and `verdict_gate=relaxed` tags and shown in
-[`RANKINGS.md`](RANKINGS.md) as `relaxed (NVIDIA)`, so a relaxed row can never be read as
-a final verdict. The other gates are not changed by this note.
+Campaign runbooks, envelope fields, baseline suites, and the relaxed verdict
+gate are described in [`docs/nvidia-campaign.md`](docs/nvidia-campaign.md).
 
 ## Benchmarking playbook
 

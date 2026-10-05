@@ -19,9 +19,9 @@ tool-calling** — in **both** environment classes. See
 > pair in one env class) toward the 4 needed. No historical shard was collected
 > under that protocol, so **every model currently sits at `1/4`** — one
 > pre-protocol run of four.
-
+>
 > **NVIDIA-campaign rows relax the ≥4 runs / ≥5 days gate.** Rows measured by the
-> [NVIDIA campaign](README.md#nvidia-campaign) show `relaxed (NVIDIA)` in the Maturity
+> [NVIDIA campaign](docs/nvidia-campaign.md) show `relaxed (NVIDIA)` in the Maturity
 > column instead of `N/4`; they are published with `verdict_gate=relaxed` and stay
 > "leads/lags as of N runs" — never a final verdict. See
 > [verdict policy](docs/verdict-policy.md#nvidia-campaign-relaxed-gate-1).

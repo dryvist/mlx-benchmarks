@@ -71,7 +71,7 @@ NVIDIA / CUDA hosts add four optional fields (absent on Apple Silicon runs):
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `gpu` | object | `model` (driver-reported name), `vram_gb` (GiB, may be fractional), `driver`, `cuda` (highest CUDA version the driver supports). All optional. |
+| `gpu` | object | `model` (driver-reported name), `vram_gb` (GiB, fractional allowed), `driver`, `cuda` (highest driver-supported version). All optional. |
 | `engine` | object | `name` and `version` of the inference engine (e.g. `vllm` / `0.30.0`). Complements `serving.stack`, which names the endpoint. |
 | `power_limit_w` | number (≥0) | Enforced board power limit in watts; two limits are two arms. |
 | `container` | string | Image reference the engine ran in; absent for bare-metal runs. |
@@ -106,8 +106,14 @@ and `container` are plain columns.
 | `total_tokens_per_second` | number | **Headline throughput metric.** Cumulative (prompt + completion) tokens / `duration_seconds`. |
 | `first_token_latency_ms` | number | Time to first token, when measurable (streaming-aware harnesses). |
 | `peak_rss_mb` | number | Peak RSS observed during this result, when available at per-result granularity. |
-| `tags` | object\[string\] | Free-form string key-value metadata; every value is a string, numbers included. Sweep-dimension keys: `prompt_tokens` (prompt length of each request in the cell, tokens), `concurrency` (in-flight requests; same meaning as the top-level field), `context_len` (the server's configured window in tokens — capacity, never the prompt length). |
+| `tags` | object\[string\] | Free-form string key-value metadata; numeric values are strings. Sweep keys are listed below. |
 | `raw` | any | Original untransformed tool output (optional archive). |
+
+Sweep metadata may include:
+
+- `prompt_tokens`: tokens in each request prompt.
+- `concurrency`: in-flight request count, matching the top-level field.
+- `context_len`: configured server window capacity in tokens, not prompt length.
 
 ### Headline throughput metric: `total_tokens_per_second`
 
