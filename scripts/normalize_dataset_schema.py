@@ -15,6 +15,7 @@ from mlx_benchmarks.dataset_schema import (
     PARQUET_ROW_SCHEMA,
     canonical_shard_needs_refresh,
     normalize_legacy_rows,
+    parse_machine_labels,
 )
 from mlx_benchmarks.publish import canonical_shard_path
 
@@ -22,9 +23,13 @@ DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
 DATASET_CARD_PATH = Path("dataset-card/README.md")
 
 
-def normalize_legacy_table(table: pa.Table) -> pa.Table:
-    """Pad one historical table to the canonical schema without changing rows."""
-    rows = normalize_legacy_rows(table.to_pylist())
+def normalize_legacy_table(
+    table: pa.Table,
+    *,
+    machine_labels: dict[str, str] | None = None,
+) -> pa.Table:
+    """Pad one historical table and replace machine identifiers in its projection."""
+    rows = normalize_legacy_rows(table.to_pylist(), machine_labels=machine_labels)
     return pa.Table.from_pylist(rows, schema=PARQUET_ROW_SCHEMA)
 
 
@@ -40,13 +45,13 @@ def _read_table(api: HfApi, repo_id: str, path: str) -> pa.Table:
 
 
 def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
-    """Add canonical copies and the dataset card in one Hub commit.
+    """Add or refresh canonical copies and the dataset card in one Hub commit.
 
-    Original paths are retained. Current canonical paths are checked and
-    skipped. Older schemas are refreshed only when their normalized rows match
-    the retained source exactly.
+    Original paths are retained. Existing canonical paths refresh only when
+    their rows still match the retained source after schema and label projection.
     """
     token = os.environ.get("HF_TOKEN")
+    machine_labels = parse_machine_labels(os.environ.get("MACHINE_LABELS_JSON"))
     if apply and not token:
         raise RuntimeError("HF_TOKEN must be set for the write operation")
     api = HfApi(token=token)
@@ -68,14 +73,20 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         source = _read_table(api, repo_id, source_path)
         target_path = canonical_shard_path(source_path)
         source_rows += source.num_rows
-        normalized = normalize_legacy_table(source)
+        normalized = normalize_legacy_table(source, machine_labels=machine_labels)
         if normalized.num_rows != source.num_rows:
             raise RuntimeError(f"normalization changed the row count for {source_path}")
         if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
             raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
         if target_path in repo_paths:
             existing = _read_table(api, repo_id, target_path)
-            needs_refresh = canonical_shard_needs_refresh(existing, normalized)
+            prior_projection = normalize_legacy_table(source, machine_labels={}) if machine_labels else None
+            needs_refresh = canonical_shard_needs_refresh(
+                existing,
+                normalized,
+                machine_labels=machine_labels,
+                prior_projection=prior_projection,
+            )
             if needs_refresh:
                 operations.append(
                     CommitOperationAdd(
@@ -115,7 +126,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
             repo_id=repo_id,
             repo_type="dataset",
             operations=operations,
-            commit_message="fix(dataset): normalize published parquet schemas",
+            commit_message="fix(dataset): publish hardware labels in canonical rows",
         )
         print(f"published_operations={len(operations)}")
     else:

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Mapping
 from typing import Any
 
 import pyarrow as pa
@@ -298,6 +300,22 @@ def campaign_dimension_column(category: str, field: str) -> str:
 
 
 JSON_STRING_COLUMNS = frozenset({"serving", "gpu", "engine", "container", "topology"})
+APPLE_MACHINE_FALLBACK = "Apple M4 Max"
+_MACHINE_LABEL_PATTERNS = (
+    re.compile(r"Mac Studio M4 Max 128GB\Z"),
+    re.compile(r"MacBook Pro M4 Max [1-9][0-9]*GB\Z"),
+    re.compile(r"RTX PRO 6000 Max-Q 96GB\Z"),
+    re.compile(r"RTX 4080 SUPER 16GB\Z"),
+)
+_MACHINE_ID_FIELDS = (
+    "campaign_hardware_machine",
+    "machine",
+    "hostname",
+    "host",
+)
+_NESTED_MACHINE_ID_FIELDS = frozenset(
+    {"campaign_hardware_machine", "machine", "hostname", "host", "node_name"}
+)
 
 PARQUET_ROW_SCHEMA = pa.schema(
     [
@@ -353,8 +371,154 @@ def empty_parquet_row() -> dict[str, Any]:
     return dict.fromkeys(PARQUET_ROW_SCHEMA.names)
 
 
-def normalize_legacy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Pad historical flat rows and retain dynamic tags/columns as JSON."""
+def _machine_label_is_valid(value: object) -> bool:
+    return value == APPLE_MACHINE_FALLBACK or (
+        isinstance(value, str) and any(pattern.fullmatch(value) for pattern in _MACHINE_LABEL_PATTERNS)
+    )
+
+
+def parse_machine_labels(value: str | None) -> dict[str, str]:
+    """Parse and validate the optional hostname-to-label Actions secret."""
+    if not value:
+        return {}
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError("machine label configuration must be valid JSON") from exc
+    if not isinstance(decoded, dict):
+        raise ValueError("machine label configuration contains an invalid entry")
+    labels: dict[str, str] = {}
+    for host, label in decoded.items():
+        if not isinstance(host, str) or not host.strip() or not _machine_label_is_valid(label):
+            raise ValueError("machine label configuration contains an invalid entry")
+        labels[host] = label
+    return labels
+
+
+def _machine_label_hardware_text(row: Mapping[str, Any]) -> str:
+    values = [row.get("chip"), row.get("gpu"), row.get("campaign_hardware_accelerator_model")]
+    return " ".join(
+        json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else str(value or "")
+        for value in values
+    ).casefold()
+
+
+def _nested_machine_ids(value: Any) -> list[str]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+    if isinstance(value, dict):
+        found = [
+            nested
+            for key, item in value.items()
+            if str(key).casefold() in _NESTED_MACHINE_ID_FIELDS
+            for nested in ([item] if isinstance(item, str) else [])
+        ]
+        return found + [nested for item in value.values() for nested in _nested_machine_ids(item)]
+    if isinstance(value, list):
+        return [nested for item in value for nested in _nested_machine_ids(item)]
+    return []
+
+
+def _machine_identity_values(
+    row: Mapping[str, Any],
+    tags: Mapping[str, Any],
+    extras: Mapping[str, Any],
+) -> list[Any]:
+    direct = [row.get(field) for field in _MACHINE_ID_FIELDS] + [
+        container.get(field.removeprefix("tag_"))
+        for container in (tags, extras)
+        for field in _MACHINE_ID_FIELDS
+    ]
+    nested = [
+        identity for field in ("topology", "system_extra") for identity in _nested_machine_ids(row.get(field))
+    ]
+    return direct + nested
+
+
+def _scrub_machine_identifiers(value: Any, replacements: Mapping[str, str]) -> Any:
+    if isinstance(value, str):
+        for machine_id, label in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
+            value = value.replace(machine_id, label)
+        return value
+    if isinstance(value, dict):
+        return {
+            _scrub_machine_identifiers(key, replacements): _scrub_machine_identifiers(item, replacements)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_scrub_machine_identifiers(item, replacements) for item in value]
+    return value
+
+
+def _machine_label_for_row(
+    row: Mapping[str, Any],
+    tags: Mapping[str, Any],
+    extras: Mapping[str, Any],
+    labels: Mapping[str, str],
+) -> str | None:
+    identity_values = _machine_identity_values(row, tags, extras)
+    for value in identity_values:
+        if isinstance(value, str):
+            if value in labels:
+                label = labels[value]
+                if not _machine_label_is_valid(label):
+                    raise ValueError("machine label configuration contains an invalid entry")
+                break
+            if _machine_label_is_valid(value):
+                label = value
+                break
+    else:
+        label = ""
+
+    hardware = _machine_label_hardware_text(row)
+    if not label:
+        if "m4 max" in hardware:
+            label = APPLE_MACHINE_FALLBACK
+        elif "rtx pro 6000" in hardware:
+            label = "RTX PRO 6000 Max-Q 96GB"
+        elif "rtx 4080 super" in hardware:
+            label = "RTX 4080 SUPER 16GB"
+    if not label:
+        if any(value not in (None, "") for value in identity_values):
+            raise ValueError("a machine identifier has no safe hardware label")
+        return None
+
+    if "m4 max" in label.casefold() and "m4 max" not in hardware:
+        raise ValueError("a machine label does not match the row hardware")
+    if label.startswith("MacBook Pro M4 Max "):
+        memory = row.get("memory_gb")
+        if memory is None or not label.endswith(f"{int(memory)}GB"):
+            raise ValueError("a machine label does not match the row memory")
+    if label.startswith("Mac Studio M4 Max ") and row.get("memory_gb") != 128:
+        raise ValueError("a machine label does not match the row memory")
+    if label.startswith("RTX PRO 6000") and "rtx pro 6000" not in hardware:
+        raise ValueError("a machine label does not match the row hardware")
+    if label.startswith("RTX 4080 SUPER") and "rtx 4080 super" not in hardware:
+        raise ValueError("a machine label does not match the row hardware")
+    accelerator_memory = row.get("campaign_hardware_accelerator_memory_gb")
+    expected_accelerator_memory = (
+        int(label.removesuffix("GB").split()[-1])
+        if label.startswith(("RTX PRO 6000", "RTX 4080 SUPER"))
+        else None
+    )
+    if (
+        accelerator_memory is not None
+        and expected_accelerator_memory is not None
+        and float(accelerator_memory) != expected_accelerator_memory
+    ):
+        raise ValueError("a machine label does not match the row accelerator memory")
+    return label
+
+
+def normalize_legacy_rows(
+    rows: list[dict[str, Any]],
+    *,
+    machine_labels: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Pad historical rows, retain dynamic fields, and project safe machine labels."""
     normalized_rows: list[dict[str, Any]] = []
     schema_names = set(PARQUET_ROW_SCHEMA.names)
     for legacy in rows:
@@ -397,24 +561,69 @@ def normalize_legacy_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if system_extra is not None
             else "{}"
         )
+        label = _machine_label_for_row(row, tags, extras, machine_labels or {})
+        if label:
+            row["hostname"] = label
+            for field in _MACHINE_ID_FIELDS:
+                if row.get(field) is not None:
+                    row[field] = label
+                tag = field.removeprefix("tag_")
+                tag_field = f"tag_{tag}"
+                if row.get(tag_field) is not None:
+                    row[tag_field] = label
+                if tag in tags:
+                    tags[tag] = label
+                if tag in extras:
+                    extras[tag] = label
+            row["tags_json"] = json.dumps(tags, sort_keys=True)
+            row["extra_json"] = json.dumps(extras, sort_keys=True, default=str)
         row["tags_json"] = json.dumps(tags, sort_keys=True)
         row["extra_json"] = json.dumps(extras, sort_keys=True, default=str)
+        raw_machine_ids = {
+            value
+            for value in _machine_identity_values(row, tags, extras)
+            if isinstance(value, str) and value and not _machine_label_is_valid(value)
+        }
+        if raw_machine_ids:
+            if label is None:
+                raise ValueError("a machine identifier has no safe hardware label")
+            replacements = {
+                machine_id: (machine_labels or {}).get(machine_id, label) for machine_id in raw_machine_ids
+            }
+            row = _scrub_machine_identifiers(row, replacements)
         normalized_rows.append(row)
     return normalized_rows
 
 
-def canonical_shard_needs_refresh(existing: pa.Table, expected: pa.Table) -> bool:
-    """Check whether a canonical shard needs a safe schema-only refresh."""
+def canonical_shard_needs_refresh(
+    existing: pa.Table,
+    expected: pa.Table,
+    *,
+    machine_labels: Mapping[str, str] | None = None,
+    prior_projection: pa.Table | None = None,
+) -> bool:
+    """Check whether a canonical shard can be refreshed from its retained source."""
     if not expected.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
         raise ValueError("expected table does not use the canonical schema")
     if existing.num_rows != expected.num_rows:
         raise RuntimeError("canonical shard row count differs from its source")
-    if existing.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
-        if existing.to_pylist() != expected.to_pylist():
-            raise RuntimeError("canonical shard differs from its normalized source")
+    if (
+        existing.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
+        and existing.to_pylist() == expected.to_pylist()
+    ):
         return False
+    if prior_projection is not None:
+        if not prior_projection.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+            raise ValueError("prior projection does not use the canonical schema")
+        if prior_projection.num_rows != expected.num_rows:
+            raise RuntimeError("prior projection row count differs from its source")
+        if existing.to_pylist() == prior_projection.to_pylist():
+            return True
 
-    refreshed = pa.Table.from_pylist(normalize_legacy_rows(existing.to_pylist()), schema=PARQUET_ROW_SCHEMA)
+    refreshed = pa.Table.from_pylist(
+        normalize_legacy_rows(existing.to_pylist(), machine_labels=machine_labels),
+        schema=PARQUET_ROW_SCHEMA,
+    )
     if refreshed.to_pylist() != expected.to_pylist():
-        raise RuntimeError("older canonical shard data differs from its normalized source")
+        raise RuntimeError("canonical shard data differs from its normalized source")
     return True

@@ -88,9 +88,9 @@ def test_trend_chart_renders_with_rows() -> None:
 
 def test_summary_table_returns_dataframe() -> None:
     df = _sample_df()
-    pivot = app.summary_table(df, "reasoning", "exact_match_flexible")
+    pivot = app.summary_table(df, "reasoning", "gsm8k_cot_zeroshot", "exact_match_flexible")
     assert isinstance(pivot, pd.DataFrame)
-    assert "Comparison series" in pivot.columns or pivot.empty
+    assert "Evidence" in pivot.columns or pivot.empty
 
 
 def test_short_model_strips_common_prefixes() -> None:
@@ -194,3 +194,183 @@ def test_rows_without_the_column_still_get_a_series_key() -> None:
 
     out = app.add_evidence_metadata(rows, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
     assert all(key.endswith("unstated") for key in out["series_key"])
+
+
+def _workload_rows() -> pd.DataFrame:
+    rows = pd.DataFrame(
+        [
+            {
+                **SAMPLE_ROWS[0],
+                "unit": "tok/s",
+                "hostname": "Machine A",
+                "chip": "Accelerator A",
+                "engine": "MLX",
+                "tag_backend": "Metal",
+                "quantization": "4-bit",
+                "concurrency": 2,
+                "tag_configured_window_tokens": 8192,
+                "tag_context_tokens_actual": 4096,
+                "tag_prompt_tokens": 1024,
+                "tag_max_gen_toks": 128,
+                "tag_truncated_rate": 0,
+                "source_path": "data/first.parquet",
+                "_row_id": "first:0",
+            },
+            {
+                **SAMPLE_ROWS[0],
+                "unit": "tok/s",
+                "hostname": "Machine A",
+                "chip": "Accelerator A",
+                "engine": "MLX",
+                "tag_backend": "Metal",
+                "quantization": "4-bit",
+                "concurrency": 2,
+                "tag_configured_window_tokens": 8192,
+                "tag_context_tokens_actual": 16384,
+                "tag_prompt_tokens": 8192,
+                "tag_max_gen_toks": 256,
+                "tag_truncated_rate": 0,
+                "source_path": "data/second.parquet",
+                "_row_id": "second:0",
+            },
+        ]
+    )
+    rows["timestamp"] = pd.to_datetime(rows["timestamp"], utc=True)
+    return rows
+
+
+def test_workload_budgets_are_part_of_comparison_identity() -> None:
+    rows = app.add_evidence_metadata(
+        _workload_rows(),
+        {},
+        pd.Timestamp("2026-08-25T00:00:00Z"),
+    )
+    assert rows["workload_complete"].all()
+    assert rows["series_key"].nunique() == 2
+    assert rows["prompt_tokens"].tolist() == ["1024", "8192"]
+    assert rows["output_budget_tokens"].tolist() == ["128", "256"]
+
+
+def test_incomplete_workload_rows_remain_distinct_and_labels_hide_placeholders() -> None:
+    raw = _workload_rows().drop(
+        columns=[
+            "tag_configured_window_tokens",
+            "tag_context_tokens_actual",
+            "tag_prompt_tokens",
+            "tag_max_gen_toks",
+            "tag_truncated_rate",
+        ]
+    )
+    rows = app.add_evidence_metadata(raw, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
+    assert not rows["workload_complete"].any()
+    assert rows["series_key"].nunique() == 2
+    label = rows.iloc[0]["series_label"]
+    assert "unknown" not in label.casefold()
+    assert "unspecified" not in label.casefold()
+    assert "{" not in label
+    assert "Machine A" in label
+    assert "Accelerator A" not in label
+    assert "Metal" not in label
+    visible_labels = app.series_labels(rows)
+    assert len(set(visible_labels.values())) == len(rows)
+    assert all("(run " in value for value in visible_labels.values())
+
+
+def test_viewer_labels_show_matching_machine_and_accelerator_once_with_date_and_run() -> None:
+    raw = _workload_rows()
+    raw["hostname"] = "Apple M4 Max"
+    raw["chip"] = "Apple M4 Max"
+    rows = app.add_evidence_metadata(raw, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
+
+    labels = app.series_labels(rows)
+
+    assert set(labels.values()) == {
+        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 1)",
+        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 2)",
+    }
+    assert all(label.count("Apple M4 Max") == 1 for label in labels.values())
+    assert list(app.series_labels(rows.iloc[[0]]).values()) == [
+        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 1)"
+    ]
+
+
+def test_cascade_options_are_only_row_backed_and_summary_uses_task_and_unit() -> None:
+    df = _sample_df()
+    other = df.iloc[[0]].copy()
+    other["suite"] = "throughput"
+    other["name"] = "short-50"
+    other["metric"] = "throughput"
+    other["value"] = 63.4
+    other["unit"] = "tok/s"
+    other["display_unit"] = "tok/s"
+    rows = pd.concat([df, other], ignore_index=True)
+
+    assert app.suite_choices(rows) == ["reasoning", "throughput"]
+    assert app.task_choices(rows, "throughput") == ["short-50"]
+    assert app.metric_choices(rows, "throughput", "short-50") == ["throughput"]
+    assert app.valid_triples(rows) == [
+        ("reasoning", "gsm8k_cot_zeroshot", "exact_match_flexible"),
+        ("throughput", "short-50", "throughput"),
+    ]
+    table = app.summary_table(rows, "throughput", "short-50", "throughput", "tok/s")
+    assert table["Value (tok/s)"].tolist() == ["63.4 tok/s"]
+    assert "unitless" not in table.to_string().casefold()
+
+
+def test_evidence_views_and_unit_formatting_are_distinct() -> None:
+    rows = _workload_rows()
+    paths = ["data/scored.parquet", "data/experimental.parquet"]
+    rows = pd.concat([rows.iloc[[0]], rows.iloc[[1]]], ignore_index=True)
+    rows["source_path"] = paths
+    index = {
+        "data/scored.parquet": {"status": "scored"},
+        "data/experimental.parquet": {"status": "experimental"},
+    }
+    recovered = rows.iloc[[1]].copy()
+    recovered["source_path"] = "data/recovered.parquet"
+    rows = pd.concat([rows, recovered], ignore_index=True)
+    index["data/recovered.parquet"] = {"status": "recovered"}
+    rows["timestamp"] = pd.to_datetime(rows["timestamp"], utc=True)
+    enriched = app.add_evidence_metadata(rows, index, None)
+
+    assert len(app.evidence_view(enriched, "scored")) == 1
+    assert len(app.evidence_view(enriched, "experimental")) == 1
+    assert len(app.evidence_view(enriched, "recovered")) == 1
+    assert app.format_value(0.875, "%") == "87.5%"
+    assert app.format_value(63.4, "tok/s") == "63.4 tok/s"
+
+
+def test_campaign_dimension_columns_drive_filters_and_comparison_identity() -> None:
+    rows = _workload_rows()
+    rows["campaign_hardware_machine"] = "Benchmark workstation"
+    rows["campaign_hardware_accelerator_model"] = "RTX PRO 6000"
+    rows["campaign_software_engine"] = "llama.cpp"
+    rows["campaign_software_backend"] = "CUDA"
+    rows["campaign_model_quantization"] = "Q4_K_M"
+    rows["campaign_run_concurrent_agents"] = 4
+    rows["campaign_run_allocated_context_tokens"] = 32768
+    rows["campaign_run_depth_tokens"] = [4096, 8192]
+    rows["campaign_run_prompt_tokens"] = 4096
+    rows["campaign_run_output_tokens"] = [128, 256]
+
+    enriched = app.add_evidence_metadata(
+        rows,
+        {},
+        pd.Timestamp("2026-08-25T00:00:00Z"),
+    )
+
+    assert app.row_choices(enriched, "machine") == ["Benchmark workstation"]
+    assert app.row_choices(enriched, "accelerator") == ["RTX PRO 6000"]
+    assert app.row_choices(enriched, "engine") == ["llama.cpp"]
+    assert app.row_choices(enriched, "backend") == ["CUDA"]
+    assert app.row_choices(enriched, "quant_format") == ["Q4_K_M"]
+    assert app.row_choices(enriched, "agents") == ["4"]
+    assert app.row_choices(enriched, "allocated_context") == ["32768"]
+    assert app.row_choices(enriched, "prompt_tokens") == ["4096"]
+    assert enriched["context_tokens"].tolist() == ["4096", "8192"]
+    assert enriched["output_budget_tokens"].tolist() == ["128", "256"]
+    assert enriched["series_key"].nunique() == 2
+
+
+def test_request_rate_metric_keeps_request_units() -> None:
+    assert app._metric_unit("throughput_requests_per_s") == "req/s"
