@@ -34,8 +34,11 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Install huggingface_hub
-        run: python -m pip install --no-cache-dir "huggingface_hub[cli]>=0.30" "pyarrow>=25.0.1"
+      - name: Install dataset publisher
+        run: >-
+          python -m pip install --no-cache-dir -e .
+          "huggingface_hub[cli]>=1.28.0"
+          "pyarrow>=25.0.1"
 
       - name: Normalize immutable dataset shards
         env:
