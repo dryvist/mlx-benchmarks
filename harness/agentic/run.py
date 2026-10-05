@@ -36,6 +36,7 @@ import statistics
 import sys
 import time
 from collections.abc import Iterable, Mapping, Sequence
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -379,6 +380,17 @@ def classify_message(
     return VALID
 
 
+def has_output_delta(delta: Mapping[str, Any]) -> bool:
+    """Whether an SSE delta carries generated text or a tool-call fragment."""
+    if any(delta.get(field) for field in ("content", "reasoning_content", "refusal")):
+        return True
+    for call in delta.get("tool_calls") or []:
+        function = call.get("function") or {}
+        if function.get("name") or function.get("arguments"):
+            return True
+    return False
+
+
 def assemble_stream(
     events: Iterable[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], str | None, dict[str, Any] | None]:
@@ -510,6 +522,11 @@ def percentile(values: Sequence[float], pct: float) -> float:
     return ordered[rank]
 
 
+def inter_chunk_gaps_ms(received_at: Sequence[float]) -> list[float]:
+    """Milliseconds between output-bearing SSE chunks."""
+    return [(current - previous) * 1000 for previous, current in pairwise(received_at)]
+
+
 def summarize_cell(records: Sequence[Mapping[str, Any]], wall_seconds: float) -> dict[str, Any]:
     """Aggregate per-request records into the per-cell metric block."""
     n = len(records)
@@ -622,6 +639,9 @@ async def one_request(
         "reasoning_present": False,
         "latency_ms": None,
         "first_token_ms": None,
+        "inter_chunk_gap_p50_ms": None,
+        "inter_chunk_gap_p95_ms": None,
+        "inter_chunk_gap_max_ms": None,
         "completion_tokens": None,
         "http_status": None,
     }
@@ -629,7 +649,7 @@ async def one_request(
     try:
         if stream:
             events: list[dict[str, Any]] = []
-            first_token: float | None = None
+            output_times: list[float] = []
             async with client.stream("POST", "/chat/completions", json=body) as response:
                 record["http_status"] = response.status_code
                 response.raise_for_status()
@@ -639,12 +659,20 @@ async def one_request(
                     payload = line.removeprefix("data:").strip()
                     if not payload or payload == "[DONE]":
                         continue
-                    if first_token is None:
-                        first_token = time.monotonic() - start
-                    events.append(json.loads(payload))
+                    event = json.loads(payload)
+                    choices = event.get("choices") or []
+                    delta = (choices[0].get("delta") or {}) if choices else {}
+                    if has_output_delta(delta):
+                        output_times.append(time.monotonic())
+                    events.append(event)
             message, finish_reason, usage = assemble_stream(events)
-            if first_token is not None:
-                record["first_token_ms"] = round(first_token * 1000, 1)
+            if output_times:
+                record["first_token_ms"] = round((output_times[0] - start) * 1000, 1)
+                gaps = inter_chunk_gaps_ms(output_times)
+                if gaps:
+                    record["inter_chunk_gap_p50_ms"] = round(percentile(gaps, 50), 1)
+                    record["inter_chunk_gap_p95_ms"] = round(percentile(gaps, 95), 1)
+                    record["inter_chunk_gap_max_ms"] = round(max(gaps), 1)
         else:
             response = await client.post("/chat/completions", json=body)
             record["http_status"] = response.status_code

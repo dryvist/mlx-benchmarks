@@ -395,6 +395,43 @@ def test_one_request_malformed_stream_body_is_recorded_not_raised() -> None:
     assert record["latency_ms"] is not None
 
 
+def test_one_request_times_first_output_and_inter_chunk_gaps() -> None:
+    def frame(delta: dict, finish_reason: str | None = None) -> bytes:
+        event = {"choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}]}
+        return f"data: {json.dumps(event)}\n\n".encode()
+
+    class TimedSSE(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield frame({"role": "assistant"})
+            await asyncio.sleep(0.025)
+            yield frame({"content": "Hello"})
+            await asyncio.sleep(0.025)
+            yield frame({"content": " world"}, "stop")
+            yield b"data: [DONE]\n\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, stream=TimedSSE())
+
+    async def go() -> dict:
+        async with _mock_client(handler) as client:
+            return await runner.one_request(
+                client, _args(), [{"role": "user", "content": "hi"}], "off", True, REQUIRED
+            )
+
+    record = asyncio.run(go())
+    assert record["first_token_ms"] >= 15.0
+    assert record["inter_chunk_gap_p50_ms"] >= 15.0
+    assert record["inter_chunk_gap_p95_ms"] >= 15.0
+    assert record["inter_chunk_gap_max_ms"] >= 15.0
+    assert record["latency_ms"] >= record["first_token_ms"]
+
+
+def test_output_delta_includes_reasoning_and_tool_call_fragments() -> None:
+    assert not runner.has_output_delta({"role": "assistant"})
+    assert runner.has_output_delta({"reasoning_content": "thinking"})
+    assert runner.has_output_delta({"tool_calls": [{"function": {"arguments": "{"}}]})
+
+
 def test_run_cell_survives_malformed_bodies() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"{not json")

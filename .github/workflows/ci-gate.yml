@@ -84,6 +84,8 @@ jobs:
       # validation (startup_failure).
       actions: write
     uses: dryvist/.github/.github/workflows/_ci-gate.yml@main
+    secrets:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:
       python_ci: true
       # Floor is 3.13; CI additionally validates 3.14 (stable since 2025-10).

@@ -30,7 +30,9 @@ arguments parse as JSON with all required keys, `finish_reason == tool_calls`),
 a failure taxonomy (`no_tool_call` / `empty_function_name` / `bad_json_args` /
 `unknown_tool` / `http_error` / `timeout` / `stream_truncated`), latency
 p50/p95, effective tok/s, and reasoning-content presence. Streaming cells
-assemble `tool_calls` from deltas exactly the way a real client does.
+assemble `tool_calls` from deltas exactly the way a real client does. Per-request
+stream timings include time to the first non-empty output delta, p50/p95/max
+gaps between output-bearing SSE chunks, and total latency through stream close.
 
 **Multi-turn degradation track** (mlx-lm #1011) — stock 4-bit Qwen3.x quants
 degrade to plain-text `[Tool call: ...]` fallback around round 5 (8-bit ~13);
