@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.3...v0.29.4) (2026-10-05)
+
+
+### Bug Fixes
+
+* **dataset:** make canonical normalization idempotent ([6c99863](https://github.com/dryvist/mlx-benchmarks/commit/6c99863a3863eaae0001c68ac4888d6eb55da9d4))
+
 ## [0.29.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.2...v0.29.3) (2026-10-05)
 
 
