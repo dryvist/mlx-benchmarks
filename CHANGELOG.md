@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.5](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.4...v0.29.5) (2026-10-05)
+
+
+### Bug Fixes
+
+* **agentic:** measure streamed output timings ([ff8c451](https://github.com/dryvist/mlx-benchmarks/commit/ff8c451eaee5fa18e6fa9e45806cf7bfa74fd3ce))
+* **ci:** wire shared gate inputs ([565c46f](https://github.com/dryvist/mlx-benchmarks/commit/565c46f3c18c53700c516a9eff13cb1b6b58c8e3))
+
 ## [0.29.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.3...v0.29.4) (2026-10-05)
 
 
