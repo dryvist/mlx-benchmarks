@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from mlx_benchmarks.envelope import Envelope, Result, Serving, System
+from mlx_benchmarks.envelope import CampaignDimensions, Envelope, Result, Serving, System
 
 
 @dataclass(slots=True)
@@ -29,6 +29,11 @@ class ConverterContext:
     # CLI's own config, and a guess is indistinguishable from a measurement.
     reasoning_effort: str | None = None
     serving: Serving | None = None
+    # The campaign dimension groups and the reason code for each explicit null in
+    # them. Declared by the caller (the CLI reads them from a file): a converter
+    # sees one tool's output and cannot observe the host, build, or model facts.
+    campaign_dimensions: CampaignDimensions | None = None
+    dimension_null_reasons: dict[str, str] | None = None
     timestamp_override: str | None = None
     system: dict[str, Any] | None = None
     extra_tags: dict[str, str] = field(default_factory=dict)
@@ -44,8 +49,9 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
     """Copy optional run-context fields onto a built envelope, in place.
 
     Centralizes the ``pr_number`` / ``env_class`` / ``concurrency`` /
-    ``reasoning_effort`` / ``serving`` pass-through so every converter shares one
-    omission rule: a field left unset on the context is absent from the envelope.
+    ``reasoning_effort`` / ``serving`` / ``campaign_dimensions`` /
+    ``dimension_null_reasons`` pass-through so every converter shares one omission
+    rule: a field left unset on the context is absent from the envelope.
     Adding a run-context field here reaches every converter at once, which is why
     it belongs here rather than in each converter's own tag whitelist. Returns the
     same envelope for convenient ``return apply_optional_fields(...)`` use.
@@ -60,6 +66,10 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
         envelope["reasoning_effort"] = ctx.reasoning_effort
     if ctx.serving is not None:
         envelope["serving"] = ctx.serving
+    if ctx.campaign_dimensions is not None:
+        envelope["campaign_dimensions"] = ctx.campaign_dimensions
+    if ctx.dimension_null_reasons is not None:
+        envelope["dimension_null_reasons"] = ctx.dimension_null_reasons
     return envelope
 
 

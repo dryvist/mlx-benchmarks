@@ -62,6 +62,11 @@ reason code. Use a reason for each explicit null in newly enriched campaign
 envelopes; a missing property remains distinct from an observed-but-unknown
 value.
 
+Converters keep both objects. `mlx-bench-publish --campaign-dimensions PATH`
+reads a JSON file with a `campaign_dimensions` object and an optional
+`dimension_null_reasons` object and copies them onto the envelope for every
+`--kind`; `throughput-probe` also keeps them when its result file carries them.
+
 - **hardware:** machine; accelerator model, memory, and bandwidth; host CPU, RAM, and speed;
   PCIe generation/width; power cap; UPS/circuit; chassis/container.
 - **software:** OS; kernel; driver; accelerator runtime; engine/version/commit;

@@ -17,11 +17,11 @@ import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from mlx_benchmarks.converters import get_converter
 from mlx_benchmarks.converters.base import ConverterContext
-from mlx_benchmarks.envelope import EnvelopeValidationError, Serving
+from mlx_benchmarks.envelope import CampaignDimensions, EnvelopeValidationError, Serving
 from mlx_benchmarks.publish import PublishError, current_git_sha, publish
 from mlx_benchmarks.system import detect_system
 
@@ -89,6 +89,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--serving-stack", help="Serving stack, e.g. 'mlx_lm.server' or 'vllm-mlx'")
     parser.add_argument("--serving-port", type=int, help="Serving endpoint TCP port")
     parser.add_argument("--serving-model", help="Model id as advertised by the serving endpoint")
+    parser.add_argument(
+        "--campaign-dimensions",
+        type=Path,
+        metavar="PATH",
+        help="JSON file holding the envelope's campaign_dimensions object and, optionally, "
+        "dimension_null_reasons (field path -> reason code); copied onto the envelope verbatim",
+    )
     parser.add_argument("--timestamp", help="Override envelope timestamp (ISO 8601 UTC, rarely needed)")
     parser.add_argument(
         "--tag",
@@ -138,6 +145,18 @@ def main(argv: list[str] | None = None) -> int:
         log.error("%s is not valid JSON: %s", args.results_json, exc)
         return 2
 
+    campaign_dimensions: CampaignDimensions | None = None
+    dimension_null_reasons: dict[str, str] | None = None
+    if args.campaign_dimensions is not None:
+        try:
+            campaign_dimensions, dimension_null_reasons = _load_campaign_dimensions(args.campaign_dimensions)
+        except OSError as exc:
+            log.error("cannot read %s: %s", args.campaign_dimensions, exc)
+            return 2
+        except ValueError as exc:
+            log.error("%s is not a campaign dimensions file: %s", args.campaign_dimensions, exc)
+            return 2
+
     model = args.model or _extract_model(raw)
     git_sha = args.git_sha or current_git_sha()
     extra_tags = dict(_parse_kv_pairs(args.tag))
@@ -165,6 +184,8 @@ def main(argv: list[str] | None = None) -> int:
         concurrency=args.concurrency,
         reasoning_effort=args.reasoning_effort,
         serving=serving or None,
+        campaign_dimensions=campaign_dimensions,
+        dimension_null_reasons=dimension_null_reasons,
         timestamp_override=args.timestamp,
         system=system,
         extra_tags=extra_tags,
@@ -197,6 +218,28 @@ def main(argv: list[str] | None = None) -> int:
 
     log.info("%s -> %s", "planned" if args.dry_run else "published", path)
     return 0
+
+
+def _load_campaign_dimensions(path: Path) -> tuple[CampaignDimensions, dict[str, str] | None]:
+    """Read ``{"campaign_dimensions": {...}, "dimension_null_reasons": {...}}`` from ``path``.
+
+    Only the two envelope keys are accepted. Field names and value types are left
+    to ``publish()``, which validates the finished envelope against ``schema.json``.
+    ``json.JSONDecodeError`` is a ``ValueError``, so malformed JSON takes the same path.
+    """
+    payload = json.loads(path.read_text())
+    if not isinstance(payload, dict):
+        raise ValueError("expected a JSON object")
+    unexpected = sorted(set(payload) - {"campaign_dimensions", "dimension_null_reasons"})
+    if unexpected:
+        raise ValueError(f"unexpected keys: {', '.join(unexpected)}")
+    dimensions = payload.get("campaign_dimensions")
+    if not isinstance(dimensions, dict):
+        raise ValueError("campaign_dimensions must be an object")
+    reasons = payload.get("dimension_null_reasons")
+    if reasons is not None and not isinstance(reasons, dict):
+        raise ValueError("dimension_null_reasons must be an object")
+    return cast("CampaignDimensions", dimensions), cast("dict[str, str] | None", reasons)
 
 
 def _extract_model(raw: dict[str, Any] | list[Any]) -> str:
