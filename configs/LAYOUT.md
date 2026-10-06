@@ -1,9 +1,9 @@
 # configs/ layout
 
 One TOML file per `(upstream-tool, suite)` pair. Most files are documentation
-runbooks that record the task list and tool-native options. The four
-`cross-card` / `quick-intelligence` campaign files below are structured recipes
-for the external Ansible consumer. They are not executable in this repository:
+runbooks that record the task list and tool-native options. The `cross-card`,
+`quick-intelligence`, `gpqa-diamond`, and `livecodebench` campaign files below are
+structured recipes for the external Ansible consumer. They are not executable in this repository:
 the TOML reader/dispatcher lives separately and uses `community.general.from_toml`
 to parse a selected allow-listed file, validate survey values against inventory
 and the model registry, then dispatch its argv entries.
@@ -18,7 +18,10 @@ configs/
 │   ├── coding.toml           # humaneval, mbpp
 │   ├── math-hard.toml        # minerva_math500
 │   ├── quick-intelligence.toml # registry-selected arc_challenge_chat quick pass
+│   ├── gpqa-diamond.toml     # registry-selected gpqa_diamond_cot_zeroshot pass
 │   └── qwen3-tasks/          # optional <think>-stripping overlay (see below)
+├── evalscope/
+│   └── livecodebench.toml    # registry-selected LiveCodeBench v6 pass (EvalScope)
 ├── vllm/
 │   ├── benchmark_serving.toml # vllm throughput cross-check; no local install
 │   └── cross-card.toml       # declarative vllm bench serve matrix

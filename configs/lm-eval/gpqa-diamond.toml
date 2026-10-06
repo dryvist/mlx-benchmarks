@@ -1,0 +1,32 @@
+# GPQA-Diamond chain-of-thought chat evaluation; the survey selects the serving
+# target and registry model. `context_list` maps to the server-side max_length
+# setting. The dataset is gated: the benchmark target must already hold a
+# Hugging Face read credential in its own environment, never in this file.
+# The converter publishes aggregate scores only, not questions or responses.
+config_name = "lm-eval/gpqa-diamond"
+engines = ["llama_cpp", "vllm", "mlx_lm"]
+concurrency_list = [1, 2, 4, 8]
+context_list = [32768, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "gpqa-diamond-cot-zeroshot"
+executable = "lm_eval"
+argv = [
+  "--model", "local-chat-completions",
+  "--model_args", "base_url={{ benchmark_endpoint }}/chat/completions,model={{ model_id }},max_length={{ context }},num_concurrent={{ concurrency }},timeout=3600",
+  "--tasks", "gpqa_diamond_cot_zeroshot",
+  "--batch_size", "1",
+  "--num_fewshot", "0",
+  "--apply_chat_template",
+  "--gen_kwargs", "max_gen_toks={{ output_tokens }}",
+  "--log_samples",
+  "--output_path", "{{ output_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+converter = { executable = "mlx-bench-publish", kind = "lm-eval", suite = "reasoning", run_on = "controller" }
+output_tokens = 32768

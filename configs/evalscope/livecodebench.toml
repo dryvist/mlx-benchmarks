@@ -1,0 +1,36 @@
+# LiveCodeBench v6 code-generation evaluation run by EvalScope against the
+# selected OpenAI-compatible chat endpoint; the survey selects the serving
+# target and registry model. Generated programs execute in EvalScope's Docker
+# sandbox, so the benchmark target needs `evalscope[sandbox]` and a running
+# Docker engine. `context_list` is not a cell dimension: the survey context must
+# cover the output reservation. Raw reports stay in the target results
+# directory; the recipe declares no converter.
+config_name = "evalscope/livecodebench"
+engines = ["llama_cpp", "vllm"]
+concurrency_list = [1, 2, 4, 8]
+context_list = [32768, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "livecodebench-v6"
+executable = "evalscope"
+argv = [
+  "eval",
+  "--model", "{{ model_id }}",
+  "--api-url", "{{ benchmark_endpoint }}",
+  "--api-key", "EMPTY",
+  "--eval-type", "openai_api",
+  "--datasets", "live_code_bench",
+  "--dataset-args", '{"live_code_bench": {"subset_list": ["v6"]}}',
+  "--generation-config", "max_tokens={{ output_tokens }},temperature=0.2",
+  "--eval-batch-size", "{{ concurrency }}",
+  "--sandbox", '{"enabled": true, "engine": "docker"}',
+  "--work-dir", "{{ output_path }}",
+  "--no-timestamp",
+]
+dimensions = ["concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 32768
