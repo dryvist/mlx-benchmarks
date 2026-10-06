@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.30.0...v0.30.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **space:** follow the dark theme for the page and status panel ([#290](https://github.com/dryvist/mlx-benchmarks/issues/290)) ([9d13692](https://github.com/dryvist/mlx-benchmarks/commit/9d13692a5612bd6bc6512b76e0de1e04e8167c49))
+
 ## [0.30.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.5...v0.30.0) (2026-10-06)
 
 
