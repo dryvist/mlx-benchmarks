@@ -41,7 +41,7 @@ target's inventory facts so the envelope describes the benchmark target.
 | `mlx/cross-card` | `mlx_lm` | `mlx_lm.benchmark` diagnostics and serving throughput |
 | `lm-eval/quick-intelligence` | `llama_cpp`, `vllm`, `mlx_lm` | ARC-Challenge chat quick pass |
 | `lm-eval/gpqa-diamond` | `llama_cpp`, `vllm`, `mlx_lm` | GPQA-Diamond chain-of-thought, zero-shot |
-| `evalscope/livecodebench` | `llama_cpp`, `vllm` | LiveCodeBench v6 through EvalScope's Docker sandbox |
+| `evalscope/livecodebench` | `llama_cpp`, `vllm` | LiveCodeBench v6 with generated programs run in a local subprocess |
 
 Every recipe declares 1, 2, 4, and 8 concurrent agents in `concurrency_list` and a
 `context_list` that reaches 131072 tokens. The target, the model class (`small`,
@@ -51,7 +51,7 @@ that serves one of its engines.
 
 `lm-eval/gpqa-diamond` reads a gated dataset: the benchmark target needs a Hugging
 Face read credential in its own environment. `evalscope/livecodebench` needs
-`evalscope[sandbox]` and a running Docker engine on the benchmark target; the recipe
-declares no converter, so its raw reports stay in the target results directory.
+`evalscope` on the benchmark target and runs generated programs in a local subprocess
+with no container engine; the recipe declares no converter, so its raw reports stay in the target results directory.
 `tests/test_campaign_recipes.py` pins this list, the axes, and the placeholders the
 consumer substitutes.

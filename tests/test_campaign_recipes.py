@@ -161,13 +161,13 @@ def test_gpqa_diamond_runs_its_task_through_the_lm_eval_converter() -> None:
     assert run["converter"]["kind"] == "lm-eval"
 
 
-def test_livecodebench_runs_through_evalscope_in_the_sandbox() -> None:
+def test_livecodebench_runs_through_evalscope_without_a_docker_sandbox() -> None:
     (run,) = RECIPES["evalscope/livecodebench"]["run"]
     assert run["executable"] == "evalscope"
     assert _argument_after(run, "--datasets") == "live_code_bench"
     assert _argument_after(run, "--eval-type") == "openai_api"
     assert '"v6"' in _argument_after(run, "--dataset-args")
-    assert '"enabled": true' in _argument_after(run, "--sandbox")
+    assert "--sandbox" not in run["argv"]
     assert _argument_after(run, "--eval-batch-size") == "{{ concurrency }}"
 
 
