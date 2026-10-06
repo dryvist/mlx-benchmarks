@@ -39,7 +39,13 @@ class ThroughputProbeConverter:
             "results": self._iter_results(raw, ctx),
             "errors": [],
         }
-        for field in ("campaign", "cell_status", "context"):
+        for field in (
+            "campaign",
+            "cell_status",
+            "context",
+            "campaign_dimensions",
+            "dimension_null_reasons",
+        ):
             value = raw.get(field)
             if value is not None:
                 envelope[field] = value

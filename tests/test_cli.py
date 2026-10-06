@@ -254,3 +254,103 @@ def test_cli_rejects_malformed_json(tmp_path: Path) -> None:
         ]
     )
     assert exit_code == 2
+
+
+_DIMENSIONS_FILE = {
+    "campaign_dimensions": {
+        "hardware": {"machine": "Example GPU", "power_cap_w": 300.0, "ups_circuit": None},
+        "run": {"concurrent_agents": 4},
+    },
+    "dimension_null_reasons": {"hardware.ups_circuit": "NOT_SOURCED"},
+}
+
+
+def _dimensions_argv(tmp_path: Path, lm_eval_sample: dict, dimensions_path: Path) -> list[str]:
+    return [
+        str(_write_sample(tmp_path, lm_eval_sample)),
+        "--kind",
+        "lm-eval",
+        "--suite",
+        "reasoning",
+        "--git-sha",
+        "deadbeef",
+        "--campaign-dimensions",
+        str(dimensions_path),
+        "--dry-run",
+    ]
+
+
+def test_cli_campaign_dimensions_reach_the_envelope(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dimensions_path = tmp_path / "dimensions.json"
+    dimensions_path.write_text(json.dumps(_DIMENSIONS_FILE))
+
+    envelope = _publish_via_cli(
+        tmp_path, lm_eval_sample, monkeypatch, "--campaign-dimensions", str(dimensions_path), "--dry-run"
+    )
+
+    assert envelope["campaign_dimensions"] == _DIMENSIONS_FILE["campaign_dimensions"]
+    assert envelope["dimension_null_reasons"] == _DIMENSIONS_FILE["dimension_null_reasons"]
+
+
+def test_cli_omits_campaign_dimensions_when_not_declared(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    envelope = _publish_via_cli(tmp_path, lm_eval_sample, monkeypatch, "--dry-run")
+
+    assert "campaign_dimensions" not in envelope
+    assert "dimension_null_reasons" not in envelope
+
+
+def test_cli_campaign_dimensions_without_reasons(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dimensions_path = tmp_path / "dimensions.json"
+    dimensions_path.write_text(json.dumps({"campaign_dimensions": {"run": {"concurrent_agents": 2}}}))
+
+    envelope = _publish_via_cli(
+        tmp_path, lm_eval_sample, monkeypatch, "--campaign-dimensions", str(dimensions_path), "--dry-run"
+    )
+
+    assert envelope["campaign_dimensions"] == {"run": {"concurrent_agents": 2}}
+    assert "dimension_null_reasons" not in envelope
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{not json",
+        "[]",
+        json.dumps({"dimension_null_reasons": {}}),
+        json.dumps({"campaign_dimensions": []}),
+        json.dumps({"campaign_dimensions": {}, "dimension_null_reasons": []}),
+        json.dumps({"campaign_dimensions": {}, "extra": 1}),
+    ],
+    ids=[
+        "malformed",
+        "not-an-object",
+        "no-dimensions",
+        "dimensions-not-object",
+        "reasons-not-object",
+        "extra-key",
+    ],
+)
+def test_cli_rejects_a_malformed_campaign_dimensions_file(
+    tmp_path: Path, lm_eval_sample: dict, content: str
+) -> None:
+    dimensions_path = tmp_path / "dimensions.json"
+    dimensions_path.write_text(content)
+
+    assert main(_dimensions_argv(tmp_path, lm_eval_sample, dimensions_path)) == 2
+
+
+def test_cli_rejects_a_missing_campaign_dimensions_file(tmp_path: Path, lm_eval_sample: dict) -> None:
+    assert main(_dimensions_argv(tmp_path, lm_eval_sample, tmp_path / "absent.json")) == 2
+
+
+def test_cli_validates_campaign_dimension_field_names(tmp_path: Path, lm_eval_sample: dict) -> None:
+    dimensions_path = tmp_path / "dimensions.json"
+    dimensions_path.write_text(json.dumps({"campaign_dimensions": {"hardware": {"invented_field": 1}}}))
+
+    assert main(_dimensions_argv(tmp_path, lm_eval_sample, dimensions_path)) == 3
