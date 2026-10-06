@@ -18,7 +18,7 @@ configs:
     default: true
     data_files:
       - split: train
-        path: "data/run-canonical-run-2026-09-*.parquet"
+        path: "data/recent/latest.parquet"
   - config_name: history
     data_files:
       - split: train
@@ -33,12 +33,14 @@ recorded host and accelerator fields may be absent for provider rows. Results
 are published as immutable Parquet shards by the
 [mlx-benchmarks project](https://github.com/dryvist/mlx-benchmarks).
 
-The default configuration opens the most recently published campaign month
-currently available (September 2026). Select `history` to browse every
-canonical shard, including older hosted-provider evaluations. Optional result
-and system fields use nulls when a run did not record them. Historical tag
-columns remain available individually, the tags_json column retains arbitrary
-tags, and extra_json retains historical columns outside the stable schema.
+The default configuration opens `data/recent/latest.parquet`: the canonical
+shards published within 30 days of the newest one, newest run first. The
+publish workflow regenerates it from the canonical shards; it adds no rows of
+its own. Select `history` to browse every canonical shard, including older
+hosted-provider evaluations. Optional result and system fields use nulls when a
+run did not record them. Historical tag columns remain available individually,
+the tags_json column retains arbitrary tags, and extra_json retains historical
+columns outside the stable schema.
 
 Original Parquet shards remain in the repository at their original paths. The
 normalized shards preserve their rows and add null-valued columns where an

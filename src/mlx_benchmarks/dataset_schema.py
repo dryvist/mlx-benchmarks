@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 import pyarrow as pa
@@ -630,3 +631,52 @@ def canonical_shard_needs_refresh(
     if refreshed.to_pylist() != expected.to_pylist():
         raise RuntimeError("canonical shard data differs from its normalized source")
     return True
+
+
+# The dataset card's default configuration reads this one file. It sits below `data/`
+# so the top-level shard globs and the original-shard filter never match it.
+RECENT_SHARD_PATH = "data/recent/latest.parquet"
+RECENT_WINDOW = datetime.timedelta(days=30)
+_STAMPED_CANONICAL_SHARD = re.compile(
+    r"data/run-canonical-run-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})-[^/]+\.parquet"
+)
+
+
+def recent_shard_paths(paths: Iterable[str], *, window: datetime.timedelta = RECENT_WINDOW) -> list[str]:
+    """Timestamped canonical shards within ``window`` of the newest one, oldest first.
+
+    The window ends at the newest shard rather than at the clock, so it names no calendar
+    month and is never empty while any timestamped shard exists. Shards without a run
+    timestamp in their name (rescue and bulk-export shards) are left out.
+    """
+    stamped = {
+        path: datetime.datetime.strptime(match.group(1), "%Y-%m-%dT%H-%M-%S")
+        for path in paths
+        if (match := _STAMPED_CANONICAL_SHARD.fullmatch(path))
+    }
+    if not stamped:
+        return []
+    newest = max(stamped.values())
+    kept = [path for path, moment in stamped.items() if newest - moment <= window]
+    return sorted(kept, key=lambda path: (stamped[path], path))
+
+
+def _conform_to_row_schema(table: pa.Table) -> pa.Table:
+    unexpected = set(table.schema.names) - set(PARQUET_ROW_SCHEMA.names)
+    if unexpected:
+        raise ValueError(f"shard has columns outside the canonical schema: {', '.join(sorted(unexpected))}")
+    if table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+        return table
+    return pa.Table.from_pylist(table.to_pylist(), schema=PARQUET_ROW_SCHEMA)
+
+
+def recent_shard_table(tables: Iterable[pa.Table]) -> pa.Table:
+    """Combine canonical shard tables into one table, newest run first.
+
+    Rows are kept as published; a shard written before a column existed gains nulls for it.
+    The sort is stable, so rows of one run keep their published order.
+    """
+    conformed = [_conform_to_row_schema(table) for table in tables]
+    if not conformed:
+        raise ValueError("no canonical shards to combine")
+    return pa.concat_tables(conformed).sort_by([("timestamp", "descending")])
