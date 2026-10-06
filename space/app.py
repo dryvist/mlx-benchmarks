@@ -105,6 +105,8 @@ CSS = """
 #subtitle { color: #647783; max-width: 760px; margin: 0 0 18px; line-height: 1.5; }
 #selection-status { border-left: 3px solid #126b72; padding: 10px 14px; background: #e8f0f1; }
 .gradio-container { background: #f2f5f6; }
+.dark .gradio-container { background: var(--body-background-fill); }
+.dark #selection-status { background: var(--background-fill-secondary); }
 body, .gradio-container { font-family: Inter, "Segoe UI", Arial, sans-serif; }
 button:focus-visible, input:focus-visible, [role="combobox"]:focus-visible {
     outline: 3px solid #126b72 !important;
