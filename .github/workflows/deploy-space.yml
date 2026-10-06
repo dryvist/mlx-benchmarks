@@ -11,6 +11,8 @@ on:
       - src/mlx_benchmarks/dataset_schema.py
       - src/mlx_benchmarks/publish.py
       - .github/workflows/deploy-space.yml
+  schedule:
+    - cron: "43 5 * * *"
   workflow_dispatch:
 
 permissions:

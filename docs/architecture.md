@@ -172,7 +172,7 @@ pushes that touch `space/`.
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
 | `ci-gate.yml` | PR | Single merge gate (see below). |
-| `deploy-space.yml` | main push to `space/**` | Sync viewer to HF Space. |
+| `deploy-space.yml` | main push to listed paths; daily | Normalize shards, refresh `data/recent/latest.parquet` and the card, sync viewer to HF Space. |
 | `release-please.yml` | main push | Conventional-commit releases. |
 
 `ci-gate.yml` detects file changes and conditionally runs:
