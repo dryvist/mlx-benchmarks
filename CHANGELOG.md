@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.30.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.5...v0.30.0) (2026-10-06)
+
+
+### Features
+
+* **configs:** declare GPQA-Diamond and LiveCodeBench campaign recipes ([#288](https://github.com/dryvist/mlx-benchmarks/issues/288)) ([a1ad810](https://github.com/dryvist/mlx-benchmarks/commit/a1ad810b81040001a48f88a39147f50f329929e8))
+* **converters:** keep campaign dimensions on every envelope ([#287](https://github.com/dryvist/mlx-benchmarks/issues/287)) ([e165251](https://github.com/dryvist/mlx-benchmarks/commit/e16525161158bbd94147b82a38d21f073a12a180))
+
+
+### Bug Fixes
+
+* **dataset:** serve the default config from a rolling recent file ([#285](https://github.com/dryvist/mlx-benchmarks/issues/285)) ([4a66793](https://github.com/dryvist/mlx-benchmarks/commit/4a66793bacc7a68a95e06ca64cd6670f858ff998))
+
 ## [0.29.5](https://github.com/dryvist/mlx-benchmarks/compare/v0.29.4...v0.29.5) (2026-10-05)
 
 
