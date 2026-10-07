@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.0...v0.33.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **benchmarks:** require enforced GPU power limit at publish ([#299](https://github.com/dryvist/mlx-benchmarks/issues/299)) ([47a324a](https://github.com/dryvist/mlx-benchmarks/commit/47a324aba5db73e96075074edf522ae93319e213))
+
 ## [0.33.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.32.0...v0.33.0) (2026-10-07)
 
 
