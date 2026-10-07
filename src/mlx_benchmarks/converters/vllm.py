@@ -6,7 +6,11 @@ import datetime
 import logging
 from typing import Any
 
-from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.base import (
+    ConverterContext,
+    apply_optional_fields,
+    require_gpu_power_limit,
+)
 from mlx_benchmarks.envelope import Envelope, Result, System
 
 log = logging.getLogger(__name__)
@@ -42,6 +46,7 @@ class VllmConverter:
             "%Y-%m-%dT%H:%M:%SZ"
         )
         system: System = ctx.system or {}  # type: ignore[assignment]
+        require_gpu_power_limit(system)
 
         envelope: Envelope = {
             "schema_version": "1",

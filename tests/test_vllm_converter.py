@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from mlx_benchmarks.converters import get_converter
 from mlx_benchmarks.converters.base import ConverterContext
 from mlx_benchmarks.envelope import validate_envelope
+from mlx_benchmarks.publish import envelope_to_rows
 from mlx_benchmarks.system import detect_system
+
+POWER_LIMIT_FIXTURE = Path(__file__).parent / "fixtures/nvidia-smi-enforced-power-limit.csv"
 
 
 def test_vllm_round_trip(vllm_sample: dict) -> None:
@@ -44,6 +51,46 @@ def test_vllm_round_trip(vllm_sample: dict) -> None:
         assert tags.get("completed_requests") == "100"
         assert tags.get("total_input_tokens") == "25600"
         assert tags.get("total_output_tokens") == "25600"
+
+
+def test_vllm_published_rows_include_the_live_enforced_power_limit(vllm_sample: dict, monkeypatch) -> None:
+    fields = [value.strip() for value in POWER_LIMIT_FIXTURE.read_text(encoding="utf-8").strip().split(",")]
+    monkeypatch.setenv("MLX_BENCH_GPU_MODEL", fields[0])
+    monkeypatch.setenv("MLX_BENCH_POWER_LIMIT_W", fields[3])
+    detect_system.cache_clear()
+    ctx = ConverterContext(
+        suite="throughput",
+        model="example/model",
+        git_sha="deadbeef",
+        system=detect_system(),
+    )
+    detect_system.cache_clear()
+
+    envelope = get_converter("vllm").build_envelope(vllm_sample, ctx)
+    validate_envelope(envelope)
+    rows = envelope_to_rows(envelope)
+
+    assert rows
+    assert all(row["power_limit_w"] == float(fields[3]) for row in rows)
+
+
+def test_vllm_nvidia_results_require_a_runtime_power_limit(vllm_sample: dict, monkeypatch) -> None:
+    monkeypatch.setenv("MLX_BENCH_GPU_MODEL", "NVIDIA Example GPU")
+    monkeypatch.delenv("MLX_BENCH_POWER_LIMIT_W", raising=False)
+    detect_system.cache_clear()
+    system = detect_system()
+    detect_system.cache_clear()
+
+    with pytest.raises(ValueError, match="MLX_BENCH_POWER_LIMIT_W"):
+        get_converter("vllm").build_envelope(
+            vllm_sample,
+            ConverterContext(
+                suite="throughput",
+                model="example/model",
+                git_sha="deadbeef",
+                system=system,
+            ),
+        )
 
 
 def test_vllm_extra_tags(vllm_sample: dict) -> None:

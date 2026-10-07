@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -79,6 +80,12 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
     if ctx.model_task_source is not None:
         envelope["model_task_source"] = ctx.model_task_source
     return envelope
+
+
+def require_gpu_power_limit(system: Mapping[str, Any]) -> None:
+    """Refuse NVIDIA result envelopes without the GPU host's run-time power read."""
+    if system.get("gpu") is not None and system.get("power_limit_w") is None:
+        raise ValueError("NVIDIA results require MLX_BENCH_POWER_LIMIT_W from the GPU host")
 
 
 def simple_envelope(

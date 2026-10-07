@@ -19,7 +19,11 @@ import re
 from pathlib import PurePosixPath
 from typing import Any
 
-from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.base import (
+    ConverterContext,
+    apply_optional_fields,
+    require_gpu_power_limit,
+)
 from mlx_benchmarks.envelope import CampaignDimensions, Envelope, Result, System
 
 log = logging.getLogger(__name__)
@@ -57,15 +61,20 @@ def _server_system(ctx: ConverterContext, records: list[dict[str, Any]]) -> Syst
     for key in ("gpu", "engine", "container"):
         if key in declared:
             system[key] = declared[key]
-    power = _only({r.get("power_limit_w") for r in records} - {None})
+    require_gpu_power_limit(declared)
+    power = _runtime_power_limit_w(ctx)
     if power is not None:
-        system["power_limit_w"] = float(power)
-    elif "power_limit_w" in declared:
-        system["power_limit_w"] = declared["power_limit_w"]
+        system["power_limit_w"] = power
     build = _BUILD_RE.match(str(_first_props(records).get("build_info") or ""))
     if build and "engine" not in system:
         system["engine"] = {"name": "llama.cpp", "version": build.group(1)}
     return system  # type: ignore[return-value]
+
+
+def _runtime_power_limit_w(ctx: ConverterContext) -> float | None:
+    """Use the GPU host's run-time read, never per-request annotations."""
+    power = (ctx.system or {}).get("power_limit_w")
+    return float(power) if power is not None else None
 
 
 def _first_props(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -276,8 +285,8 @@ def _dimensions(
             fields[key] = None
             reasons.setdefault(f"{group}.{key}", reason)
 
-    power = _only({r.get("power_limit_w") for r in records} - {None})
-    put("hardware", "power_cap_w", None if power is None else float(power))
+    power = _runtime_power_limit_w(ctx)
+    put("hardware", "power_cap_w", power)
 
     build = _BUILD_RE.match(str(props.get("build_info") or ""))
     put("software", "engine", "llama.cpp")
