@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.1...v0.33.2) (2026-10-07)
+
+
+### Documentation
+
+* update NVIDIA benchmark guidance ([#301](https://github.com/dryvist/mlx-benchmarks/issues/301)) ([66a24a1](https://github.com/dryvist/mlx-benchmarks/commit/66a24a1b9115f612ae194f071d2257c8d95a9e8f))
+
 ## [0.33.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.0...v0.33.1) (2026-10-07)
 
 
