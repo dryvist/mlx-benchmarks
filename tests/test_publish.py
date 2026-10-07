@@ -76,6 +76,19 @@ def test_envelope_to_rows_explodes_results(valid_envelope: dict) -> None:
     assert row["duration_seconds"] == 123.4
 
 
+def test_model_task_fields_reach_every_parquet_row(valid_envelope: dict) -> None:
+    envelope = {
+        **valid_envelope,
+        "model_task": "feature-extraction",
+        "model_task_source": "model_card",
+    }
+
+    rows = envelope_to_rows(envelope)
+
+    assert all(row["model_task"] == "feature-extraction" for row in rows)
+    assert all(row["model_task_source"] == "model_card" for row in rows)
+
+
 def test_rows_to_parquet_roundtrip(valid_envelope: dict) -> None:
     import pyarrow.parquet as pq
 
@@ -168,6 +181,7 @@ def test_publish_writes_hub_fields_as_named_parquet_columns(
     assert row["model_revision"] == valid_envelope["model_revision"]
     assert row["pipeline_tag"] == "text-generation"
     assert row["model_task"] == row["pipeline_tag"]
+    assert row["model_task_source"] == "model_card"
     assert json.loads(row["dtype"]) == {"F16": 1000}
     assert row["dataset_id"] == published_metadata["dataset_id"]
     assert row["engine"] == published_metadata["engine"]
@@ -206,6 +220,11 @@ def test_publish_performance_only_rows_do_not_claim_an_eval_result(
 def test_publish_refuses_invalid_envelope(invalid_envelope: dict) -> None:
     with pytest.raises(EnvelopeValidationError):
         publish(invalid_envelope, dry_run=True)
+
+
+def test_envelope_requires_model_task_source_with_task(valid_envelope: dict) -> None:
+    with pytest.raises(EnvelopeValidationError):
+        publish({**valid_envelope, "model_task": "feature-extraction"}, dry_run=True)
 
 
 def test_publish_requires_metadata(valid_envelope: dict) -> None:

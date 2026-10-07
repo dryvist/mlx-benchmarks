@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from mlx_benchmarks.envelope import CampaignDimensions, Envelope, Result, Serving, System
 
@@ -34,6 +34,10 @@ class ConverterContext:
     # sees one tool's output and cannot observe the host, build, or model facts.
     campaign_dimensions: CampaignDimensions | None = None
     dimension_null_reasons: dict[str, str] | None = None
+    # Hugging Face pipeline task metadata for the model used by this run.
+    # ``model_task_source`` is ``inferred`` only when the model card has no tag.
+    model_task: str | None = None
+    model_task_source: Literal["model_card", "inferred"] | None = None
     timestamp_override: str | None = None
     system: dict[str, Any] | None = None
     extra_tags: dict[str, str] = field(default_factory=dict)
@@ -50,7 +54,7 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
 
     Centralizes the ``pr_number`` / ``env_class`` / ``concurrency`` /
     ``reasoning_effort`` / ``serving`` / ``campaign_dimensions`` /
-    ``dimension_null_reasons`` pass-through so every converter shares one omission
+    ``dimension_null_reasons`` and model-task pass-through so every converter shares one omission
     rule: a field left unset on the context is absent from the envelope.
     Adding a run-context field here reaches every converter at once, which is why
     it belongs here rather than in each converter's own tag whitelist. Returns the
@@ -70,6 +74,10 @@ def apply_optional_fields(envelope: Envelope, ctx: ConverterContext) -> Envelope
         envelope["campaign_dimensions"] = ctx.campaign_dimensions
     if ctx.dimension_null_reasons is not None:
         envelope["dimension_null_reasons"] = ctx.dimension_null_reasons
+    if ctx.model_task is not None:
+        envelope["model_task"] = ctx.model_task
+    if ctx.model_task_source is not None:
+        envelope["model_task_source"] = ctx.model_task_source
     return envelope
 
 

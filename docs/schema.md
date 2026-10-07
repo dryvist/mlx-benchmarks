@@ -1,7 +1,6 @@
 # Envelope schema (v1)
 
-Canonical JSON Schema: [`schema.json`](../schema.json). This file is a prose
-walk-through. When the two disagree, `schema.json` wins — please open a PR.
+Canonical schema: [`schema.json`](../schema.json). It wins when this guide differs.
 
 Upstream Hub source URLs and the read date are recorded in
 [`huggingface-metadata-sources.md`](huggingface-metadata-sources.md).
@@ -41,6 +40,8 @@ test: publish them with `--model hardware-baseline`). Adding a suite means editi
 | `reasoning_effort` | string, free-form | `--reasoning-effort` declared the thinking level the run asked for. See below. |
 | `serving` | object | Inference-server identity: `stack` / `endpoint_port` / `served_model` (all optional). |
 | `model_revision` | string | Model provides HF revision or commit SHA. |
+| `model_task` | string | Card `pipeline_tag`, else closest official HF task. |
+| `model_task_source` | `model_card \| inferred` | Use `inferred` when no card tag exists. |
 | `quantization` | string | Runtime reports it (e.g. `mlx-4bit`, `mxfp4`). |
 | `skipped` | boolean | Suite intentionally skipped (CI without hardware). |
 | `seed` | integer | Seeded generation. |

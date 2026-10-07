@@ -3,7 +3,7 @@
   "$id": "https://github.com/JacobPEvans/mlx-benchmarks/schema/v1.json",
   "title": "MLX Benchmark Result",
   "description": "Structured result envelope for a single benchmark suite run. Backwards-compatible v1 — optional fields may be added without bumping schema_version; breaking changes bump the version and change $id.",
-  "$comment": "v1 additive fields (no version bump): top-level env_class, concurrency, reasoning_effort, serving; system.topology for multi-node cluster runs. 2026-07-27: results[].total_tokens_per_second is now the headline throughput metric (cumulative prompt+completion tok/s) — decode_tokens_per_second and prompt_tokens_per_second remain as supporting detail; no field added or removed, descriptions updated only. 2026-10-04: NVIDIA/CUDA hosts — system.gpu, system.engine, system.power_limit_w, system.container are optional additions; suite enum gains gpu-burn, nvbandwidth, mbw, fio; results[].tags documents the prompt_tokens / concurrency / context_len keys. All additive, legacy envelopes validate unchanged. 2026-10-05: optional campaign_dimensions and dimension_null_reasons record hardware, software, model, run, speed, resource, quality, provenance, and cost dimensions. The publisher flattens these into a fixed nullable Parquet schema. Top-level git_sha remains required but accepts null when the runtime code revision was not captured.",
+  "$comment": "v1 additive fields (no version bump): top-level env_class, concurrency, reasoning_effort, serving; system.topology for multi-node cluster runs. 2026-07-27: results[].total_tokens_per_second is now the headline throughput metric (cumulative prompt+completion tok/s) — decode_tokens_per_second and prompt_tokens_per_second remain as supporting detail; no field added or removed, descriptions updated only. 2026-10-04: NVIDIA/CUDA hosts — system.gpu, system.engine, system.power_limit_w, system.container are optional additions; suite enum gains gpu-burn, nvbandwidth, mbw, fio; results[].tags documents the prompt_tokens / concurrency / context_len keys. All additive, legacy envelopes validate unchanged. 2026-10-05: optional campaign_dimensions and dimension_null_reasons record hardware, software, model, run, speed, resource, quality, provenance, and cost dimensions. The publisher flattens these into a fixed nullable Parquet schema. 2026-10-07: optional model_task and model_task_source capture the Hugging Face model-card pipeline tag or identify an inferred official task tag. Top-level git_sha remains required but accepts null when the runtime code revision was not captured.",
   "type": "object",
   "required": [
     "schema_version",
@@ -15,6 +15,10 @@
     "system",
     "results"
   ],
+  "dependencies": {
+    "model_task": ["model_task_source"],
+    "model_task_source": ["model_task"]
+  },
   "additionalProperties": false,
   "properties": {
     "schema_version": {
@@ -68,6 +72,16 @@
     "model": {
       "type": "string",
       "description": "Model name/ID used for inference (e.g. Qwen3.5-122B-A10B-4bit)"
+    },
+    "model_task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Hugging Face pipeline_tag from the model card, or the closest official Hugging Face task name when the card has no tag."
+    },
+    "model_task_source": {
+      "type": "string",
+      "enum": ["model_card", "inferred"],
+      "description": "Use model_card when model_task is the published pipeline_tag; use inferred when the card has no tag."
     },
     "model_revision": {
       "type": "string",
@@ -1073,7 +1087,7 @@
         "model_revision": {"type": ["string", "null"], "pattern": "^[0-9a-fA-F]{40}$"},
         "pipeline_tag": {"type": ["string", "null"], "minLength": 1},
         "model_task": {"type": ["string", "null"], "minLength": 1},
-        "model_task_source": {"type": ["string", "null"], "enum": ["card", "inferred", null]},
+        "model_task_source": {"type": ["string", "null"], "enum": ["model_card", "inferred", null]},
         "library_name": {"type": ["string", "null"], "minLength": 1},
         "license": {"type": ["string", "null"], "minLength": 1},
         "license_name": {"type": ["string", "null"]},

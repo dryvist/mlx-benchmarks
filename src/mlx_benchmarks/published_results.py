@@ -72,7 +72,7 @@ def _model_fields(api: HfApi, model_id: str, revision: str) -> dict[str, Any]:
         "model_revision": model_sha,
         "pipeline_tag": pipeline_tag,
         "model_task": pipeline_tag,
-        "model_task_source": "card" if card_pipeline else "inferred" if pipeline_tag else None,
+        "model_task_source": "model_card" if card_pipeline else "inferred" if pipeline_tag else None,
         "library_name": _value(info, "library_name"),
         "license": card.get("license"),
         "license_name": card.get("license_name"),

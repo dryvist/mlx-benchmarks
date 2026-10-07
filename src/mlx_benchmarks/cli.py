@@ -17,7 +17,7 @@ import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from mlx_benchmarks.converters import get_converter
 from mlx_benchmarks.converters.base import ConverterContext
@@ -148,9 +148,16 @@ def main(argv: list[str] | None = None) -> int:
 
     campaign_dimensions: CampaignDimensions | None = None
     dimension_null_reasons: dict[str, str] | None = None
+    model_task: str | None = None
+    model_task_source: str | None = None
     if args.campaign_dimensions is not None:
         try:
-            campaign_dimensions, dimension_null_reasons = _load_campaign_dimensions(args.campaign_dimensions)
+            (
+                campaign_dimensions,
+                dimension_null_reasons,
+                model_task,
+                model_task_source,
+            ) = _load_campaign_dimensions(args.campaign_dimensions)
         except OSError as exc:
             log.error("cannot read %s: %s", args.campaign_dimensions, exc)
             return 2
@@ -200,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
         serving=serving or None,
         campaign_dimensions=campaign_dimensions,
         dimension_null_reasons=dimension_null_reasons,
+        model_task=model_task,
+        model_task_source=model_task_source,
         timestamp_override=args.timestamp,
         system=system,
         extra_tags=extra_tags,
@@ -237,17 +246,31 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _load_campaign_dimensions(path: Path) -> tuple[CampaignDimensions, dict[str, str] | None]:
-    """Read ``{"campaign_dimensions": {...}, "dimension_null_reasons": {...}}`` from ``path``.
+def _load_campaign_dimensions(
+    path: Path,
+) -> tuple[
+    CampaignDimensions,
+    dict[str, str] | None,
+    str | None,
+    Literal["model_card", "inferred"] | None,
+]:
+    """Read typed campaign dimensions and optional model-task metadata from ``path``.
 
-    Only the two envelope keys are accepted. Field names and value types are left
-    to ``publish()``, which validates the finished envelope against ``schema.json``.
+    Only the declared envelope keys are accepted. Field names and dimension value
+    types are left to ``publish()``, which validates the finished envelope against
+    ``schema.json``. Task provenance must be explicit when a task is supplied.
     ``json.JSONDecodeError`` is a ``ValueError``, so malformed JSON takes the same path.
     """
     payload = json.loads(path.read_text())
     if not isinstance(payload, dict):
         raise ValueError("expected a JSON object")
-    unexpected = sorted(set(payload) - {"campaign_dimensions", "dimension_null_reasons"})
+    allowed_keys = {
+        "campaign_dimensions",
+        "dimension_null_reasons",
+        "model_task",
+        "model_task_source",
+    }
+    unexpected = sorted(set(payload) - allowed_keys)
     if unexpected:
         raise ValueError(f"unexpected keys: {', '.join(unexpected)}")
     dimensions = payload.get("campaign_dimensions")
@@ -256,7 +279,22 @@ def _load_campaign_dimensions(path: Path) -> tuple[CampaignDimensions, dict[str,
     reasons = payload.get("dimension_null_reasons")
     if reasons is not None and not isinstance(reasons, dict):
         raise ValueError("dimension_null_reasons must be an object")
-    return cast("CampaignDimensions", dimensions), cast("dict[str, str] | None", reasons)
+    model_task = payload.get("model_task")
+    model_task_source: Literal["model_card", "inferred"] | None = payload.get("model_task_source")
+    if model_task is not None and (not isinstance(model_task, str) or not model_task.strip()):
+        raise ValueError("model_task must be a non-empty string")
+    if model_task_source is not None and (
+        not isinstance(model_task_source, str) or model_task_source not in {"model_card", "inferred"}
+    ):
+        raise ValueError("model_task_source must be 'model_card' or 'inferred'")
+    if (model_task is None) != (model_task_source is None):
+        raise ValueError("model_task and model_task_source must be provided together")
+    return (
+        cast("CampaignDimensions", dimensions),
+        cast("dict[str, str] | None", reasons),
+        cast("str | None", model_task),
+        cast("Literal['model_card', 'inferred'] | None", model_task_source),
+    )
 
 
 def _extract_model(raw: dict[str, Any] | list[Any]) -> str:

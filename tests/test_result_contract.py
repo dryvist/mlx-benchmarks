@@ -22,7 +22,7 @@ def published_result() -> dict[str, object]:
         "model_revision": "a" * 40,
         "pipeline_tag": "text-generation",
         "model_task": "text-generation",
-        "model_task_source": "card",
+        "model_task_source": "model_card",
         "library_name": "transformers",
         "license": "apache-2.0",
         "license_name": None,

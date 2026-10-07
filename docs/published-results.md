@@ -16,7 +16,7 @@ copies `model_id`, `pipeline_tag`, `library_name`, `card_data`, `safetensors`,
 `base_model`, `base_model_relation`, `tags`, `parameters_total`, `dtype`,
 `quant`, `architectures`, `model_type`, `context_length`, and `gated`.
 
-`model_task` equals `pipeline_tag`; `model_task_source` is `card` or
+`model_task` equals `pipeline_tag`; `model_task_source` is `model_card` or
 `inferred`. `parameters_total` comes from `safetensors.total` or `gguf.total`;
 `dtype` copies the safetensors dtype breakdown; `quant` copies the GGUF file
 type or Hub quantization metadata. The publisher never resolves model metadata

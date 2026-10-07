@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
-from typing import Any, Required, TypedDict, cast
+from typing import Any, Literal, Required, TypedDict, cast
 
 import jsonschema
 from jsonschema import Draft7Validator
@@ -143,6 +143,8 @@ class Envelope(TypedDict, total=False):
     serving: Serving
     suite: Required[str]
     model: Required[str]
+    model_task: str
+    model_task_source: Literal["model_card", "inferred"]
     model_revision: str
     quantization: str
     campaign: Campaign
