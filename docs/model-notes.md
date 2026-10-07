@@ -2,29 +2,90 @@
 
 Durable, per-model-class quirks that decide whether a model can drive a
 many-tool agent (structured tool calls, thinking/reasoning parsing,
-concurrency) on vllm-mlx. Everything here is sourced from May–July 2026
-material; dated links inline. Per-run findings belong in
+concurrency) on vllm-mlx. Model-currency facts below were refreshed
+2026-10-07; dated links inline. Per-run findings belong in
 [`docs/journal/`](./journal/) — this file holds only what stays true across
 runs.
 
+## Model currency and target fit (2026-10-07)
+
+`OLD` means a newer architecture generation in the same family has a
+documented runnable MLX path. It is not an Artificial Analysis score label.
+Candidate facts are machine-readable in
+[`configs/shootout/candidates.toml`](../configs/shootout/candidates.toml);
+this table records the successor and fit evidence for affected models.
+
+| Model | Arch gen | Date | Weights / params | MLX quants | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| Qwen3.8-Flash-Next | Qwen4 experimental architecture, `qwen4_exp` | 2026-08-26 | Weights available, license `other`; 176B per QwenLM component counts (125B transformer + 51B n-gram); HF metadata reports 180B; 6B active | 2-bit mixed-precision MLX-OptiQ: 80.8 GB on disk; SSD streaming, card reports 4.6 GB peak | Current Qwen architecture generation with a [documented coding run](https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit); use `mlx-optiq>=0.5.14` and `optiq serve`. The official [release notes](https://github.com/QwenLM/Qwen3.8-Flash-Next) describe it as an early preview of the architecture used in Qwen4. |
+| **OLD** Qwen3-Next-80B-A3B | Qwen3 generation, hybrid Gated DeltaNet + gated attention MoE, `qwen3_next` | 2025-09-11 | Yes, Apache-2.0; 80B / 3B active | MLX 4-bit Instruct 44.8 GB; Thinking 4-bit ~45 GB | Superseded by [Qwen3.8-Flash-Next](https://huggingface.co/Qwen/Qwen3.8-Flash-Next), tagged `qwen4_exp`; its [2-bit MLX-OptiQ artifact](https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit) is 80.8 GB on disk, requires `mlx-optiq>=0.5.14` and SSD streaming, and documents a coding run. The card reports a 4.6 GB peak working set. Release date: [official Qwen3.8 release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md); runnable quant sources: [Instruct 4-bit](https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit), [Thinking 4-bit](https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Thinking-4bit). |
+| **OLD** Qwen3-30B-A3B-Instruct-2507 | Qwen3 MoE, `qwen3_moe` | 2025-07-30 | Yes, Apache-2.0; 30.5B / 3.3B active | MLX 4-bit 17.2 GB; MLX 8-bit 32.4 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official Qwen3 release record](https://github.com/QwenLM/Qwen3/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507), [4-bit artifact](https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit), [8-bit artifact](https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-8bit), and Qwen3.8 links above. |
+| **OLD; PROTECTED: recorded resident** Qwen3-Coder-30B-A3B | Qwen3 MoE, `qwen3_moe` | 2025-07-22 | Yes, Apache-2.0; 30.5B / 3.3B active | MLX 4-bit 17.2 GB; MLX 8-bit 32.4 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; current residency UNVERIFIED and route retirement lead-owned. [Qwen3-Coder release](https://qwenlm.github.io/blog/qwen3-coder/), [official model card](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct), [4-bit artifact](https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit), [8-bit artifact](https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit), and Qwen3.8 links above. |
+| **OLD** Qwen3-Coder-Next-80B-A3B | Qwen3 generation, Qwen3-Next hybrid MoE, `qwen3_next` | 2026-02-02 | Yes, Apache-2.0; 80B / 3B active | Candidate MLX 4-bit 44.8 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official Qwen3-Coder-Next release](https://qwen.ai/blog?id=qwen3-coder-next), [HF model card](https://huggingface.co/Qwen/Qwen3-Coder-Next), [MLX artifact](https://huggingface.co/mlx-community/Qwen3-Coder-Next-4bit), and Qwen3.8 links above. |
+| **OLD** Qwen3.5-27B | Qwen3.5 dense hybrid Gated DeltaNet + gated attention, `qwen3_5` | 2026-02-24 | Yes, Apache-2.0; 27B | MLX 4-bit 16.1 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3.5-27B), [MLX artifact](https://huggingface.co/mlx-community/Qwen3.5-27B-4bit), and Qwen3.8 links above. |
+| **OLD** Qwen3.6-27B | Qwen3.6 dense hybrid Gated DeltaNet + gated attention, `qwen3_5` | 2026-04-22 | Yes, Apache-2.0; 27B | MLX 4-bit 16.1 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3.6-27B), [MLX artifact](https://huggingface.co/mlx-community/Qwen3.6-27B-4bit), and Qwen3.8 links above. |
+| **OLD; PROTECTED: served family** Qwen3.6-35B-A3B | Qwen3.6 MoE hybrid Gated DeltaNet + gated attention, `qwen3_5_moe` | 2026-04-16 | Yes, Apache-2.0; 35B / 3B active | MLX 4-bit 20.4 GB; OptiQ 4-bit 24.7 GB; MLX 8-bit 37.7 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next above. The served family remains protected; route retirement is lead-owned. Its 80.8 GB artifact exceeds this shootout's 75 GB weight ceiling. [Official release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3.6-35B-A3B), [4-bit artifact](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-4bit), [OptiQ artifact](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit), and [8-bit artifact](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-8bit). |
+| **OLD** Qwen3.5-122B-A10B | Qwen3.5 MoE hybrid Gated DeltaNet + gated attention, `qwen3_5_moe` | 2026-02-24 | Yes, Apache-2.0; 122B / 10B active | MLX 4-bit 69.6 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3.5-122B-A10B), [MLX artifact](https://huggingface.co/mlx-community/Qwen3.5-122B-A10B-4bit), and Qwen3.8 links above. |
+| **OLD** Qwen3.5-35B-A3B | Qwen3.5 MoE hybrid Gated DeltaNet + gated attention, `qwen3_5_moe` | 2026-02-24 | Yes, Apache-2.0; 35B / 3B active | MLX 4-bit 20.4 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3.5-35B-A3B), [MLX artifact](https://huggingface.co/mlx-community/Qwen3.5-35B-A3B-4bit), and Qwen3.8 links above. |
+| **OLD; PROTECTED: served** Qwen3.5-9B | Qwen3.5 dense hybrid Gated DeltaNet + gated attention, `qwen3_5` | 2026-03-02 | Yes, Apache-2.0; 9B | MLX 4-bit artifact: 5.95 GB per HF card | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; the catalog retains a 5.2 GB sizing value, distinct from the artifact size. Route retirement is lead-owned. [Official release record](https://github.com/QwenLM/Qwen3.8/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3.5-9B), [MLX artifact](https://huggingface.co/mlx-community/Qwen3.5-9B-4bit), and Qwen3.8 links above. |
+| **OLD** Qwen3-4B-Instruct-2507 | Qwen3 dense Transformer, `qwen3` | 2025-08-06 | Yes, Apache-2.0; 4.0B | MLX 4-bit 2.28 GB | Superseded by runnable Qwen4-generation Qwen3.8-Flash-Next; [official Qwen3 release record](https://github.com/QwenLM/Qwen3/blob/main/README.md), [official model card](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), [MLX artifact](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit), and Qwen3.8 links above. |
+| Ling-3.0-Flash | Ling 3.0 / Bailing hybrid KDA + MLA | 2026-08-02 | Yes, MIT; 124B / 5.1B active | MLX 4-bit: 70.03 GB | Runnable same-target successor; the [Apple-silicon validation](https://huggingface.co/TensorFold/Ling-3.0-flash-MLX-4bit) documents successful model loading and text generation. |
+| **OLD** Ling-2.6-Flash | Ling 2.6 generation, Bailing hybrid MoE | 2026-04-23 | Yes, MIT; 104B / 7.4B active | Candidate DWQ 4-bit 58.6 GB | Superseded by runnable Ling-3.0-Flash above; [official Ling-2.6 release](https://developer.ant-ling.com/en/blogs/ling-2.6-flash-release), [official model card](https://huggingface.co/inclusionAI/Ling-2.6-flash), [first card commit](https://huggingface.co/inclusionAI/Ling-2.6-flash/commit/93d187d078ce712b2c07a0a272f3466c238724b5), and [Ling-3.0 MLX artifact](https://huggingface.co/TensorFold/Ling-3.0-flash-MLX-4bit). |
+| MiniMax-M2 | MiniMax M2 / `minimax_m2` | 2025-10-27 | Weights available, license `other`; 230B / 10B active | REAP-pruned MLX MXFP4: 139B / 10B active, 73.9 GB | Retain for this target; [MiniMax-M3 MLX 4-bit](https://huggingface.co/mlx-community/MiniMax-M3-4bit) is 241 GB and does not fit the 100 GiB device limit. |
+| MiniMax-M2.7 | MiniMax M2 / `minimax_m2` | 2026-03-18 | Weights available, license `other`; 229B / active count UNVERIFIED | MLX quant size UNVERIFIED | Retain for this target; MiniMax-M3 MLX 4-bit is 241 GB. Release source: [MiniMax](https://www.minimax.io/news/minimax-m27-en). |
+| MiniMax-M3 | MiniMax M3 sparse attention (MSA) | 2026-06-01 | Weights available, license `other`; about 428B / 23B active (HF metadata: 427B) | MLX 4-bit: 241 GB; 3-bit: 186 GB; target-fit quant UNVERIFIED | Newer model generation, but no fitting MLX artifact found; [official card](https://huggingface.co/MiniMaxAI/MiniMax-M3), [4-bit MLX card](https://huggingface.co/mlx-community/MiniMax-M3-4bit), and [3-bit MLX card](https://huggingface.co/pipenetwork/MiniMax-M3-MLX-3bit). |
+| GLM-5.3-Flash | GLM 5.3 / `glm5_next` | 2026-08-26 | Yes, MIT; card: 320B / 18B active (HF metadata: 321B) | NVIDIA NVFP4: about 190.4 GiB; fitting MLX quant UNVERIFIED | Newer model generation, but no fitting MLX artifact found; [official release record](https://github.com/zai-org/GLM-V/blob/main/README.md) and [official card](https://huggingface.co/zai-org/GLM-5.3-Flash). |
+
+### GLM-4.7-Flash — NOT PROVEN OLD for this MLX target
+
+- Architecture: GLM 4.7, `glm4_moe_lite`; release: 2026-01-19.
+- Open weights: yes, MIT; parameters: 30B total, 3.6B active.
+- Runnable MLX quant: candidate 8-bit, 31.8 GB.
+- GLM-5.3 has no verified fitting MLX quant. Its NVIDIA NVFP4 is 190.4 GiB.
+
+The Qwen3.8-Flash-Next artifact is runnable through SSD streaming but is an
+extreme 2-bit quant. Its weight files exceed the shootout's 75 GB entry limit;
+the artifact facts establish architecture availability and target runnability,
+not a benchmark-quality result. Any remaining quant-size gap is marked
+`UNVERIFIED` rather than inferred from scores.
+
 Serving-flag quick reference (vllm-mlx):
 
-| Family | `--tool-call-parser` | `--reasoning-parser` | Thinking control |
-| --- | --- | --- | --- |
-| Qwen3 / Qwen3.6 dense + MoE | `hermes` | `qwen3` | `chat_template_kwargs.enable_thinking` |
-| Qwen3-Coder / Coder-Next | `qwen3_coder` | `qwen3` | `enable_thinking` |
-| Qwen3-Next (hybrid attention) | `hermes` | `qwen3` | `enable_thinking`; never spec-decode/MTP |
-| GLM-4.7-Flash | `glm47` | `glm45` | thinking on by default |
-| gpt-oss (harmony) | `harmony` | `gpt_oss` | `chat_template_kwargs.reasoning_effort` |
-| DeepSeek-V4-Flash | `deepseek` + `--enable-auto-tool-choice` | `deepseek_r1` | native `<think>` |
-| MiniMax-M2.7 | `minimax` | native | native |
-| Hermes-4 | `hermes` | — | — |
+- **OLD** Qwen3 / Qwen3.6 dense + MoE
+  - Tool-call parser: `hermes`
+  - Reasoning parser: `qwen3`
+  - Thinking control: `chat_template_kwargs.enable_thinking`
+- **OLD** Qwen3-Coder / Coder-Next
+  - Tool-call parser: `qwen3_coder`
+  - Reasoning parser: `qwen3`
+  - Thinking control: `enable_thinking`
+- **OLD** Qwen3-Next (hybrid attention)
+  - Tool-call parser: `hermes`
+  - Reasoning parser: `qwen3`
+  - Thinking control: `enable_thinking`; never spec-decode/MTP
+- GLM-4.7-Flash
+  - Tool-call parser: `glm47`
+  - Reasoning parser: `glm45`
+  - Thinking control: thinking on by default
+- gpt-oss (harmony)
+  - Tool-call parser: `harmony`
+  - Reasoning parser: `gpt_oss`
+  - Thinking control: `chat_template_kwargs.reasoning_effort`
+- DeepSeek-V4-Flash
+  - Tool-call parser: `deepseek` + `--enable-auto-tool-choice`
+  - Reasoning parser: `deepseek_r1`
+  - Thinking control: native `<think>`
+- MiniMax-M2.7: `minimax` tool-call parser; native reasoning and thinking.
+- Hermes-4
+  - Tool-call parser: `hermes`
+  - Reasoning parser: —
+  - Thinking control: —
 
 vllm-mlx's reasoning guide documents `qwen3` and `deepseek_r1` explicitly; the
 wider tool-parser set comes from the server flags
 ([vllm-mlx docs](https://github.com/waybarrios/vllm-mlx/blob/main/docs/guides/reasoning.md)).
 
-## Qwen3.x MoE (Qwen3.6-35B-A3B, Qwen3-30B-A3B, Qwen3.6-27B)
+## OLD — Qwen3.x MoE (Qwen3.6-35B-A3B, Qwen3-30B-A3B-Instruct-2507, Qwen3.6-27B)
 
 - **Quantization is the dominant tool-calling variable.** Stock
   `mlx-community` uniform quants degrade **multi-turn** tool calling: 4-bit
@@ -75,7 +136,7 @@ wider tool-parser set comes from the server flags
   (`--cache-memory-mb` well above the 3 GB default class) before blaming the
   weights for slow decode.
 
-## Qwen3-Next (hybrid SDPA + Gated-DeltaNet linear attention)
+## OLD — Qwen3-Next (hybrid SDPA + Gated-DeltaNet linear attention)
 
 - The early-2026 "crashes when two requests batch" reputation
   (conv_state shape errors) no longer holds: vllm-metal lists the family as
@@ -92,7 +153,7 @@ wider tool-parser set comes from the server flags
 - Linear attention gives the smallest KV growth of any class here — the
   long-transcript pick when reasoning depth beats raw tok/s.
 
-## Qwen3-Coder (30B-A3B, Coder-Next)
+## OLD — Qwen3-Coder (30B-A3B, Coder-Next)
 
 - Parser is `qwen3_coder`, not `qwen`; with the global
   `--enable-auto-tool-choice`, a registered model missing its parser exits at
@@ -182,12 +243,14 @@ wider tool-parser set comes from the server flags
 
 ## Serving stacks (state of play, mid-2026)
 
-| Stack | Fit for concurrent agentic tool-calling |
-| --- | --- |
-| vllm-mlx v0.4.0 (2026-06-28) | Continuous batching (4.3× at 16-way), paged/system KV, tool + reasoning parsers — the default choice |
-| Rapid-MLX v0.10.3 (2026-07-07) | 17 tool parsers + plain-text tool-call auto-recovery (mitigates mlx-lm #1011) — worth evaluating |
-| llama.cpp (Metal) | GGUF Q4_K_XL is the known-good multi-turn tool-calling fallback; MLX still ~20–40 % faster on Apple Silicon |
-| mlx-lm server | Basic batching; spec-decode buggy (mlx-lm #846) — not for concurrency |
+- **vllm-mlx v0.4.0 (2026-06-28):** Continuous batching (4.3× at 16-way),
+  paged/system KV, tool + reasoning parsers — the default choice.
+- **Rapid-MLX v0.10.3 (2026-07-07):** 17 tool parsers + plain-text tool-call
+  auto-recovery (mitigates mlx-lm #1011) — worth evaluating.
+- **llama.cpp (Metal):** GGUF Q4_K_XL is the known-good multi-turn tool-calling
+  fallback; MLX still ~20–40 % faster on Apple Silicon.
+- **mlx-lm server:** Basic batching; spec-decode buggy (mlx-lm #846) — not for
+  concurrency.
 
 Sources: [vllm-mlx releases](https://github.com/waybarrios/vllm-mlx/releases),
 [Rapid-MLX](https://github.com/raullenchai/Rapid-MLX). vllm-mlx 0.4.0 also

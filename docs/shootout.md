@@ -15,11 +15,12 @@ and ranks them with `mlx-bench-shootout`. Slate, measured weights, rejections:
 Priority order is fixed: a model that cannot call tools reliably is not a brain
 no matter how fast or how honest it is.
 
-| # | Criterion | Metric | Where it comes from |
-| --- | --- | --- | --- |
-| 1 | Tool-call fidelity | `valid_tool_call_rate` at the gate cell, then multi-turn survival | `agentic` suite |
-| 2 | Factual accuracy | `grounded_accuracy`, then `fabricated_number_rate` | `factual` suite |
-| 3 | Latency | `request_latency_p50_ms` at the gate cell (TTFT reported alongside) | `agentic` suite |
+- **1. Tool-call fidelity:** `valid_tool_call_rate` at the gate cell, then
+  multi-turn survival. Source: `agentic` suite.
+- **2. Factual accuracy:** `grounded_accuracy`, then
+  `fabricated_number_rate`. Source: `factual` suite.
+- **3. Latency:** `request_latency_p50_ms` at the gate cell (TTFT reported
+  alongside). Source: `agentic` suite.
 
 Every number is computed by code from the raw results. No criterion needs a
 human to read a transcript, and none uses a model as a judge.
@@ -82,6 +83,12 @@ next criterion decides. Latency, where a small difference is real and
 repeatable, is the final tiebreak. A model missing either suite is not ranked.
 
 ## Memory ceiling
+
+The Qwen3-family candidate entries are **OLD** as of 2026-10-07 because the
+Qwen4-generation Qwen3.8-Flash-Next has a documented MLX-OptiQ run. Its 80.8 GB
+weight files exceed the slate's 75 GB entry ceiling; it is not added as a
+candidate. See [`docs/model-notes.md`](./model-notes.md) for the architecture,
+runtime, and quant facts used for the retirement decision.
 
 nix-darwin's `mac-studio` config sets `maxLocalLlmGb = 100` — wired limit
 102400 MiB (100 GiB), a 28 GiB OS reserve, and a 99 GiB cap beneath it. The
@@ -170,12 +177,12 @@ mlx-bench-shootout run-output/ --gate conc1_think-on_ctx-large
 
 Per candidate, at concurrency 1:
 
-| Step | Time |
-| --- | --- |
-| Load + warm | 2–10 min (a 70 GB model from a cold cache is the slow end) |
-| Agentic, conc1 only (8 cells × 10 repeats + 2×20 multi-turn rounds) | ~60–90 min |
-| Factual (5 cases × 5 repeats × 2 thinking modes) | ~10–20 min |
-| **Subtotal** | **~1.5–2 h** |
+- **Load + warm:** 2–10 min (a 70 GB model from a cold cache is the slow
+  end).
+- **Agentic, conc1 only:** 8 cells × 10 repeats + 2×20 multi-turn rounds;
+  ~60–90 min.
+- **Factual:** 5 cases × 5 repeats × 2 thinking modes; ~10–20 min.
+- **Subtotal:** ~1.5–2 h.
 
 For 11 candidates: **~17–22 h of serving time per pass.** The verdict policy
 requires a **validated consecutive pair** (each suite run twice, both discarded
