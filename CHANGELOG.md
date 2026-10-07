@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.30.1...v0.31.0) (2026-10-07)
+
+
+### Features
+
+* **converters:** add llamacpp-server request-log converter ([#292](https://github.com/dryvist/mlx-benchmarks/issues/292)) ([5a6d897](https://github.com/dryvist/mlx-benchmarks/commit/5a6d897ad29a791bc8432180ae78518f4f415e87))
+
 ## [0.30.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.30.0...v0.30.1) (2026-10-06)
 
 
