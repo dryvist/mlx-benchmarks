@@ -8,31 +8,8 @@ Upstream Hub source URLs and the read date are recorded in
 
 ## Published score rows
 
-The `definitions.published_result` schema is the contract for one dataset
-score. It includes model identity and shape resolved from the Hub API, the
-registered benchmark task, the HF `.eval_results` fields, and run variables.
-The exact field names are written as top-level Parquet columns. Composite values
-such as `dtype`, array-valued `base_model`, `hardware`, and
-`dimension_null_reasons` use JSON encoding in their own columns; `tags` and
-`architectures` are Parquet lists.
-Every required field is present. A null requires a matching entry in
-`dimension_null_reasons`; accepted codes are `not_applicable` and
-`na_backfill`. `na_backfill` is valid only before the
-`2026-10-07T04:15:00Z` cutover.
-
-The raw benchmark record supplies `model_revision` as the 40-character Hub
-commit SHA captured by the runner. The publisher reads model metadata at that
-SHA and rejects evaluation benchmark IDs without a registered `eval.yaml`
-task. The task's framework, config, and split must match the Hub definition.
-Performance-only rows set all dataset fields to null with the explicit
-`not_applicable` reason and do not emit an HF evaluation sidecar.
-
-The one-time historical migration is exposed as
-`mlx-bench-publish-backfill`. It defaults to dry-run, reads every Parquet shard,
-and adds these columns to every historical row. Hub metadata is looked up only
-when the row has a recorded model SHA. Missing historical facts are stored as
-null with `na_backfill`; applying the planned rewrite requires the lead's
-approval.
+See [`published-results.md`](published-results.md) for the fields, Hub
+enrichment rules, validator, and historical migration procedure.
 
 ## Required top-level fields
 

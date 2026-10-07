@@ -256,15 +256,8 @@ HF_TOKEN="$HF_WRITE_TOKEN" \
   --published-metadata run-output/<...>/published-metadata.json
 ```
 
-The run output must include its captured `model_revision` Hub SHA. The metadata
-file must name a registered benchmark task and supply the required run fields;
-missing values and nulls without an enumerated reason stop publication.
-
-The public Parquet projection omits host identifiers. Every publish also
-requires the run's `published-metadata.json` with non-null critical fields or
-an explicit allowed null reason.
-Never discard a completed run — publish with `--tag caveat=<reason>` and file
-an issue rather than throwing away benchmark time.
+See the [published-result contract](published-results.md) before publishing.
+Retain every completed run; publish caveats with `--tag caveat=<reason>`.
 
 ## Step 6 — Update RANKINGS.md
 

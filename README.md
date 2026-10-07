@@ -212,25 +212,8 @@ HF_TOKEN="$HF_WRITE_TOKEN" \
   --published-metadata ./run-output/<model-dir>/published-metadata.json
 ```
 
-The raw run record must contain `model_revision`, the 40-character Hub SHA
-captured by the runner. `published-metadata.json` carries the registered
-benchmark task and required run variables. The publisher resolves model shape
-from `ModelInfo` at that recorded SHA and validates every score row. Scores
-with a registered evaluation dataset also get a Hub `.eval_results/*.yaml`
-record. Performance-only rows must explicitly mark all dataset fields
-`not_applicable`; HF evaluation sidecars are not emitted for those rows. A dry
-run performs read-only Hub lookups; it never uploads.
-
-Historical migration is dry-run by default. It reads every Parquet shard,
-copies recorded values, looks up model metadata only at a recorded Hub SHA, and
-marks unavailable historical fields `na_backfill`. It refuses that reason for
-rows dated after the cutover. Review the row and sidecar counts before the lead
-approves a write:
-
-```sh
-mlx-bench-publish-backfill
-mlx-bench-publish-backfill --apply # lead approval required; do not run in routine validation
-```
+The published-result contract, metadata source mapping, and migration procedure
+are documented in [`docs/published-results.md`](docs/published-results.md).
 
 `detect_system()` collects machine identity locally for run handling, while the
 public projection omits host and network identifiers. Filenames are content-addressed
