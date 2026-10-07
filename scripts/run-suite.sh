@@ -93,7 +93,11 @@ fi
 #    proxy holds the same port on IPv6/TLS, so a plain localhost probe can hit
 #    the wrong listener and report a confusing failure.
 PROBE_URL="${BASE_URL%/v1}"
-SERVED="$(curl -s4 --max-time 10 "$PROBE_URL/v1/models" 2>/dev/null || true)"
+[ -n "${OPENAI_API_KEY:-}" ] || die "OPENAI_API_KEY is required to authenticate the model endpoint"
+SERVED="$(
+  printf 'Authorization: Bearer %s\n' "$OPENAI_API_KEY" |
+    curl -s4 --max-time 10 -H @- "$PROBE_URL/v1/models" 2>/dev/null || true
+)"
 [ -n "$SERVED" ] || die "no response from $PROBE_URL/v1/models — is the model server up?"
 
 if ! echo "$SERVED" | grep -q "\"$MODEL\""; then
