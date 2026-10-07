@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.2...v0.33.3) (2026-10-07)
+
+
+### Bug Fixes
+
+* authenticate model preflight requests ([64c2548](https://github.com/dryvist/mlx-benchmarks/commit/64c25486cdaf7c5ffc79442e7bd56c9a19a39335))
+* authenticate model preflight requests ([1a0482c](https://github.com/dryvist/mlx-benchmarks/commit/1a0482ce3f3e7f6895776a2eefbba0d087093e3f))
+
 ## [0.33.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.1...v0.33.2) (2026-10-07)
 
 
