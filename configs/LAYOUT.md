@@ -160,7 +160,7 @@ export MLX_BENCH_GPU_MODEL="$(nvidia-smi --query-gpu=name --format=csv,noheader 
 export MLX_BENCH_GPU_VRAM_GB="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1 | awk '{printf "%.1f", $1 / 1024}')"
 export MLX_BENCH_GPU_DRIVER="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1)"
 export MLX_BENCH_GPU_CUDA="$(nvidia-smi | sed -n 's/.*CUDA Version: *\([0-9.]*\).*/\1/p' | head -n1)"
-export MLX_BENCH_POWER_LIMIT_W="$(nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits | head -n1)"
+export MLX_BENCH_POWER_LIMIT_W="$(nvidia-smi --query-gpu=enforced.power.limit --format=csv,noheader,nounits | head -n1)"
 export MLX_BENCH_ENGINE_NAME=vllm
 export MLX_BENCH_ENGINE_VERSION="$(vllm --version)"
 export MLX_BENCH_CONTAINER="<image:tag>"   # only when the engine ran in a container

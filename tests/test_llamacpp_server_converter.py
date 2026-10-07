@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,6 +17,7 @@ PROPS = {
     "total_slots": 4,
     "n_ctx": 65536,
 }
+POWER_LIMIT_FIXTURE = Path(__file__).parent / "fixtures/nvidia-smi-enforced-power-limit.csv"
 SERVED = [
     {
         "id": "example/Example-27B-GGUF",
@@ -66,18 +68,22 @@ def _records() -> list[dict[str, Any]]:
 
 
 def _ctx(**overrides: Any) -> ConverterContext:
+    fields = [value.strip() for value in POWER_LIMIT_FIXTURE.read_text(encoding="utf-8").strip().split(",")]
+    system = {
+        "os": "macOS 26",
+        "chip": "Publisher CPU",
+        "memory_gb": 64,
+        "hostname": "publisher-host",
+        "kernel": "25.0",
+        "gpu": {"model": "Example GPU", "vram_gb": 96.0},
+        "power_limit_w": float(fields[3]),
+    }
+    system.update(overrides.pop("system", {}))
     return ConverterContext(
         suite="throughput",
         model="example/Example-27B-GGUF",
         git_sha="abc1234",
-        system={
-            "os": "macOS 26",
-            "chip": "Publisher CPU",
-            "memory_gb": 64,
-            "hostname": "publisher-host",
-            "kernel": "25.0",
-            "gpu": {"model": "Example GPU", "vram_gb": 96.0},
-        },
+        system=system,
         **overrides,
     )
 
@@ -113,7 +119,7 @@ def test_envelope_derives_campaign_dimensions_from_the_records() -> None:
     validate_envelope(envelope)
 
     dims = envelope["campaign_dimensions"]
-    assert dims["hardware"] == {"machine": "Example GPU", "power_cap_w": 325.0}
+    assert dims["hardware"] == {"machine": "Example GPU", "power_cap_w": 200.0}
     assert dims["software"]["engine"] == "llama.cpp"
     assert (dims["software"]["engine_version"], dims["software"]["engine_commit"]) == ("b11457", "5ad1c5da0")
     assert dims["software"]["driver_version"] == "1.2.3"
@@ -132,7 +138,7 @@ def test_envelope_derives_campaign_dimensions_from_the_records() -> None:
         "memory_gb": None,
         "gpu": {"model": "Example GPU", "vram_gb": 96.0},
         "engine": {"name": "llama.cpp", "version": "b11457"},
-        "power_limit_w": 325.0,
+        "power_limit_w": 200.0,
     }
     assert envelope["quantization"] == "UD-Q4_K_M"
     assert envelope["reasoning_effort"] == "off"
@@ -151,7 +157,27 @@ def test_server_answers_ride_each_row_without_the_model_path() -> None:
             assert server["server_props"]["model_path"] == "Example-27B-UD-Q4_K_M.gguf"
             assert tags["usage_cached_tokens"] == "21"
             assert tags["timings_prompt_n"] == "4"
-        assert row["campaign_hardware_power_cap_w"] == 325.0
+        assert row["campaign_hardware_power_cap_w"] == 200.0
+
+
+def test_published_rows_prefer_the_live_enforced_power_limit() -> None:
+    fields = [value.strip() for value in POWER_LIMIT_FIXTURE.read_text(encoding="utf-8").strip().split(",")]
+    power_limit = float(fields[3])
+    envelope = get_converter("llamacpp-server").build_envelope(
+        _records(), _ctx(system={"power_limit_w": power_limit})
+    )
+
+    validate_envelope(envelope)
+    assert envelope["system"]["power_limit_w"] == power_limit
+    assert envelope["campaign_dimensions"]["hardware"]["power_cap_w"] == power_limit
+    rows = envelope_to_rows(envelope)
+    assert rows
+    assert all(row["power_limit_w"] == power_limit for row in rows)
+
+
+def test_nvidia_results_require_a_runtime_power_limit() -> None:
+    with pytest.raises(ValueError, match="MLX_BENCH_POWER_LIMIT_W"):
+        get_converter("llamacpp-server").build_envelope(_records(), _ctx(system={"power_limit_w": None}))
 
 
 def test_mixed_series_are_refused() -> None:

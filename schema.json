@@ -1138,7 +1138,7 @@
         "power_limit_w": {
           "type": "number",
           "minimum": 0,
-          "description": "Enforced GPU board power limit in watts (nvidia-smi --query-gpu=power.limit). Throughput and sustained-compute results move with it, so two limits are two arms."
+          "description": "Enforced GPU board power limit in watts (nvidia-smi --query-gpu=enforced.power.limit). Throughput and sustained-compute results move with it, so two limits are two arms."
         },
         "container": {
           "type": "string",
