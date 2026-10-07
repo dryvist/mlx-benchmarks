@@ -105,6 +105,7 @@ def test_stage0_system_load_phase_contract_validates(valid_envelope: dict) -> No
                 "embedding_items_per_request": 1,
                 "embedding_input_tokens_per_request": 128,
             },
+            "model": {"pipeline_tag": "feature-extraction"},
             "speed": {
                 "embeddings_per_second": 2.5,
                 "embedding_tokens_per_second": 320,
@@ -126,6 +127,16 @@ def test_stage0_system_load_phase_contract_validates(valid_envelope: dict) -> No
     }
     with pytest.raises(EnvelopeValidationError):
         validate_envelope(missing_power_mode)
+
+    missing_pipeline_tag = {
+        **env,
+        "campaign_dimensions": {
+            **env["campaign_dimensions"],
+            "model": {},
+        },
+    }
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope(missing_pipeline_tag)
 
     decision = {
         **env,

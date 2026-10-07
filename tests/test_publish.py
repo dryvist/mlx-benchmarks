@@ -134,10 +134,8 @@ def test_campaign_dimensions_keep_a_fixed_nullable_parquet_schema(valid_envelope
     assert json.loads(row["campaign_dimension_null_reasons_json"]) == {"hardware.pcie_generation": "N/A_SOC"}
 
 
-def test_stage0_phase_dimensions_repeat_on_each_published_result_row(valid_envelope: dict) -> None:
-    import pyarrow.parquet as pq
-
-    phase = {
+def _stage0_envelope(valid_envelope: dict, pipeline_tag: str) -> dict:
+    return {
         **valid_envelope,
         "campaign": {"profile": "stage0-system-load"},
         "campaign_dimensions": {
@@ -147,6 +145,7 @@ def test_stage0_phase_dimensions_repeat_on_each_published_result_row(valid_envel
                 "power_mode": "automatic",
             },
             "software": {"macos_version": "26.6.2"},
+            "model": {"pipeline_tag": pipeline_tag},
             "run": {
                 "concurrent_agents": 4,
                 "load_phase": "high_parallel",
@@ -180,6 +179,17 @@ def test_stage0_phase_dimensions_repeat_on_each_published_result_row(valid_envel
         ],
     }
 
+
+def test_stage0_phase_dimensions_repeat_on_each_published_result_row(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pyarrow.parquet as pq
+
+    phase = _stage0_envelope(valid_envelope, "text-generation")
+
     rows = envelope_to_rows(phase)
     table = pq.read_table(io.BytesIO(rows_to_parquet(rows)))
 
@@ -197,8 +207,33 @@ def test_stage0_phase_dimensions_repeat_on_each_published_result_row(valid_envel
         assert row["campaign_run_phase_duration_seconds"] == 180
         assert row["campaign_run_closed_loop"] is True
         assert row["campaign_run_embedding_input_tokens_per_request"] == 256
+        assert row["campaign_model_pipeline_tag"] == "text-generation"
         assert row["campaign_speed_embedding_tokens_per_second"] == 32000
         assert row["campaign_speed_embedding_latency_p95_ms"] == 12.0
+
+    published_rows: list[dict] = []
+    original = publish_module.rows_to_parquet
+
+    def capture(rows: list[dict]) -> bytes:
+        published_rows.extend(rows)
+        return original(rows)
+
+    monkeypatch.setattr(publish_module, "rows_to_parquet", capture)
+    publish(phase, published_metadata=published_metadata, dry_run=True)
+    assert len(published_rows) == 2
+    assert all(row["pipeline_tag"] == "text-generation" for row in published_rows)
+    assert all(row["model_task"] == "text-generation" for row in published_rows)
+
+
+def test_stage0_publish_rejects_catalog_pipeline_tag_mismatch(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+) -> None:
+    phase = _stage0_envelope(valid_envelope, "feature-extraction")
+
+    with pytest.raises(PublishError, match="must equal the selected catalog pipeline_tag"):
+        publish(phase, published_metadata=published_metadata, dry_run=True)
 
 
 def test_rows_to_parquet_rejects_empty() -> None:

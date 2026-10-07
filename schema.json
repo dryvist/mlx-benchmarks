@@ -38,7 +38,7 @@
             }
           },
           "campaign_dimensions": {
-            "required": ["hardware", "software", "run", "speed"],
+            "required": ["hardware", "software", "model", "run", "speed"],
             "properties": {
               "hardware": {
                 "required": ["machine", "power_source", "power_mode"],
@@ -58,6 +58,12 @@
                     "type": "string",
                     "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
                   }
+                }
+              },
+              "model": {
+                "required": ["pipeline_tag"],
+                "properties": {
+                  "pipeline_tag": {"type": "string", "minLength": 1}
                 }
               },
               "run": {
@@ -424,6 +430,10 @@
             "license": {
               "type": ["string", "null"],
               "description": "License reported by the pinned model source."
+            },
+            "pipeline_tag": {
+              "type": ["string", "null"],
+              "description": "Selected model catalog pipeline_tag used to validate the published model_task."
             },
             "native_max_context_tokens": {
               "type": ["integer", "null"],

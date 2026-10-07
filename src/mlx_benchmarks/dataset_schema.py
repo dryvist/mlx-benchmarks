@@ -191,6 +191,7 @@ CAMPAIGN_DIMENSION_TYPES = {
         "bits_per_weight": pa.float64(),
         "file_size_gb": pa.float64(),
         "license": pa.string(),
+        "pipeline_tag": pa.string(),
         "native_max_context_tokens": pa.int64(),
         "file_sha256": pa.string(),
     },

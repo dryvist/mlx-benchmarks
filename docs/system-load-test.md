@@ -34,5 +34,7 @@ as observed. Do not include outlet or circuit identifiers.
 The publisher copies system and campaign values to each result row. This
 profile requires 180-second phases, a closed loop, consistent serial or
 high-parallel concurrency, and the appropriate decision or embedding
-throughput and latency fields. These dimensions describe results; they do not
-add a benchmark harness or claim that a phase has run.
+throughput and latency fields. Record the selected catalog `pipeline_tag` in
+`campaign_dimensions.model`; the publisher checks that the pinned Hub model's
+`model_task` and `pipeline_tag` both match it. These dimensions describe
+results; they do not add a benchmark harness or claim that a phase has run.
