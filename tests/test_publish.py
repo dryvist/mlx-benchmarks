@@ -147,6 +147,108 @@ def test_campaign_dimensions_keep_a_fixed_nullable_parquet_schema(valid_envelope
     assert json.loads(row["campaign_dimension_null_reasons_json"]) == {"hardware.pcie_generation": "N/A_SOC"}
 
 
+def _stage0_envelope(valid_envelope: dict, pipeline_tag: str) -> dict:
+    return {
+        **valid_envelope,
+        "campaign": {"profile": "stage0-system-load"},
+        "campaign_dimensions": {
+            "hardware": {
+                "machine": "MacBook Pro M4 Max 128GB",
+                "power_source": "ac",
+                "power_mode": "automatic",
+            },
+            "software": {"macos_version": "26.6.2"},
+            "model": {"pipeline_tag": pipeline_tag},
+            "run": {
+                "concurrent_agents": 4,
+                "load_phase": "high_parallel",
+                "phase_duration_seconds": 180,
+                "closed_loop": True,
+                "streaming": False,
+                "embedding_items_per_request": 1,
+                "embedding_input_tokens_per_request": 256,
+            },
+            "speed": {
+                "embeddings_per_second": 125,
+                "embedding_tokens_per_second": 32000,
+                "embedding_latency_p50_ms": 7.5,
+                "embedding_latency_p95_ms": 12.0,
+                "embedding_latency_p99_ms": 15.0,
+            },
+        },
+        "results": [
+            {
+                "name": "embedding-throughput",
+                "metric": "embeddings_per_second",
+                "value": 125,
+                "unit": "vectors/s",
+            },
+            {
+                "name": "embedding-tokens",
+                "metric": "embedding_tokens_per_second",
+                "value": 32000,
+                "unit": "tokens/s",
+            },
+        ],
+    }
+
+
+def test_stage0_phase_dimensions_repeat_on_each_published_result_row(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pyarrow.parquet as pq
+
+    phase = _stage0_envelope(valid_envelope, "text-generation")
+
+    rows = envelope_to_rows(phase)
+    table = pq.read_table(io.BytesIO(rows_to_parquet(rows)))
+
+    assert table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
+    assert table.num_rows == 2
+    for row in table.to_pylist():
+        assert row["os"] == phase["system"]["os"]
+        assert row["chip"] == phase["system"]["chip"]
+        assert row["memory_gb"] == phase["system"]["memory_gb"]
+        assert row["campaign_hardware_machine"] == "MacBook Pro M4 Max 128GB"
+        assert row["campaign_hardware_power_source"] == "ac"
+        assert row["campaign_hardware_power_mode"] == "automatic"
+        assert row["campaign_software_macos_version"] == "26.6.2"
+        assert row["campaign_run_load_phase"] == "high_parallel"
+        assert row["campaign_run_phase_duration_seconds"] == 180
+        assert row["campaign_run_closed_loop"] is True
+        assert row["campaign_run_embedding_input_tokens_per_request"] == 256
+        assert row["campaign_model_pipeline_tag"] == "text-generation"
+        assert row["campaign_speed_embedding_tokens_per_second"] == 32000
+        assert row["campaign_speed_embedding_latency_p95_ms"] == 12.0
+
+    published_rows: list[dict] = []
+    original = publish_module.rows_to_parquet
+
+    def capture(rows: list[dict]) -> bytes:
+        published_rows.extend(rows)
+        return original(rows)
+
+    monkeypatch.setattr(publish_module, "rows_to_parquet", capture)
+    publish(phase, published_metadata=published_metadata, dry_run=True)
+    assert len(published_rows) == 2
+    assert all(row["pipeline_tag"] == "text-generation" for row in published_rows)
+    assert all(row["model_task"] == "text-generation" for row in published_rows)
+
+
+def test_stage0_publish_rejects_catalog_pipeline_tag_mismatch(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+) -> None:
+    phase = _stage0_envelope(valid_envelope, "feature-extraction")
+
+    with pytest.raises(PublishError, match="must equal the selected catalog pipeline_tag"):
+        publish(phase, published_metadata=published_metadata, dry_run=True)
+
+
 def test_rows_to_parquet_rejects_empty() -> None:
     with pytest.raises(PublishError, match="No result rows"):
         rows_to_parquet([])

@@ -181,6 +181,14 @@ def build_published_results(
     if not isinstance(model_id, str) or not model_id:
         raise ValueError("model id is required")
     model = _model_fields(api, model_id, _revision(model_revision, "model_revision"))
+    if envelope.get("campaign", {}).get("profile") == "stage0-system-load":
+        dimensions = envelope.get("campaign_dimensions") or {}
+        model_dimensions = dimensions.get("model") or {}
+        selected_pipeline_tag = model_dimensions.get("pipeline_tag")
+        if not isinstance(selected_pipeline_tag, str) or not selected_pipeline_tag:
+            raise ValueError("Stage 0 requires the selected catalog pipeline_tag")
+        if model["pipeline_tag"] != selected_pipeline_tag or model["model_task"] != selected_pipeline_tag:
+            raise ValueError("published model_task must equal the selected catalog pipeline_tag")
     benchmark = _dataset_result(metadata, api)
 
     timestamps = envelope.get("timestamp")

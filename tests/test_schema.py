@@ -85,6 +85,81 @@ def test_campaign_dimensions_are_optional_and_accept_explicit_nulls(valid_envelo
     validate_envelope(env)
 
 
+def test_stage0_system_load_phase_contract_validates(valid_envelope: dict) -> None:
+    env = {
+        **valid_envelope,
+        "campaign": {"profile": "stage0-system-load"},
+        "campaign_dimensions": {
+            "hardware": {
+                "machine": "Mac Studio M4 Max 128GB",
+                "power_source": "ac",
+                "power_mode": "automatic",
+            },
+            "software": {"macos_version": "26.6.2"},
+            "run": {
+                "concurrent_agents": 1,
+                "load_phase": "serial",
+                "phase_duration_seconds": 180,
+                "closed_loop": True,
+                "streaming": False,
+                "embedding_items_per_request": 1,
+                "embedding_input_tokens_per_request": 128,
+            },
+            "model": {"pipeline_tag": "feature-extraction"},
+            "speed": {
+                "embeddings_per_second": 2.5,
+                "embedding_tokens_per_second": 320,
+                "embedding_latency_p50_ms": 12,
+                "embedding_latency_p95_ms": 18,
+                "embedding_latency_p99_ms": 20,
+            },
+        },
+    }
+
+    validate_envelope(env)
+
+    missing_power_mode = {
+        **env,
+        "campaign_dimensions": {
+            **env["campaign_dimensions"],
+            "hardware": {"machine": "Mac Studio M4 Max 128GB", "power_source": "ac"},
+        },
+    }
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope(missing_power_mode)
+
+    missing_pipeline_tag = {
+        **env,
+        "campaign_dimensions": {
+            **env["campaign_dimensions"],
+            "model": {},
+        },
+    }
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope(missing_pipeline_tag)
+
+    decision = {
+        **env,
+        "campaign_dimensions": {
+            **env["campaign_dimensions"],
+            "run": {
+                "concurrent_agents": 4,
+                "load_phase": "high_parallel",
+                "phase_duration_seconds": 180,
+                "closed_loop": True,
+                "streaming": False,
+            },
+            "speed": {
+                "requests_per_second": 2.5,
+                "request_latency_p50_ms": 410,
+                "request_latency_p95_ms": 620,
+                "request_latency_p99_ms": 710,
+            },
+        },
+    }
+    validate_envelope(decision)
+
+
 def test_campaign_dimensions_reject_unknown_fields(valid_envelope: dict) -> None:
     env = {
         **valid_envelope,
