@@ -8,6 +8,7 @@ from mlx_benchmarks.converters.coding_replay import CodingReplayConverter
 from mlx_benchmarks.converters.factual import FactualConverter
 from mlx_benchmarks.converters.fio import FioConverter
 from mlx_benchmarks.converters.gpu_burn import GpuBurnConverter
+from mlx_benchmarks.converters.llamacpp_server import LlamaCppServerConverter
 from mlx_benchmarks.converters.lm_eval import LmEvalConverter
 from mlx_benchmarks.converters.mbw import MbwConverter
 from mlx_benchmarks.converters.nvbandwidth import NvbandwidthConverter
@@ -25,6 +26,7 @@ __all__ = [
     "FactualConverter",
     "FioConverter",
     "GpuBurnConverter",
+    "LlamaCppServerConverter",
     "LmEvalConverter",
     "MbwConverter",
     "NvbandwidthConverter",
@@ -49,6 +51,7 @@ def get_converter(kind: str) -> Converter:
         "factual": FactualConverter,
         "fio": FioConverter,
         "gpu-burn": GpuBurnConverter,
+        "llamacpp-server": LlamaCppServerConverter,
         "lm-eval": LmEvalConverter,
         "mbw": MbwConverter,
         "nvbandwidth": NvbandwidthConverter,

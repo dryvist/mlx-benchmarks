@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
             "factual",
             "fio",
             "gpu-burn",
+            "llamacpp-server",
             "lm-eval",
             "mbw",
             "nvbandwidth",

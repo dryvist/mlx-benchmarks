@@ -15,7 +15,7 @@ Turns a raw suite JSON into a validated Parquet shard on the
    shard path; no network:
 
    ```bash
-   .venv/bin/mlx-bench-publish <results.json> --kind <lm-eval|agentic|promptstack|throughput-probe|vllm> --suite <suite> --dry-run
+   .venv/bin/mlx-bench-publish <results.json> --kind <lm-eval|agentic|promptstack|throughput-probe|llamacpp-server|vllm> --suite <suite> --dry-run
    ```
 
    `--kind` selects the converter; `--suite` must be in the schema enum. The
