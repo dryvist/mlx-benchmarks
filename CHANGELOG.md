@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.33.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.32.0...v0.33.0) (2026-10-07)
+
+
+### Features
+
+* **benchmarks:** carry model task metadata ([56469b7](https://github.com/dryvist/mlx-benchmarks/commit/56469b70ea488dce0137abfbf1e45785930d52e2))
+* **schema:** add Stage 0 Mac load phase contract ([a03a5cf](https://github.com/dryvist/mlx-benchmarks/commit/a03a5cf9148be407fb82df318ec83f8e5afd27bd))
+* **schema:** add Stage 0 Mac load phase contract ([6182e10](https://github.com/dryvist/mlx-benchmarks/commit/6182e10474628bdefcc79a3ae47e350991d0e4ea))
+
+
+### Bug Fixes
+
+* **benchmarks:** reconcile model-task metadata schema ([1d6ef02](https://github.com/dryvist/mlx-benchmarks/commit/1d6ef02f6673ca66636500e6d0c23999e21426b0))
+* **docs:** keep schema guide within size limit ([ea66812](https://github.com/dryvist/mlx-benchmarks/commit/ea66812114afb14db81bd2f3616eef2d5b3673bd))
+* **publish:** require Stage 0 catalog task alignment ([30917f4](https://github.com/dryvist/mlx-benchmarks/commit/30917f4e39ef8716b33a8eab86a947d11a0626f3))
+
+
+### Documentation
+
+* **schema:** split Stage 0 load phase guidance ([4e6f8d2](https://github.com/dryvist/mlx-benchmarks/commit/4e6f8d2fb362a9c57bfb5291cc9b45ff1b0158f5))
+
 ## [0.32.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.31.0...v0.32.0) (2026-10-07)
 
 
