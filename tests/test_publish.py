@@ -74,6 +74,19 @@ def test_envelope_to_rows_explodes_results(valid_envelope: dict) -> None:
     assert row["duration_seconds"] == 123.4
 
 
+def test_model_task_fields_reach_every_parquet_row(valid_envelope: dict) -> None:
+    envelope = {
+        **valid_envelope,
+        "model_task": "feature-extraction",
+        "model_task_source": "model_card",
+    }
+
+    rows = envelope_to_rows(envelope)
+
+    assert all(row["model_task"] == "feature-extraction" for row in rows)
+    assert all(row["model_task_source"] == "model_card" for row in rows)
+
+
 def test_rows_to_parquet_roundtrip(valid_envelope: dict) -> None:
     import pyarrow.parquet as pq
 
@@ -146,6 +159,11 @@ def test_publish_dry_run_returns_path(valid_envelope: dict) -> None:
 def test_publish_refuses_invalid_envelope(invalid_envelope: dict) -> None:
     with pytest.raises(EnvelopeValidationError):
         publish(invalid_envelope, dry_run=True)
+
+
+def test_envelope_requires_model_task_source_with_task(valid_envelope: dict) -> None:
+    with pytest.raises(EnvelopeValidationError):
+        publish({**valid_envelope, "model_task": "feature-extraction"}, dry_run=True)
 
 
 def test_publish_skipping_validation_still_rejects_empty(invalid_envelope: dict) -> None:

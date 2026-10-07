@@ -102,6 +102,8 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
 
     for key in (
         "model_revision",
+        "model_task",
+        "model_task_source",
         "quantization",
         "seed",
         "env_class",

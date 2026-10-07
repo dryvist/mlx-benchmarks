@@ -294,6 +294,28 @@ def test_cli_campaign_dimensions_reach_the_envelope(
     assert envelope["dimension_null_reasons"] == _DIMENSIONS_FILE["dimension_null_reasons"]
 
 
+def test_cli_campaign_model_task_reaches_the_envelope(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dimensions_path = tmp_path / "dimensions.json"
+    dimensions_path.write_text(
+        json.dumps(
+            {
+                "campaign_dimensions": {"model": {"id": "embeddinggemma-2"}},
+                "model_task": "feature-extraction",
+                "model_task_source": "model_card",
+            }
+        )
+    )
+
+    envelope = _publish_via_cli(
+        tmp_path, lm_eval_sample, monkeypatch, "--campaign-dimensions", str(dimensions_path), "--dry-run"
+    )
+
+    assert envelope["model_task"] == "feature-extraction"
+    assert envelope["model_task_source"] == "model_card"
+
+
 def test_cli_omits_campaign_dimensions_when_not_declared(
     tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -326,6 +348,10 @@ def test_cli_campaign_dimensions_without_reasons(
         json.dumps({"campaign_dimensions": []}),
         json.dumps({"campaign_dimensions": {}, "dimension_null_reasons": []}),
         json.dumps({"campaign_dimensions": {}, "extra": 1}),
+        json.dumps({"campaign_dimensions": {}, "model_task": "feature-extraction"}),
+        json.dumps(
+            {"campaign_dimensions": {}, "model_task": "feature-extraction", "model_task_source": "unknown"}
+        ),
     ],
     ids=[
         "malformed",
@@ -334,6 +360,8 @@ def test_cli_campaign_dimensions_without_reasons(
         "dimensions-not-object",
         "reasons-not-object",
         "extra-key",
+        "task-without-source",
+        "invalid-task-source",
     ],
 )
 def test_cli_rejects_a_malformed_campaign_dimensions_file(
