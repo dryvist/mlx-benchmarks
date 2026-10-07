@@ -186,6 +186,11 @@ budget ~**4×**; discard + re-run a diverging pair.
 - **Load** — `mlx-bench` loads the model; server down first ([trap 4](benchmark-traps.md#trap-4-mlx-bench-loads-directly)).
 - **Local probe** — publish as `throughput-probe`: cumulative tok/s is headline;
   decode/prefill/TTFT support it. Capped results are not quality.
+- **llama-server request log** — publish as `llamacpp-server`: one JSON object per
+  request (the server's `timings`, `usage`, `/props` and `/v1/models`), one series
+  per file, `concurrency` 0 = warm-up. Warm-ups ride on every row as `warmup_*`
+  tags, rows past the slot count get no aggregate, and the run-time dimensions are
+  read from the records; declare host facts with `--campaign-dimensions`.
 
 ### 4b. Coding (`--kind lm-eval --suite coding`) — ~3 h
 
