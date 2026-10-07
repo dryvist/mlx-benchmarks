@@ -16,6 +16,139 @@
     "results"
   ],
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "campaign": {
+            "properties": {"profile": {"const": "stage0-system-load"}},
+            "required": ["profile"]
+          }
+        },
+        "required": ["campaign"]
+      },
+      "then": {
+        "required": ["campaign_dimensions"],
+        "properties": {
+          "system": {
+            "properties": {
+              "os": {"type": "string", "pattern": "^macOS [0-9]+\\.[0-9]+"},
+              "chip": {"type": "string", "minLength": 1},
+              "memory_gb": {"type": "integer", "minimum": 1}
+            }
+          },
+          "campaign_dimensions": {
+            "required": ["hardware", "software", "run", "speed"],
+            "properties": {
+              "hardware": {
+                "required": ["machine", "power_source", "power_mode"],
+                "properties": {
+                  "machine": {
+                    "type": "string",
+                    "enum": ["MacBook Pro M4 Max 128GB", "Mac Studio M4 Max 128GB"]
+                  },
+                  "power_source": {"type": "string", "enum": ["ac", "battery", "ups"]},
+                  "power_mode": {"type": "string", "minLength": 1}
+                }
+              },
+              "software": {
+                "required": ["macos_version"],
+                "properties": {
+                  "macos_version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+                  }
+                }
+              },
+              "run": {
+                "required": [
+                  "concurrent_agents",
+                  "load_phase",
+                  "phase_duration_seconds",
+                  "closed_loop",
+                  "streaming"
+                ],
+                "properties": {
+                  "concurrent_agents": {"type": "integer", "minimum": 1},
+                  "phase_duration_seconds": {"const": 180},
+                  "closed_loop": {"const": true},
+                  "streaming": {"type": "boolean"}
+                },
+                "allOf": [
+                  {
+                    "if": {"properties": {"load_phase": {"const": "serial"}}},
+                    "then": {"properties": {"concurrent_agents": {"const": 1}}}
+                  },
+                  {
+                    "if": {"properties": {"load_phase": {"const": "high_parallel"}}},
+                    "then": {"properties": {"concurrent_agents": {"minimum": 2}}}
+                  }
+                ]
+              },
+              "speed": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "requests_per_second",
+                      "request_latency_p50_ms",
+                      "request_latency_p95_ms",
+                      "request_latency_p99_ms"
+                    ],
+                    "properties": {
+                      "requests_per_second": {"type": "number", "minimum": 0},
+                      "request_latency_p50_ms": {"type": "number", "minimum": 0},
+                      "request_latency_p95_ms": {"type": "number", "minimum": 0},
+                      "request_latency_p99_ms": {"type": "number", "minimum": 0}
+                    }
+                  },
+                  {
+                    "required": [
+                      "embeddings_per_second",
+                      "embedding_tokens_per_second",
+                      "embedding_latency_p50_ms",
+                      "embedding_latency_p95_ms",
+                      "embedding_latency_p99_ms"
+                    ],
+                    "properties": {
+                      "embeddings_per_second": {"type": "number", "minimum": 0},
+                      "embedding_tokens_per_second": {"type": "number", "minimum": 0},
+                      "embedding_latency_p50_ms": {"type": "number", "minimum": 0},
+                      "embedding_latency_p95_ms": {"type": "number", "minimum": 0},
+                      "embedding_latency_p99_ms": {"type": "number", "minimum": 0}
+                    }
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "speed": {"required": ["embeddings_per_second"]}
+                  },
+                  "required": ["speed"]
+                },
+                "then": {
+                  "properties": {
+                    "run": {
+                      "required": [
+                        "embedding_items_per_request",
+                        "embedding_input_tokens_per_request"
+                      ],
+                      "properties": {
+                        "embedding_items_per_request": {"type": "integer", "minimum": 1},
+                        "embedding_input_tokens_per_request": {"type": "integer", "minimum": 1}
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -110,6 +243,15 @@
               "description": "Accelerator or unified memory capacity in GB.",
               "minimum": 0
             },
+            "power_source": {
+              "type": ["string", "null"],
+              "description": "Power source during this phase: ac, battery, or ups. Do not include outlet or circuit identifiers.",
+              "enum": ["ac", "battery", "ups", null]
+            },
+            "power_mode": {
+              "type": ["string", "null"],
+              "description": "Operating power mode during this phase, as reported by the operating system."
+            },
             "memory_bandwidth_gbps": {
               "type": ["number", "null"],
               "description": "Memory bandwidth in GB/s; identify a vendor-rated value in result tags.",
@@ -163,6 +305,10 @@
             "operating_system": {
               "type": ["string", "null"],
               "description": "Operating system and version."
+            },
+            "macos_version": {
+              "type": ["string", "null"],
+              "description": "macOS version used for this benchmark phase."
             },
             "kernel": {
               "type": ["string", "null"],
@@ -325,6 +471,34 @@
               "description": "Number of concurrent requests or agents.",
               "minimum": 0
             },
+            "load_phase": {
+              "type": ["string", "null"],
+              "description": "System Load Test phase type.",
+              "enum": ["serial", "high_parallel", null]
+            },
+            "phase_duration_seconds": {
+              "type": ["integer", "null"],
+              "description": "Duration of this steady-state load phase in seconds.",
+              "minimum": 1
+            },
+            "closed_loop": {
+              "type": ["boolean", "null"],
+              "description": "Whether each completed request is replaced immediately."
+            },
+            "streaming": {
+              "type": ["boolean", "null"],
+              "description": "Whether generation responses are streamed."
+            },
+            "embedding_items_per_request": {
+              "type": ["integer", "null"],
+              "description": "Fixed number of input items sent in each embedding request.",
+              "minimum": 1
+            },
+            "embedding_input_tokens_per_request": {
+              "type": ["integer", "null"],
+              "description": "Fixed total input token count per embedding request.",
+              "minimum": 1
+            },
             "batch_size": {
               "type": ["integer", "null"],
               "description": "Inference batch size.",
@@ -397,9 +571,59 @@
               "description": "90th percentile time to first token in milliseconds.",
               "minimum": 0
             },
+            "ttft_p95_ms": {
+              "type": ["number", "null"],
+              "description": "95th percentile time to first token in milliseconds.",
+              "minimum": 0
+            },
             "ttft_p99_ms": {
               "type": ["number", "null"],
               "description": "99th percentile time to first token in milliseconds.",
+              "minimum": 0
+            },
+            "request_latency_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median complete request latency in milliseconds.",
+              "minimum": 0
+            },
+            "request_latency_p95_ms": {
+              "type": ["number", "null"],
+              "description": "95th percentile complete request latency in milliseconds.",
+              "minimum": 0
+            },
+            "request_latency_p99_ms": {
+              "type": ["number", "null"],
+              "description": "99th percentile complete request latency in milliseconds.",
+              "minimum": 0
+            },
+            "requests_per_second": {
+              "type": ["number", "null"],
+              "description": "Completed decision requests per second during this phase.",
+              "minimum": 0
+            },
+            "embeddings_per_second": {
+              "type": ["number", "null"],
+              "description": "Embedding vectors returned per second during this phase.",
+              "minimum": 0
+            },
+            "embedding_tokens_per_second": {
+              "type": ["number", "null"],
+              "description": "Input tokens processed per second during this embedding phase.",
+              "minimum": 0
+            },
+            "embedding_latency_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median complete embedding request latency in milliseconds.",
+              "minimum": 0
+            },
+            "embedding_latency_p95_ms": {
+              "type": ["number", "null"],
+              "description": "95th percentile complete embedding request latency in milliseconds.",
+              "minimum": 0
+            },
+            "embedding_latency_p99_ms": {
+              "type": ["number", "null"],
+              "description": "99th percentile complete embedding request latency in milliseconds.",
               "minimum": 0
             },
             "prefill_tokens_per_second": {

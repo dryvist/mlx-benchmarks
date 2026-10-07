@@ -97,6 +97,38 @@ reads a JSON file with a `campaign_dimensions` object and an optional
 - **cost:** kWh and local electricity cost per million output tokens; median
   rental and API cost per million.
 
+### Stage 0 System Load Test phases
+
+Use `campaign.profile: stage0-system-load` for these phases. Record a separate
+envelope for each phase; the publisher copies its phase dimensions to every
+result row in that envelope. Each phase lasts 180 seconds. Run serial at
+concurrency 1, then `high_parallel` phases at 2, 4, 8, 16, 32, 64, and higher
+powers of two until aggregate output throughput plateaus. Set `closed_loop` to
+`true` so a finished request is replaced immediately. Record `streaming` to
+match the endpoint; stream generation responses when supported. Keep generation
+prompt and output sizes fixed across the ladder.
+
+For embeddings, use the same serial and parallel ladder. Keep
+`embedding_items_per_request` and `embedding_input_tokens_per_request` fixed
+across phases. Record `embeddings_per_second` and
+`embedding_tokens_per_second`, plus p50/p95/p99 embedding request latency. For
+embedding and decision rows, record the appropriate throughput and latency
+fields: embeddings/s, input tokens/s, and embedding latency percentiles for
+embedding; requests/s and complete request latency p50/p95/p99 for
+classification decisions. Generation decisions also record aggregate output
+tokens/s and TTFT percentiles when the server exposes them. These fields do
+not add a benchmark harness or claim that a phase has run.
+
+The Stage 0 profile requires non-null `system.os`, `system.chip`, and
+`system.memory_gb`, plus `campaign_dimensions.hardware.machine`,
+`power_source`, and `power_mode`, and `campaign_dimensions.software.macos_version`.
+The publisher copies system and campaign values to each result row. Use
+`hardware.machine` only for a generic Mac product label. Keep the power mode
+and source as observed, and never place outlet or circuit identifiers in
+these fields. The schema also requires 180-second phases, a closed loop,
+consistent serial/high-parallel concurrency, and the corresponding decision
+or embedding throughput and latency fields.
+
 ### `reasoning_effort`
 
 An arm is weights *plus* quant *plus* effort *plus* serving config, so two
