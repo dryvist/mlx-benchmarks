@@ -39,7 +39,7 @@ target's inventory facts so the envelope describes the benchmark target.
 | `llama-cpp/cross-card` | `llama_cpp` | llama.cpp native diagnostics and serving throughput |
 | `vllm/cross-card` | `vllm` | `vllm bench serve` throughput at two output sizes |
 | `mlx/cross-card` | `mlx_lm` | `mlx_lm.benchmark` diagnostics and serving throughput |
-| `lm-eval/quick-intelligence` | `llama_cpp`, `vllm`, `mlx_lm` | ARC-Challenge chat quick pass |
+| `lm-eval/quick-intelligence` | all three engines | ARC-Challenge; x2 |
 | `lm-eval/gpqa-diamond` | `llama_cpp`, `vllm`, `mlx_lm` | GPQA-Diamond chain-of-thought, zero-shot |
 | `evalscope/livecodebench` | `llama_cpp`, `vllm` | LiveCodeBench v6 through EvalScope's Docker sandbox |
 
@@ -48,6 +48,10 @@ Every recipe declares 1, 2, 4, and 8 concurrent agents in `concurrency_list` and
 `medium`, or `large`), and the engine are survey values resolved against the
 inventory and the model registry, so one recipe covers every class on every target
 that serves one of its engines.
+
+Short intelligence screens use two repetitions to check score stability. Choose
+the remaining suites for measurable headroom at current scores, and weigh their
+results equally with throughput when selecting a model.
 
 `lm-eval/gpqa-diamond` reads a gated dataset: the benchmark target needs a Hugging
 Face read credential in its own environment. `evalscope/livecodebench` needs

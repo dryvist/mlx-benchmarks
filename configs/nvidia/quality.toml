@@ -1,4 +1,7 @@
 # NVIDIA / vLLM quality runbook: only benchmarks that are not already saturated.
+# Weigh intelligence and throughput equally. Prefer suites with current score
+# headroom. Repeat short suites; `configs/lm-eval/quick-intelligence.toml`
+# uses two repetitions.
 #
 # Selection comes from a 2026-10-04 research pass over leaderboard-reported scores
 # (not results reproduced in this repo). "Saturated" = the best reported open-weight
