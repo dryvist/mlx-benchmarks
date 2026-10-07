@@ -23,7 +23,7 @@ argv = [
   "--output_path", "{{ output_path }}",
 ]
 dimensions = ["context_list", "concurrency_list"]
-repetitions = 1
+repetitions = 2 # Short suite; repeat to check score stability.
 artifact_id = "selected_model"
 run_on = "benchmark_target"
 capture_stdout = true

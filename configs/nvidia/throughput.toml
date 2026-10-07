@@ -1,4 +1,4 @@
-# NVIDIA / vLLM serving-throughput runbook: concurrency x prompt-length matrix.
+# NVIDIA / vLLM throughput runbook: closed-loop concurrency by prompt length.
 #
 # Upstream tool: `vllm bench serve` (vLLM v0.30.0 was the latest release on
 # 2026-10-04; the standalone benchmark_serving.py is deprecated in its favour).
@@ -26,6 +26,11 @@
 # Metric notes (from the research behind this runbook): `vllm bench serve` reports TTFT,
 # TPOT, ITL, output-token and total-token throughput. It has no separate prefill tok/s;
 # [run.probe] below does (prefill_tok_s = prompt_tokens / ttft).
+#
+# Open-loop measurements use Poisson arrivals and 512 output tokens. The rates
+# depend on prompt size: 1k at 0.25/0.5/1/2/4 requests/s, 8k at 0.5/1, and 32k
+# at 0.25. See docs/nvidia-campaign.md for saturation guidance. These rates are
+# offered load, not maximum concurrency.
 
 # Documentation of the sweep, mirrored in [run]. Nothing reads this table.
 [matrix]

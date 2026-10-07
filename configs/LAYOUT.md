@@ -34,8 +34,8 @@ configs/
 ├── mlx/
 │   └── cross-card.toml       # mlx_lm.benchmark diagnostics + throughput-probe envelope
 ├── nvidia/                   # NVIDIA/CUDA campaign; see "NVIDIA hosts" below
-│   ├── throughput.toml       # `vllm bench serve`, 1/4/8 concurrent x 8k/64k/128k
-│   │                         # prompts -> existing --kind vllm converter
+│   ├── throughput.toml       # closed/open-loop serving runs; see
+│   │                         # docs/nvidia-campaign.md
 │   ├── quality.toml          # lm-eval, non-saturated tasks only -> --kind lm-eval
 │   ├── gpu-burn.toml         # sustained compute baseline -> --kind gpu-burn
 │   ├── nvbandwidth.toml      # GPU copy bandwidth baseline -> --kind nvbandwidth
@@ -154,6 +154,10 @@ The system block (`system.gpu`, `system.engine`, `system.power_limit_w`,
 `MLX_BENCH_*` environment variables, like cluster topology, because the publisher may
 run on a different machine than the GPU. Export these on the GPU host and publish from
 it, so `os` / `chip` / `memory_gb` describe the same machine:
+
+`system.power_limit_w` is flattened into `power_limit_w` on each public result
+row. Keep it with the measurement so each enforced power setting remains a
+separate comparison dimension; operational telemetry stays internal.
 
 ```sh
 export MLX_BENCH_GPU_MODEL="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1)"
