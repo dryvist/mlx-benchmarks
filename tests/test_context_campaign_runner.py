@@ -65,6 +65,8 @@ def test_probe_and_dry_run_publish_keep_dimensions() -> None:
     assert "throughput-probe" in publish and "--dry-run" in publish
     assert f"cell_id={cell.cell_id}" in publish
     assert "configured_window_tokens=32768" in publish
+    assert "--published-metadata" in publish
+    assert "/tmp/published-metadata.json" in publish
 
 
 def test_invalid_manifest_is_rejected() -> None:

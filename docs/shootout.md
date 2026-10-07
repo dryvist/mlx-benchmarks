@@ -231,7 +231,8 @@ Two ways to cut that without breaking the protocol:
    ```sh
    HF_TOKEN="$HF_WRITE_TOKEN" \
      .venv/bin/mlx-bench-publish run-output/factual_<slug>.json \
-     --kind factual --suite grounded-summary --hostname jevans-ms
+     --kind factual --suite grounded-summary \
+     --published-metadata run-output/published-metadata.json
    ```
 
 3. **Update [`../RANKINGS.md`](../RANKINGS.md)** in the same PR as the publish,

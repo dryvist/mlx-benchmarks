@@ -62,11 +62,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--suite", required=True, help="Envelope suite (must be in schema enum)")
     parser.add_argument("--model", help="Override model ID (default: extract from results_json)")
-    parser.add_argument(
-        "--hostname",
-        help="Override system.hostname (use when publishing another machine's results, "
-        "e.g. a Studio run uploaded from a laptop; default: this machine's hostname)",
-    )
     parser.add_argument("--git-sha", help="Override git SHA recorded in envelope (default: git rev-parse)")
     parser.add_argument(
         "--trigger",
@@ -97,6 +92,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSON file holding the envelope's campaign_dimensions object and, optionally, "
         "dimension_null_reasons (field path -> reason code); copied onto the envelope verbatim",
     )
+    parser.add_argument(
+        "--published-metadata",
+        type=Path,
+        metavar="PATH",
+        help="JSON metadata for the registered HF Benchmark task and required run variables",
+    )
     parser.add_argument("--timestamp", help="Override envelope timestamp (ISO 8601 UTC, rarely needed)")
     parser.add_argument(
         "--tag",
@@ -106,7 +107,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Attach a tag to every result (repeat flag for multiple)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Validate + plan only; do not upload")
-    parser.add_argument("--no-validate", action="store_true", help="Skip schema validation (not recommended)")
     parser.add_argument(
         "--log-level",
         default="INFO",
@@ -165,14 +165,27 @@ def main(argv: list[str] | None = None) -> int:
             log.error("%s is not a campaign dimensions file: %s", args.campaign_dimensions, exc)
             return 2
 
+    published_metadata: dict[str, Any] | None = None
+    if args.published_metadata is not None:
+        try:
+            metadata = json.loads(args.published_metadata.read_text())
+            if not isinstance(metadata, dict):
+                raise ValueError("expected a JSON object")
+            published_metadata = metadata
+        except OSError as exc:
+            log.error("cannot read %s: %s", args.published_metadata, exc)
+            return 2
+        except json.JSONDecodeError as exc:
+            log.error("%s is not valid JSON: %s", args.published_metadata, exc)
+            return 2
+        except ValueError as exc:
+            log.error("%s is not published metadata: %s", args.published_metadata, exc)
+            return 2
+
     model = args.model or _extract_model(raw)
     git_sha = args.git_sha or current_git_sha()
     extra_tags = dict(_parse_kv_pairs(args.tag))
     system = detect_system()
-    if args.hostname:
-        # detect_system() reflects the publishing machine; override when the run
-        # actually happened elsewhere so provenance stays correct.
-        system = {**system, "hostname": args.hostname}
 
     serving: Serving = {}
     if args.serving_stack is not None:
@@ -204,6 +217,9 @@ def main(argv: list[str] | None = None) -> int:
 
     converter = get_converter(args.kind)
     envelope = converter.build_envelope(raw, ctx)
+    model_revision = _extract_model_revision(raw)
+    if model_revision is not None:
+        envelope["model_revision"] = model_revision
     log.info(
         "built envelope with %d results for model=%s suite=%s",
         len(envelope.get("results", [])),
@@ -214,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         publish_kwargs: dict[str, Any] = {
             "dry_run": args.dry_run,
-            "validate": not args.no_validate,
+            "published_metadata": published_metadata,
         }
         if args.repo_id:
             publish_kwargs["repo_id"] = args.repo_id
@@ -294,6 +310,19 @@ def _extract_model(raw: dict[str, Any] | list[Any]) -> str:
         if isinstance(candidate, str) and candidate:
             return candidate
     return "unknown"
+
+
+def _extract_model_revision(raw: dict[str, Any] | list[Any]) -> str | None:
+    """Read the recorded Hub SHA from run output, never a publisher-time alias."""
+    if isinstance(raw, dict):
+        revision = raw.get("model_revision")
+        return revision if isinstance(revision, str) else None
+    revisions = {
+        item["model_revision"]
+        for item in raw
+        if isinstance(item, dict) and isinstance(item.get("model_revision"), str)
+    }
+    return next(iter(revisions)) if len(revisions) == 1 else None
 
 
 def _parse_kv_pairs(raw_pairs: list[str]) -> Iterator[tuple[str, str]]:

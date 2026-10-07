@@ -73,5 +73,5 @@ note = "only if an EAGLE3/MTP head exists for the target model; drop this row ot
 [publish]
 command = """
 mlx-bench-publish run-output/throughput_llamacpp_$MODEL_SLUG-$VARIANT.json \
-  --kind throughput-probe --suite throughput --hostname llm-4080
+  --kind throughput-probe --suite throughput
 """

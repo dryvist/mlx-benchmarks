@@ -42,14 +42,13 @@ headroom, not a stack problem.
 ## Publishing
 
 The results ran on the Studio but were published from the MacBook Pro once a
-write-scoped `HF_TOKEN` was available — so `system.hostname` is set to the
-Studio's host label via the `--hostname` override, while `os`/`kernel` fields
-reflect the publisher (recorded with a `published_from` tag). Each shard is
-tagged with the run's `concurrency=N`. Command shape:
+write-scoped `HF_TOKEN` was available. The public projection omits the
+publisher's host identifier; `os` and `kernel` describe the publishing
+machine. Each shard is tagged with the run's `concurrency=N`. Command shape:
 
 ```sh
 mlx-bench-publish <benchmark_serving>.json \
   --kind vllm --suite throughput \
-  --model <model_id> --hostname <studio-host-label> \
+  --model <model_id> --published-metadata <metadata.json> \
   --tag concurrency=<N> --timestamp <run-time-UTC>
 ```

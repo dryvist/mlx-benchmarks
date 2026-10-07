@@ -300,7 +300,8 @@ def campaign_dimension_column(category: str, field: str) -> str:
     return f"campaign_{category}_{field}{suffix}"
 
 
-JSON_STRING_COLUMNS = frozenset({"serving", "gpu", "engine", "container", "topology"})
+JSON_STRING_COLUMNS = frozenset({"serving", "gpu", "system_engine", "container", "topology"})
+PUBLISHED_JSON_COLUMNS = frozenset({"base_model", "dtype", "hardware", "dimension_null_reasons"})
 APPLE_MACHINE_FALLBACK = "Apple M4 Max"
 _MACHINE_LABEL_PATTERNS = (
     re.compile(r"Mac Studio M4 Max 128GB\Z"),
@@ -347,6 +348,7 @@ PARQUET_ROW_SCHEMA = pa.schema(
         ("lm_eval_version", pa.string()),
         ("kernel", pa.string()),
         ("gpu", pa.string()),
+        ("system_engine", pa.string()),
         ("engine", pa.string()),
         ("power_limit_w", pa.float64()),
         ("container", pa.string()),
@@ -365,6 +367,49 @@ PARQUET_ROW_SCHEMA = pa.schema(
         *[(column, pa.float64()) for column in OPTIONAL_RESULT_COLUMNS],
         *[(f"tag_{key}", pa.string()) for key in TAG_KEYS],
         ("tags_json", pa.string()),
+        ("model_id", pa.string()),
+        ("pipeline_tag", pa.string()),
+        ("library_name", pa.string()),
+        ("license", pa.string()),
+        ("license_name", pa.string()),
+        ("license_link", pa.string()),
+        ("base_model", pa.string()),
+        ("base_model_relation", pa.string()),
+        ("tags", pa.list_(pa.string())),
+        ("parameters_total", pa.int64()),
+        ("dtype", pa.string()),
+        ("quant", pa.string()),
+        ("architectures", pa.list_(pa.string())),
+        ("model_type", pa.string()),
+        ("context_length", pa.int64()),
+        ("gated", pa.string()),
+        ("dataset_id", pa.string()),
+        ("dataset_task_id", pa.string()),
+        ("dataset_revision", pa.string()),
+        ("date", pa.string()),
+        ("source_url", pa.string()),
+        ("notes", pa.string()),
+        ("evaluation_framework", pa.string()),
+        ("config", pa.string()),
+        ("split", pa.string()),
+        ("hardware", pa.string()),
+        ("engine_version", pa.string()),
+        ("profile", pa.string()),
+        ("ctx_per_slot", pa.int64()),
+        ("kv_cache_dtype", pa.string()),
+        ("thinking", pa.bool_()),
+        ("temperature", pa.float64()),
+        ("max_tokens", pa.int64()),
+        ("prompt_chars", pa.int64()),
+        ("prompt_tokens", pa.int64()),
+        ("system_prompt_chars", pa.int64()),
+        ("system_prompt_tokens", pa.int64()),
+        ("harness", pa.string()),
+        ("router_key_alias", pa.string()),
+        ("run_id", pa.string()),
+        ("start_utc", pa.string()),
+        ("end_utc", pa.string()),
+        ("dimension_null_reasons", pa.string()),
         ("extra_json", pa.string()),
     ]
 )

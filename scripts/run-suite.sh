@@ -298,7 +298,9 @@ if [ "$DRY_RUN" -eq 0 ]; then
     [ -n "$cand" ] && [ -x "$cand" ] && { publish_bin="$cand"; break; }
   done
   if [ -z "$publish_bin" ]; then
-    echo "  SKIPPED: mlx-bench-publish not found (create the venv: uv sync)"
+    echo "  FAILED: mlx-bench-publish not found (create the venv: uv sync)" >&2
+    mark FAIL publish-dryrun
+    FAILED="$FAILED publish-dryrun"
   else
     # --suite is required=True and --kind defaults to lm-eval, so invoking
     # without both argparse-errors on every artifact. That failure used to be
@@ -308,6 +310,11 @@ if [ "$DRY_RUN" -eq 0 ]; then
     # see the publisher's status and not tail's; without it this would be the
     # same bug in a new place.
     publish_failed=0
+    published_metadata="$OUT_DIR/published-metadata.json"
+    if [ ! -f "$published_metadata" ]; then
+      echo "  FAILED: required published metadata file is missing: $published_metadata" >&2
+      publish_failed=1
+    fi
     for f in "$OUT_DIR"/*.json; do
       [ -e "$f" ] || continue
       base="$(basename "$f" .json)"
@@ -317,16 +324,19 @@ if [ "$DRY_RUN" -eq 0 ]; then
         *)          kind="lm-eval" ;;
       esac
       echo "  $f (suite=$base kind=$kind)"
-      if ! "$publish_bin" "$f" --dry-run --suite "$base" --kind "$kind" \
-        --hostname "$(hostname -s)" 2>&1 | tail -5; then
+      if [ -f "$published_metadata" ] && ! "$publish_bin" "$f" --dry-run --suite "$base" --kind "$kind" \
+        --published-metadata "$published_metadata" 2>&1 | tail -5; then
         publish_failed=1
       fi
     done
     if [ "$publish_failed" -ne 0 ]; then
-      echo "  WARNING: at least one dry-run publish failed (see output above)"
+      echo "  FAILED: at least one dry-run publish failed (see output above)" >&2
+      mark FAIL publish-dryrun
+      FAILED="$FAILED publish-dryrun"
+    else
+      mark DONE publish-dryrun
     fi
   fi
-  mark DONE publish-dryrun
 fi
 
 echo

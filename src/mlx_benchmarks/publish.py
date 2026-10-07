@@ -23,12 +23,16 @@ from mlx_benchmarks.dataset_schema import (
     JSON_STRING_COLUMNS,
     OPTIONAL_RESULT_COLUMNS,
     PARQUET_ROW_SCHEMA,
+    PUBLISHED_JSON_COLUMNS,
     SYSTEM_COLUMNS,
     TAG_KEYS,
     campaign_dimension_column,
     empty_parquet_row,
 )
 from mlx_benchmarks.envelope import Envelope, validate_envelope
+from mlx_benchmarks.privacy import remove_private_identifiers
+from mlx_benchmarks.published_results import build_published_results, eval_results_path, eval_results_yaml
+from mlx_benchmarks.result_contract import PublishedResultValidationError
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +69,8 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     later row has it would silently drop the column.
     """
     system = dict(envelope.get("system") or {})
+    system.pop("hostname", None)
+    system = remove_private_identifiers(system)
     base = empty_parquet_row()
     base.update(
         {
@@ -78,9 +84,10 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     )
     for key in SYSTEM_COLUMNS:
         value = system.get(key)
-        if key in JSON_STRING_COLUMNS and isinstance(value, dict | list):
+        column = "system_engine" if key == "engine" else key
+        if column in JSON_STRING_COLUMNS and isinstance(value, dict | list):
             value = json.dumps(value, sort_keys=True)
-        base[key] = value
+        base[column] = value
     system_extra = {key: value for key, value in system.items() if key not in SYSTEM_COLUMNS}
     base["system_extra"] = json.dumps(system_extra, sort_keys=True)
     base["extra_json"] = "{}"
@@ -127,7 +134,7 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
         }
         for col in OPTIONAL_RESULT_COLUMNS:
             row[col] = r.get(col)
-        tags = r.get("tags") or {}
+        tags = remove_private_identifiers(r.get("tags") or {})
         for key in TAG_KEYS:
             row[f"tag_{key}"] = tags.get(key)
         row["tags_json"] = json.dumps(tags, sort_keys=True)
@@ -187,40 +194,75 @@ def target_path(envelope: Envelope, payload: bytes | None = None) -> str:
 def publish(
     envelope: Envelope,
     *,
+    published_metadata: dict[str, Any] | None = None,
     repo_id: str = DEFAULT_REPO_ID,
     repo_type: str = DEFAULT_REPO_TYPE,
     dry_run: bool = False,
     token: str | None = None,
-    validate: bool = True,
 ) -> str:
     """Validate, serialize and optionally upload ``envelope`` to the HF dataset.
 
-    Returns the target path. When ``dry_run`` is True no network I/O happens;
-    otherwise ``HF_TOKEN`` (or an explicit ``token`` arg) is required. HF API
-    errors propagate as :class:`PublishError` so callers get a single type to
-    catch for the full "publish failed for non-local reason" class.
+    A dry run still reads public Hub metadata for the pinned model and benchmark;
+    it never writes. Real uploads also require ``HF_TOKEN`` (or ``token=...``).
     """
-    if validate:
-        validate_envelope(envelope)
+    validate_envelope(envelope)
+    if not isinstance(published_metadata, dict):
+        raise PublishError("--published-metadata is required for every published score")
 
     rows = envelope_to_rows(envelope)
+    effective_token = token or os.environ.get("HF_TOKEN")
+    api = HfApi(token=effective_token)
+    try:
+        published_results = build_published_results(envelope, metadata=published_metadata, api=api)
+    except (HfHubHTTPError, PublishedResultValidationError, TypeError, ValueError) as exc:
+        raise PublishError(f"published result validation failed: {exc}") from exc
+    if len(published_results) != len(rows):
+        raise PublishError("published result metadata count differs from the benchmark score count")
+    operations: list[CommitOperationAdd] = []
+    for index, (row, result) in enumerate(zip(rows, published_results, strict=True), start=1):
+        for field, value in result.items():
+            if (
+                field in PUBLISHED_JSON_COLUMNS
+                and value is not None
+                and not (field == "base_model" and isinstance(value, str))
+            ):
+                value = json.dumps(value, sort_keys=True, allow_nan=False)
+            elif field == "gated" and value is not None:
+                value = str(value).lower()
+            row[field] = value
+        if result["dataset_id"] is not None:
+            operations.append(
+                CommitOperationAdd(
+                    path_in_repo=eval_results_path(result, index),
+                    path_or_fileobj=eval_results_yaml(result).encode("utf-8"),
+                )
+            )
     parquet_bytes = rows_to_parquet(rows)
     path = target_path(envelope, payload=parquet_bytes)
+    eval_results_count = sum(result["dataset_id"] is not None for result in published_results)
+    operations.insert(
+        0,
+        CommitOperationAdd(path_in_repo=path, path_or_fileobj=parquet_bytes),
+    )
 
     if dry_run:
-        log.info("dry-run: would publish %d bytes to %s in %s", len(parquet_bytes), path, repo_id)
+        log.info(
+            "dry-run: would publish %d Parquet bytes and %d HF eval result record(s) to %s in %s",
+            len(parquet_bytes),
+            eval_results_count,
+            path,
+            repo_id,
+        )
         return path
 
-    effective_token = token or os.environ.get("HF_TOKEN")
     if not effective_token:
         raise PublishError("HF_TOKEN not set — publishing needs HF_TOKEN or token=...")
 
-    api = HfApi(token=effective_token)
     try:
         api.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
-            operations=[CommitOperationAdd(path_in_repo=path, path_or_fileobj=parquet_bytes)],
+            operations=operations,
             commit_message=f"feat: add {envelope['suite']} run for {envelope['model']}",
         )
     except HfHubHTTPError as exc:

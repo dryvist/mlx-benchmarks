@@ -1,4 +1,4 @@
-"""CLI smoke tests — argparse + dispatch, no network."""
+"""CLI smoke tests — argparse, Hub metadata lookup, and dry-run dispatch."""
 
 from __future__ import annotations
 
@@ -16,7 +16,20 @@ def _write_sample(tmp_path: Path, sample: dict) -> Path:
     return path
 
 
-def test_cli_dry_run_happy_path(tmp_path: Path, lm_eval_sample: dict, capsys: pytest.CaptureFixture) -> None:
+def _write_metadata(tmp_path: Path, metadata: dict) -> Path:
+    path = tmp_path / "published-metadata.json"
+    path.write_text(json.dumps(metadata))
+    return path
+
+
+def test_cli_dry_run_happy_path(
+    tmp_path: Path,
+    lm_eval_sample: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    lm_eval_sample["model_revision"] = "a" * 40
     results_path = _write_sample(tmp_path, lm_eval_sample)
     exit_code = main(
         [
@@ -27,6 +40,10 @@ def test_cli_dry_run_happy_path(tmp_path: Path, lm_eval_sample: dict, capsys: py
             "reasoning",
             "--git-sha",
             "deadbeef",
+            "--timestamp",
+            "2026-04-24T18:30:00Z",
+            "--published-metadata",
+            str(_write_metadata(tmp_path, published_metadata)),
             "--dry-run",
         ]
     )
@@ -35,7 +52,14 @@ def test_cli_dry_run_happy_path(tmp_path: Path, lm_eval_sample: dict, capsys: py
     assert "dry-run" in captured.err.lower() or "planned" in captured.err.lower()
 
 
-def test_cli_vllm_dry_run(tmp_path: Path, vllm_sample: dict, capsys: pytest.CaptureFixture) -> None:
+def test_cli_vllm_dry_run(
+    tmp_path: Path,
+    vllm_sample: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    vllm_sample["model_revision"] = "a" * 40
     results_path = _write_sample(tmp_path, vllm_sample)
     exit_code = main(
         [
@@ -48,6 +72,10 @@ def test_cli_vllm_dry_run(tmp_path: Path, vllm_sample: dict, capsys: pytest.Capt
             "mlx-community/gpt-oss-120b-MXFP4-Q8",
             "--git-sha",
             "deadbeef",
+            "--timestamp",
+            "2026-04-24T18:30:00Z",
+            "--published-metadata",
+            str(_write_metadata(tmp_path, published_metadata)),
             "--tag",
             "host=mac-studio",
             "--dry-run",
@@ -58,7 +86,14 @@ def test_cli_vllm_dry_run(tmp_path: Path, vllm_sample: dict, capsys: pytest.Capt
     assert "dry-run" in captured.err.lower() or "planned" in captured.err.lower()
 
 
-def test_cli_agentic_dry_run(tmp_path: Path, agentic_sample: dict, capsys: pytest.CaptureFixture) -> None:
+def test_cli_agentic_dry_run(
+    tmp_path: Path,
+    agentic_sample: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    agentic_sample["model_revision"] = "a" * 40
     results_path = _write_sample(tmp_path, agentic_sample)
     exit_code = main(
         [
@@ -69,6 +104,10 @@ def test_cli_agentic_dry_run(tmp_path: Path, agentic_sample: dict, capsys: pytes
             "tool-calling",
             "--git-sha",
             "deadbeef",
+            "--timestamp",
+            "2026-04-24T18:30:00Z",
+            "--published-metadata",
+            str(_write_metadata(tmp_path, published_metadata)),
             "--dry-run",
         ]
     )
@@ -78,8 +117,13 @@ def test_cli_agentic_dry_run(tmp_path: Path, agentic_sample: dict, capsys: pytes
 
 
 def test_cli_promptstack_dry_run(
-    tmp_path: Path, promptstack_sample: dict, capsys: pytest.CaptureFixture
+    tmp_path: Path,
+    promptstack_sample: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    capsys: pytest.CaptureFixture,
 ) -> None:
+    promptstack_sample["model_revision"] = "a" * 40
     results_path = _write_sample(tmp_path, promptstack_sample)
     exit_code = main(
         [
@@ -90,6 +134,10 @@ def test_cli_promptstack_dry_run(
             "promptstack",
             "--git-sha",
             "deadbeef",
+            "--timestamp",
+            "2026-04-24T18:30:00Z",
+            "--published-metadata",
+            str(_write_metadata(tmp_path, published_metadata)),
             "--dry-run",
         ]
     )
@@ -98,33 +146,10 @@ def test_cli_promptstack_dry_run(
     assert "dry-run" in captured.err.lower() or "planned" in captured.err.lower()
 
 
-def test_cli_hostname_override(tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_rejects_hostname_override(tmp_path: Path, lm_eval_sample: dict) -> None:
     results_path = _write_sample(tmp_path, lm_eval_sample)
-    captured: dict[str, object] = {}
-
-    def fake_publish(envelope: dict, **_: object) -> str:
-        captured["envelope"] = envelope
-        return "data/x.parquet"
-
-    monkeypatch.setattr("mlx_benchmarks.cli.publish", fake_publish)
-    exit_code = main(
-        [
-            str(results_path),
-            "--kind",
-            "lm-eval",
-            "--suite",
-            "reasoning",
-            "--git-sha",
-            "deadbeef",
-            "--hostname",
-            "mac-studio",
-            "--dry-run",
-        ]
-    )
-    assert exit_code == 0
-    envelope = captured["envelope"]
-    assert isinstance(envelope, dict)
-    assert envelope["system"]["hostname"] == "mac-studio"
+    with pytest.raises(SystemExit):
+        main([str(results_path), "--kind", "lm-eval", "--suite", "reasoning", "--hostname", "redacted"])
 
 
 def _publish_via_cli(tmp_path: Path, sample: dict, monkeypatch: pytest.MonkeyPatch, *extra_argv: str) -> dict:

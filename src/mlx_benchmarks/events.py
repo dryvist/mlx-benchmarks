@@ -32,7 +32,7 @@ def envelope_events(envelope: Envelope, run_id: str) -> list[dict[str, Any]]:
     plus ``run_id`` — the original run-shard basename — so events are joinable
     back to their HF shard and idempotently deduplicable.
     """
-    return [{"run_id": run_id, **row} for row in envelope_to_rows(envelope)]
+    return [{**row, "run_id": run_id} for row in envelope_to_rows(envelope)]
 
 
 def append_events(envelope: Envelope, run_id: str, events_path: Path | None = None) -> int:
@@ -79,7 +79,7 @@ def replay(
             local = api.hf_hub_download(repo_id=repo_id, repo_type=DEFAULT_REPO_TYPE, filename=shard)
             table = pq.read_table(local)
             for row in table.to_pylist():
-                fh.write(json.dumps({"run_id": run_id, **row}, sort_keys=True) + "\n")
+                fh.write(json.dumps({**row, "run_id": run_id}, sort_keys=True) + "\n")
                 total += 1
     tmp_path.replace(events_path)
     log.info("replayed %d events from %d shards to %s", total, len(shard_paths), events_path)

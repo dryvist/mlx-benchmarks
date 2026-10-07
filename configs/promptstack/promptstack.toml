@@ -46,5 +46,5 @@ chat = "open_webui role default prompt"
 [publish]
 command = """
 mlx-bench-publish run-output/promptstack_$MODEL_SLUG.json \
-  --kind promptstack --suite promptstack --hostname $HOST
+  --kind promptstack --suite promptstack
 """
