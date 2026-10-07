@@ -3,6 +3,37 @@
 Canonical JSON Schema: [`schema.json`](../schema.json). This file is a prose
 walk-through. When the two disagree, `schema.json` wins — please open a PR.
 
+Upstream Hub source URLs and the read date are recorded in
+[`huggingface-metadata-sources.md`](huggingface-metadata-sources.md).
+
+## Published score rows
+
+The `definitions.published_result` schema is the contract for one dataset
+score. It includes model identity and shape resolved from the Hub API, the
+registered benchmark task, the HF `.eval_results` fields, and run variables.
+The exact field names are written as top-level Parquet columns. Composite values
+such as `dtype`, array-valued `base_model`, `hardware`, and
+`dimension_null_reasons` use JSON encoding in their own columns; `tags` and
+`architectures` are Parquet lists.
+Every required field is present. A null requires a matching entry in
+`dimension_null_reasons`; accepted codes are `not_applicable` and
+`na_backfill`. `na_backfill` is valid only before the
+`2026-10-07T04:15:00Z` cutover.
+
+The raw benchmark record supplies `model_revision` as the 40-character Hub
+commit SHA captured by the runner. The publisher reads model metadata at that
+SHA and rejects evaluation benchmark IDs without a registered `eval.yaml`
+task. The task's framework, config, and split must match the Hub definition.
+Performance-only rows set all dataset fields to null with the explicit
+`not_applicable` reason and do not emit an HF evaluation sidecar.
+
+The one-time historical migration is exposed as
+`mlx-bench-publish-backfill`. It defaults to dry-run, reads every Parquet shard,
+and adds these columns to every historical row. Hub metadata is looked up only
+when the row has a recorded model SHA. Missing historical facts are stored as
+null with `na_backfill`; applying the planned rewrite requires the lead's
+approval.
+
 ## Required top-level fields
 
 | Field | Type | Notes |
@@ -107,8 +138,7 @@ default here would be indistinguishable from a measurement.
 Required: `os`, `chip`, `memory_gb`.
 
 Optional (all populated automatically by `detect_system()`):
-`hostname` (short host label — distinguishes machines with identical
-chip/memory, e.g. a Mac Studio vs a MacBook Pro), `python_version`,
+`hostname` (removed from the public Parquet projection), `python_version`,
 `mlx_version`, `mlx_lm_version`, `lm_eval_version`, `kernel`,
 `runner` (for GitHub Actions), `vllm_mlx_version`.
 
@@ -128,7 +158,7 @@ These are **declared, not probed**: `detect_system()` reads them from
 different machine than the GPU. A variable that is unset, blank, or non-numeric where a
 number is required is omitted. The `nvidia-smi` snippet that fills them is in
 [`configs/LAYOUT.md`](../configs/LAYOUT.md#nvidia-hosts-configsnvidia). In the Parquet
-shard `gpu` and `engine` ride as JSON-string columns (like `topology`); `power_limit_w`
+shard `gpu` and `system_engine` ride as JSON-string columns (like `topology`); `power_limit_w`
 and `container` are plain columns.
 
 `topology` (object, multi-node runs only): `world_size`, `parallelism`
@@ -177,9 +207,9 @@ comparable.
 
 ## Validation
 
-Every envelope is validated inside `mlx_benchmarks.publish.publish()` —
-bypass only by passing `validate=False` (strongly discouraged). The
-validator collects *all* errors before raising, so a single run-through
+Every envelope and published score row is validated inside
+`mlx_benchmarks.publish.publish()`. Validation cannot be bypassed. The
+validators collect *all* errors before raising, so a single run-through
 surfaces everything wrong instead of one-at-a-time iteration.
 
 Locally:

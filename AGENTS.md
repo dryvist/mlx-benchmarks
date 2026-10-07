@@ -134,7 +134,8 @@ read it before running anything. The essentials an agent must not get wrong:
 - **Publish flow + token:** the ambient `HF_TOKEN` is **read-only**. Publishing
   needs the write token, `HF_WRITE_TOKEN`:
   `HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish <json>
-  --kind <lm-eval|agentic|factual|promptstack|vllm> --suite <suite> --hostname <host>`. Dry-run
+  --kind <lm-eval|agentic|factual|promptstack|vllm> --suite <suite> \
+  --published-metadata run-output/published-metadata.json`. Dry-run
   first. Dataset: `JacobPEvans/mlx-benchmarks`.
 - **Ranking duty:** after every publish, update the model's row in
   [`RANKINGS.md`](RANKINGS.md) in the **same PR**, pulling the numbers back from

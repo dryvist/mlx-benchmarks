@@ -102,7 +102,8 @@ the standard flow:
 
 ```bash
 mlx-bench-publish run-output/agentic_<model>.json \
-  --kind agentic --suite tool-calling --hostname jevans-ms --dry-run
+  --kind agentic --suite tool-calling \
+  --published-metadata run-output/published-metadata.json --dry-run
 ```
 
 Each matrix cell becomes metric rows named `tool_calling`

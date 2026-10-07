@@ -124,7 +124,7 @@ def test_nvidia_envelope_converts_to_parquet_with_viewer_columns(nvidia_envelope
     assert row["value"] == pytest.approx(3371.91)
     # ...and the new system fields ride along: nested objects as JSON strings, scalars as-is.
     assert json.loads(row["gpu"])["model"] == "NVIDIA Example GPU"
-    assert json.loads(row["engine"]) == {"name": "vllm", "version": "0.30.0"}
+    assert json.loads(row["system_engine"]) == {"name": "vllm", "version": "0.30.0"}
     assert row["power_limit_w"] == 300
     assert row["container"] == "vllm/vllm-openai:v0.30.0"
     assert (row["tag_prompt_tokens"], row["tag_concurrency"], row["tag_context_len"]) == (
@@ -134,8 +134,15 @@ def test_nvidia_envelope_converts_to_parquet_with_viewer_columns(nvidia_envelope
     )
 
 
-def test_nvidia_envelope_publishes_in_dry_run(nvidia_envelope: dict) -> None:
-    assert publish(nvidia_envelope, dry_run=True).startswith(
+def test_nvidia_envelope_publishes_in_dry_run(
+    nvidia_envelope: dict, published_metadata: dict, mock_hf_registry: None
+) -> None:
+    published_metadata = {
+        **published_metadata,
+        "start_utc": nvidia_envelope["timestamp"],
+        "end_utc": "2026-10-04T12:01:00Z",
+    }
+    assert publish(nvidia_envelope, published_metadata=published_metadata, dry_run=True).startswith(
         "data/run-canonical-run-2026-10-04T12-00-00-abc1234-throughput-"
     )
 

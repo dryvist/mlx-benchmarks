@@ -38,6 +38,13 @@ repos:
   # keep the commit cycle fast; CI runs the full suite.
   - repo: local
     hooks:
+      - id: validate-benchmark-results
+        name: validate published benchmark result rows
+        entry: .venv/bin/mlx-bench-validate-results
+        language: system
+        pass_filenames: true
+        types: [file]
+        files: '(^|/)(eval|results?)/.*\.(json|jsonl|parquet)$'
       - id: pyright
         name: pyright (type check, from .venv)
         entry: .venv/bin/pyright

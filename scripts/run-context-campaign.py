@@ -240,6 +240,8 @@ def publisher_command(cell: CampaignCell, raw_output: Path) -> list[str]:
         f"requested_prompt_tokens={cell.target_tokens}",
         "--tag",
         f"reserved_output_tokens={cell.output_tokens}",
+        "--published-metadata",
+        str(raw_output.with_name("published-metadata.json")),
         "--dry-run",
     ]
 

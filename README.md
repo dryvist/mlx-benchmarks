@@ -202,16 +202,38 @@ lm_eval --model local-chat-completions \
 
 # 2. Dry-run the conversion (validates against schema.json; no upload)
 .venv/bin/mlx-bench-publish ./run-output/<model-dir>/results_*.json \
-  --kind lm-eval --suite reasoning --dry-run
+  --kind lm-eval --suite reasoning \
+  --published-metadata ./run-output/<model-dir>/published-metadata.json --dry-run
 
 # 3. Publish — the ambient HF_TOKEN is read-only, so pass the write token
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish ./run-output/<model-dir>/results_*.json \
-  --kind lm-eval --suite reasoning
+  --kind lm-eval --suite reasoning \
+  --published-metadata ./run-output/<model-dir>/published-metadata.json
 ```
 
-`detect_system()` records each run's `hostname`, keeping cross-machine runs
-distinct. Filenames are content-addressed
+The raw run record must contain `model_revision`, the 40-character Hub SHA
+captured by the runner. `published-metadata.json` carries the registered
+benchmark task and required run variables. The publisher resolves model shape
+from `ModelInfo` at that recorded SHA and validates every score row. Scores
+with a registered evaluation dataset also get a Hub `.eval_results/*.yaml`
+record. Performance-only rows must explicitly mark all dataset fields
+`not_applicable`; HF evaluation sidecars are not emitted for those rows. A dry
+run performs read-only Hub lookups; it never uploads.
+
+Historical migration is dry-run by default. It reads every Parquet shard,
+copies recorded values, looks up model metadata only at a recorded Hub SHA, and
+marks unavailable historical fields `na_backfill`. It refuses that reason for
+rows dated after the cutover. Review the row and sidecar counts before the lead
+approves a write:
+
+```sh
+mlx-bench-publish-backfill
+mlx-bench-publish-backfill --apply # lead approval required; do not run in routine validation
+```
+
+`detect_system()` collects machine identity locally for run handling, while the
+public projection omits host and network identifiers. Filenames are content-addressed
 (`data/run-canonical-run-<timestamp>-<git_sha>-<suite>-<model_slug>-<hash>.parquet`)
 so historical shards are never overwritten. Older source shards remain
 available at their original paths; normalized copies keep the default dataset

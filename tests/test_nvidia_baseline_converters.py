@@ -210,15 +210,15 @@ def test_cli_wraps_text_output_for_mbw(
     source = tmp_path / "mbw.txt"
     source.write_text(mbw_sample["output"])
     argv = [str(source), "--kind", "mbw", "--suite", "mbw", "--model", "hardware-baseline"]
-    assert main([*argv, "--git-sha", "deadbeef", "--dry-run"]) == 0
-    assert "planned" in capsys.readouterr().err
+    assert main([*argv, "--git-sha", "deadbeef", "--dry-run"]) == 4
+    assert "--published-metadata is required" in capsys.readouterr().err
 
 
 def test_cli_keeps_gpu_burn_carriage_returns(tmp_path: Path, gpu_burn_sample: dict) -> None:
     source = tmp_path / "gpu-burn.log"
     source.write_bytes(gpu_burn_sample["output"].encode())  # bytes: no newline translation
     argv = [str(source), "--kind", "gpu-burn", "--suite", "gpu-burn", "--model", "hardware-baseline"]
-    assert main([*argv, "--git-sha", "deadbeef", "--dry-run"]) == 0
+    assert main([*argv, "--git-sha", "deadbeef", "--dry-run"]) == 4
 
 
 def test_cli_json_input_is_unchanged(tmp_path: Path, nvbandwidth_sample: dict) -> None:
@@ -227,4 +227,4 @@ def test_cli_json_input_is_unchanged(tmp_path: Path, nvbandwidth_sample: dict) -
     source = tmp_path / "nvbandwidth.json"
     source.write_text(json.dumps(nvbandwidth_sample))
     argv = [str(source), "--kind", "nvbandwidth", "--suite", "nvbandwidth", "--model", "hardware-baseline"]
-    assert main([*argv, "--git-sha", "deadbeef", "--dry-run"]) == 0
+    assert main([*argv, "--git-sha", "deadbeef", "--dry-run"]) == 4

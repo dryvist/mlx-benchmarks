@@ -1,0 +1,7 @@
+- id: validate-benchmark-results
+  name: validate published benchmark result rows
+  description: Reject benchmark rows with missing required values or silent nulls.
+  entry: mlx-bench-validate-results
+  language: python
+  types: [file]
+  files: '(^|/)(eval|results?)/.*\.(json|jsonl|parquet)$'

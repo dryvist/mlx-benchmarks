@@ -244,17 +244,25 @@ publishing needs the write token (`HF_WRITE_TOKEN`)
 ([trap 9](benchmark-traps.md#trap-9-publish-token)):
 
 ```sh
-# Dry-run: validates + plans, no network
+# Dry-run: validates + reads pinned Hub metadata, but never uploads
 .venv/bin/mlx-bench-publish run-output/<...>.json \
-  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host> --dry-run
+  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> \
+  --published-metadata run-output/<...>/published-metadata.json --dry-run
 
 # Publish with the write token
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish run-output/<...>.json \
-  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host>
+  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> \
+  --published-metadata run-output/<...>/published-metadata.json
 ```
 
-`--hostname` records the producing machine even when publishing from another.
+The run output must include its captured `model_revision` Hub SHA. The metadata
+file must name a registered benchmark task and supply the required run fields;
+missing values and nulls without an enumerated reason stop publication.
+
+The public Parquet projection omits host identifiers. Every publish also
+requires the run's `published-metadata.json` with non-null critical fields or
+an explicit allowed null reason.
 Never discard a completed run — publish with `--tag caveat=<reason>` and file
 an issue rather than throwing away benchmark time.
 

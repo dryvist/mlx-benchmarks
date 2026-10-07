@@ -1,4 +1,4 @@
-# Worked example — benchmarking on the Mac Studio (`jevans-ms`)
+# Worked example — benchmarking on a Mac Studio
 
 A complete run on the **Mac Studio** for a model that is **not** in the
 `llama-swap` config and needs a **managed window** — production Hermes serving
@@ -78,17 +78,19 @@ curl -s4 http://127.0.0.1:11434/v1/models >/dev/null && echo "serving restored"
 Publishing does not need the model resident, so do it after restoring — keep the
 window as short as the run itself.
 
-## 4. Publish (with `--hostname`) and rank
+## 4. Publish and rank
 
-Record the producing host even though you may publish from elsewhere:
+The public dataset omits host identifiers:
 
 ```sh
 .venv/bin/mlx-bench-publish ~/bench-runs/agentic_${SLUG}.json \
-  --kind agentic --suite tool-calling --hostname jevans-ms --dry-run
+  --kind agentic --suite tool-calling \
+  --published-metadata ~/bench-runs/published-metadata.json --dry-run
 
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish ~/bench-runs/agentic_${SLUG}.json \
-  --kind agentic --suite tool-calling --hostname jevans-ms
+  --kind agentic --suite tool-calling \
+  --published-metadata ~/bench-runs/published-metadata.json
 ```
 
 Then update the model's row in [`../RANKINGS.md`](../RANKINGS.md) in the same PR.

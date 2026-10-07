@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 
 import pytest
 
+import mlx_benchmarks.publish as publish_module
 from mlx_benchmarks.dataset_schema import (
     CAMPAIGN_DIMENSION_TYPES,
     PARQUET_ROW_SCHEMA,
@@ -137,10 +139,68 @@ def test_rows_to_parquet_rejects_empty() -> None:
         rows_to_parquet([])
 
 
-def test_publish_dry_run_returns_path(valid_envelope: dict) -> None:
-    path = publish(valid_envelope, dry_run=True)
+def test_publish_dry_run_returns_path(
+    valid_envelope: dict, published_metadata: dict, mock_hf_registry: None
+) -> None:
+    path = publish(valid_envelope, published_metadata=published_metadata, dry_run=True)
     # The returned path carries a content-addressed suffix when payload is real.
     assert path.startswith(target_path(valid_envelope).removesuffix(".parquet"))
+
+
+def test_publish_writes_hub_fields_as_named_parquet_columns(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    written_rows: list[dict] = []
+    original = publish_module.rows_to_parquet
+
+    def capture(rows: list[dict]) -> bytes:
+        written_rows.extend(rows)
+        return original(rows)
+
+    monkeypatch.setattr(publish_module, "rows_to_parquet", capture)
+    publish(valid_envelope, published_metadata=published_metadata, dry_run=True)
+
+    [row] = written_rows
+    assert row["model_id"] == valid_envelope["model"]
+    assert row["model_revision"] == valid_envelope["model_revision"]
+    assert row["pipeline_tag"] == "text-generation"
+    assert row["model_task"] == row["pipeline_tag"]
+    assert json.loads(row["dtype"]) == {"F16": 1000}
+    assert row["dataset_id"] == published_metadata["dataset_id"]
+    assert row["engine"] == published_metadata["engine"]
+    assert "published_result_json" not in row
+
+
+def test_publish_performance_only_rows_do_not_claim_an_eval_result(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    dataset_fields = (
+        "dataset_id",
+        "dataset_task_id",
+        "dataset_revision",
+        "evaluation_framework",
+        "config",
+        "split",
+    )
+    metadata = {
+        **published_metadata,
+        **dict.fromkeys(dataset_fields),
+        "dimension_null_reasons": {
+            **published_metadata["dimension_null_reasons"],
+            **dict.fromkeys(dataset_fields, "not_applicable"),
+        },
+    }
+
+    publish(valid_envelope, published_metadata=metadata, dry_run=True)
+
+    assert "0 HF eval result record(s)" in caplog.text
 
 
 def test_publish_refuses_invalid_envelope(invalid_envelope: dict) -> None:
@@ -148,11 +208,29 @@ def test_publish_refuses_invalid_envelope(invalid_envelope: dict) -> None:
         publish(invalid_envelope, dry_run=True)
 
 
-def test_publish_skipping_validation_still_rejects_empty(invalid_envelope: dict) -> None:
-    # --no-validate is the escape hatch; rows_to_parquet still raises PublishError
-    # (not plain ValueError) so the CLI can catch it via a single exception type.
-    with pytest.raises(PublishError, match="No result rows"):
-        publish(invalid_envelope, dry_run=True, validate=False)
+def test_publish_requires_metadata(valid_envelope: dict) -> None:
+    with pytest.raises(PublishError, match="--published-metadata is required"):
+        publish(valid_envelope, dry_run=True)
+
+
+def test_publish_refuses_a_silent_null_score_field(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+) -> None:
+    metadata = {**published_metadata, "prompt_chars": None}
+    with pytest.raises(PublishError, match="prompt_chars is null"):
+        publish(valid_envelope, published_metadata=metadata, dry_run=True)
+
+
+def test_publish_refuses_nested_host_identifiers(
+    valid_envelope: dict,
+    published_metadata: dict,
+    mock_hf_registry: None,
+) -> None:
+    metadata = {**published_metadata, "hardware": {"system": {"node_name": "REDACTED"}}}
+    with pytest.raises(PublishError, match="must not include host or network identifiers"):
+        publish(valid_envelope, published_metadata=metadata, dry_run=True)
 
 
 def test_envelope_to_rows_flattens_all_system_fields(valid_envelope: dict) -> None:
@@ -161,13 +239,19 @@ def test_envelope_to_rows_flattens_all_system_fields(valid_envelope: dict) -> No
     assert row["kernel"] == "25.4.0"
     assert row["lm_eval_version"] == "0.4.11"
     assert row["python_version"] == "3.11.9"
-    assert row["hostname"] == "macbook-pro"
+    assert row["hostname"] is None
 
 
 def test_envelope_to_rows_flattens_topology_and_new_top_level_fields(cluster_envelope: dict) -> None:
+    cluster_envelope["system"]["topology"] = {
+        "world_size": 2,
+        "nodes": [{"hostname": "REDACTED", "host_ip": "REDACTED", "chip": "GPU"}],
+    }
     [row] = envelope_to_rows(cluster_envelope)
     # Nested topology can't be a scalar cell, so it rides as a JSON string.
-    assert json.loads(row["topology"])["world_size"] == 2
+    topology = json.loads(row["topology"])
+    assert topology["world_size"] == 2
+    assert topology["nodes"] == [{"chip": "GPU"}]
     # New top-level fields land as their own columns.
     assert row["env_class"] == "isolated"
     assert row["concurrency"] == 4
