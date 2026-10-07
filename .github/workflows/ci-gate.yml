@@ -16,7 +16,8 @@
 #   space-viewer-test  -> pytest over `space/tests`; `_python-ci.yml` runs
 #                         `pytest` which honours pyproject `testpaths=["tests"]`,
 #                         so the space viewer suite is otherwise never run.
-#   dry-run-publish    -> builds the wheel and exercises the HF publisher CLI.
+#   dry-run-publish    -> builds the wheel and exercises the HF publisher CLI
+#                         against a local synthetic Hub registry.
 #
 # To add a STANDARD check, prefer enabling a toggle on the org `_ci-gate.yml`
 # call below. Add a bespoke job only when the org gate genuinely cannot cover it.
@@ -60,8 +61,10 @@ jobs:
             publisher:
               - 'src/mlx_benchmarks/**'
               - 'schema.json'
+              - '.pre-commit-hooks.yaml'
               - 'tests/fixtures/**'
               - 'pyproject.toml'
+              - 'scripts/dry_run_publish_smoke.py'
             space:
               - 'space/**'
               - 'src/mlx_benchmarks/**'
@@ -156,8 +159,6 @@ jobs:
     if: needs.changes.outputs.publisher == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      COMMIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up Python
@@ -177,14 +178,8 @@ jobs:
         run: |
           uv venv .venv-install --python 3.13
           uv pip install --python .venv-install/bin/python dist/*.whl
-      - name: Dry-run publish against canonical fixture
-        run: |
-          .venv-install/bin/mlx-bench-publish \
-            tests/fixtures/lm_eval_results_sample.json \
-            --kind lm-eval \
-            --suite reasoning \
-            --git-sha "${COMMIT_SHA:0:7}" \
-            --dry-run
+      - name: Dry-run publish against local synthetic Hub metadata
+        run: .venv-install/bin/python scripts/dry_run_publish_smoke.py
 
   # ============================================================================
   # MERGE GATE — aggregates the org standard gate plus the bespoke jobs. This

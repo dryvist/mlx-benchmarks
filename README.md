@@ -202,16 +202,21 @@ lm_eval --model local-chat-completions \
 
 # 2. Dry-run the conversion (validates against schema.json; no upload)
 .venv/bin/mlx-bench-publish ./run-output/<model-dir>/results_*.json \
-  --kind lm-eval --suite reasoning --dry-run
+  --kind lm-eval --suite reasoning \
+  --published-metadata ./run-output/<model-dir>/published-metadata.json --dry-run
 
 # 3. Publish — the ambient HF_TOKEN is read-only, so pass the write token
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish ./run-output/<model-dir>/results_*.json \
-  --kind lm-eval --suite reasoning
+  --kind lm-eval --suite reasoning \
+  --published-metadata ./run-output/<model-dir>/published-metadata.json
 ```
 
-`detect_system()` records each run's `hostname`, keeping cross-machine runs
-distinct. Filenames are content-addressed
+The published-result contract, metadata source mapping, and migration procedure
+are documented in [`docs/published-results.md`](docs/published-results.md).
+
+`detect_system()` collects machine identity locally for run handling, while the
+public projection omits host and network identifiers. Filenames are content-addressed
 (`data/run-canonical-run-<timestamp>-<git_sha>-<suite>-<model_slug>-<hash>.parquet`)
 so historical shards are never overwritten. Older source shards remain
 available at their original paths; normalized copies keep the default dataset

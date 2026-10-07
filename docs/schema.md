@@ -3,6 +3,14 @@
 Canonical JSON Schema: [`schema.json`](../schema.json). This file is a prose
 walk-through. When the two disagree, `schema.json` wins — please open a PR.
 
+Upstream Hub source URLs and the read date are recorded in
+[`huggingface-metadata-sources.md`](huggingface-metadata-sources.md).
+
+## Published score rows
+
+See [`published-results.md`](published-results.md) for the fields, Hub
+enrichment rules, validator, and historical migration procedure.
+
 ## Required top-level fields
 
 | Field | Type | Notes |
@@ -107,8 +115,7 @@ default here would be indistinguishable from a measurement.
 Required: `os`, `chip`, `memory_gb`.
 
 Optional (all populated automatically by `detect_system()`):
-`hostname` (short host label — distinguishes machines with identical
-chip/memory, e.g. a Mac Studio vs a MacBook Pro), `python_version`,
+`hostname` (removed from the public Parquet projection), `python_version`,
 `mlx_version`, `mlx_lm_version`, `lm_eval_version`, `kernel`,
 `runner` (for GitHub Actions), `vllm_mlx_version`.
 
@@ -128,7 +135,7 @@ These are **declared, not probed**: `detect_system()` reads them from
 different machine than the GPU. A variable that is unset, blank, or non-numeric where a
 number is required is omitted. The `nvidia-smi` snippet that fills them is in
 [`configs/LAYOUT.md`](../configs/LAYOUT.md#nvidia-hosts-configsnvidia). In the Parquet
-shard `gpu` and `engine` ride as JSON-string columns (like `topology`); `power_limit_w`
+shard `gpu` and `system_engine` ride as JSON-string columns (like `topology`); `power_limit_w`
 and `container` are plain columns.
 
 `topology` (object, multi-node runs only): `world_size`, `parallelism`
@@ -177,9 +184,9 @@ comparable.
 
 ## Validation
 
-Every envelope is validated inside `mlx_benchmarks.publish.publish()` —
-bypass only by passing `validate=False` (strongly discouraged). The
-validator collects *all* errors before raising, so a single run-through
+Every envelope and published score row is validated inside
+`mlx_benchmarks.publish.publish()`. Validation cannot be bypassed. The
+validators collect *all* errors before raising, so a single run-through
 surfaces everything wrong instead of one-at-a-time iteration.
 
 Locally:

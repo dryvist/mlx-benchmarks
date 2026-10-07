@@ -44,5 +44,5 @@ harmony = "reasoning_effort"     # gpt-oss (high = on, low = off-analog)
 [publish]
 command = """
 mlx-bench-publish run-output/agentic_$MODEL_SLUG.json \
-  --kind agentic --suite tool-calling --hostname jevans-ms
+  --kind agentic --suite tool-calling
 """

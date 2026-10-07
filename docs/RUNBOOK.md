@@ -244,19 +244,20 @@ publishing needs the write token (`HF_WRITE_TOKEN`)
 ([trap 9](benchmark-traps.md#trap-9-publish-token)):
 
 ```sh
-# Dry-run: validates + plans, no network
+# Dry-run: validates + reads pinned Hub metadata, but never uploads
 .venv/bin/mlx-bench-publish run-output/<...>.json \
-  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host> --dry-run
+  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> \
+  --published-metadata run-output/<...>/published-metadata.json --dry-run
 
 # Publish with the write token
 HF_TOKEN="$HF_WRITE_TOKEN" \
   .venv/bin/mlx-bench-publish run-output/<...>.json \
-  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> --hostname <host>
+  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> \
+  --published-metadata run-output/<...>/published-metadata.json
 ```
 
-`--hostname` records the producing machine even when publishing from another.
-Never discard a completed run — publish with `--tag caveat=<reason>` and file
-an issue rather than throwing away benchmark time.
+See the [published-result contract](published-results.md) before publishing.
+Retain every completed run; publish caveats with `--tag caveat=<reason>`.
 
 ## Step 6 — Update RANKINGS.md
 

@@ -66,7 +66,8 @@ Publish with:
 
 ```bash
 mlx-bench-publish run-output/promptstack_<slug>.json \
-  --kind promptstack --suite promptstack --hostname <host>
+  --kind promptstack --suite promptstack \
+  --published-metadata run-output/published-metadata.json
 ```
 
 ## Adoption rule (the Cline bar)

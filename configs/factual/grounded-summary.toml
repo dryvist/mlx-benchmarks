@@ -52,5 +52,5 @@ grounded_accuracy = "share of responses passing all four checks"
 [publish]
 command = """
 mlx-bench-publish run-output/factual_$MODEL_SLUG.json \
-  --kind factual --suite grounded-summary --hostname jevans-ms
+  --kind factual --suite grounded-summary
 """
