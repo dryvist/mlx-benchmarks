@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.31.0...v0.32.0) (2026-10-07)
+
+
+### Features
+
+* publish pinned Hub metadata with benchmark results ([#295](https://github.com/dryvist/mlx-benchmarks/issues/295)) ([46628f1](https://github.com/dryvist/mlx-benchmarks/commit/46628f1a97ce12a1218617852ae088d8d9c5777e))
+
 ## [0.31.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.30.1...v0.31.0) (2026-10-07)
 
 
