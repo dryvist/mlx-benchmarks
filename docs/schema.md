@@ -98,7 +98,7 @@ reads a JSON file with a `campaign_dimensions` object and an optional
 - **cost:** kWh and local electricity cost per million output tokens; median
   rental and API cost per million.
 
-See [System Load Test](system-load-test.md).
+See [Stage 0](system-load-test.md).
 
 ### `reasoning_effort`
 
