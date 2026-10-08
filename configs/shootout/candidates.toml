@@ -38,117 +38,213 @@ concurrency = 1
 # ---------------------------------------------------------------------------
 # Slate — 11 models. `catalogued` means the id already has validated serve args
 # in nix-ai modules/mlx/catalog-data.nix, so it costs no new parser research.
+# `status = "OLD"` entries remain for history and are excluded from future tuning.
+# Model facts are upstream-generation facts; `runnable_quant_sizes` lists MLX
+# artifacts and their disk footprints. `open_weights` means downloadable weights,
+# not an open-source license; `weight_license` records the upstream terms.
 # ---------------------------------------------------------------------------
 
 [[candidate]]
 id = "mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit"
+status = "OLD"
+released = "2025-09-11"
+superseded_by = "Qwen3.8-Flash-Next (Qwen4 architecture)"
+supersession_evidence = "Qwen3.8-Flash-Next is an MLX-OptiQ 2-bit, 80.8 GB SSD-streamed artifact; its HF card documents an M3 Max coding run and requires mlx-optiq >=0.5.14: https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit"
 quant = "4-bit"
 weight_gb = 44.8
 catalogued = true
 arch = "qwen3_next MoE, A3B, hybrid attention"
+architecture_generation = "Qwen3"
+open_weights = true
+weight_license = "apache-2.0"
+parameters = "80B total / 3B active"
+runnable_quant_sizes = ["MLX 4-bit: 44.8 GB (candidate artifact)"]
+facts_source = ["https://github.com/QwenLM/Qwen3.8/blob/main/README.md", "https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct", "https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit"]
 thinking_kwarg = "enable_thinking"
-role = "former-fleet-brain"
-why = "Won the 2026-07-17 agentic bench and held the fleet-brain role under the >=75B mandate, but is now swap-class with NO roles: single-model mode routes everything to the Coder-30B instead. Configured, not deleted. The strongest previously-measured contender, and the obvious model to reinstate if it wins."
+role = "retired"
+why = "Historical Qwen3 candidate; Qwen3.8-Flash-Next runs with the Qwen4 architecture through SSD-streamed MLX-OptiQ."
 
 [[candidate]]
 id = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"
+status = "OLD"
+released = "2025-07-22"
+superseded_by = "Qwen3.8-Flash-Next (Qwen4 architecture)"
+supersession_evidence = "The Qwen4-generation Qwen3.8-Flash-Next has a documented MLX-OptiQ run on M3 Max at 80.8 GB on disk: https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit"
 quant = "4-bit"
 weight_gb = 17.2
 catalogued = true
 arch = "qwen3_moe MoE, A3B, standard attention"
+architecture_generation = "Qwen3"
+open_weights = true
+weight_license = "apache-2.0"
+parameters = "30.5B total / 3.3B active"
+runnable_quant_sizes = ["MLX 4-bit: 17.2 GB (candidate artifact)"]
+facts_source = ["https://qwen.ai/blog?id=qwen3-coder", "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct", "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"]
 thinking_kwarg = "enable_thinking"
-role = "baseline-incumbent"
-why = "THE incumbent. The Studio runs programs.mlx.singleModel pinned to this id (single-model mode, 2026-07-23): it is the only resident, carries every logical role including tool-calling and goal-judge, and every other catalog model's id aliases onto it. Its 2026-07-08 agentic result was 0-67% valid with round-1 multi-turn collapse, so the model currently serving the fleet is the one the slate most needs to re-measure."
+role = "retired"
+why = "Historical Qwen3 coder candidate; the Qwen4-generation Qwen3.8-Flash-Next now runs through SSD-streamed MLX-OptiQ."
 
 [[candidate]]
 id = "mlx-community/MiniMax-M2-REAP-139B-A10B-mxfp4"
+released = "2025-10-27"
 quant = "mxfp4"
 weight_gb = 73.9
 catalogued = false
 arch = "MoE, A10B"
+architecture_generation = "MiniMax M2"
+open_weights = true
+weight_license = "other"
+parameters = "139B pruned total / 10B active; base M2 is 230B / 10B active"
+runnable_quant_sizes = ["MLX MXFP4: 73.9 GB (candidate REAP artifact)"]
+facts_source = ["https://www.minimax.io/blog/minimax-m2-en-1748600000", "https://huggingface.co/MiniMaxAI/MiniMax-M2", "https://huggingface.co/mlx-community/MiniMax-M2-REAP-139B-A10B-mxfp4"]
 thinking_kwarg = "enable_thinking"
 role = "challenger"
-why = "The M2 family leads open-weight agentic benchmarks as of mid-2026; the REAP-pruned mxfp4 build is the only M2 variant under the weight ceiling. Largest model on the slate."
+why = "REAP-pruned M2 remains a fitting MLX candidate; available MiniMax-M3 MLX weights exceed the target memory budget."
 
 [[candidate]]
 id = "mlx-community/NVIDIA-Nemotron-3-Super-120B-A12B-4bit"
+released = "2026-03-10"
 quant = "4-bit"
 weight_gb = 68.0
 catalogued = false
-arch = "MoE, A12B"
+arch = "Nemotron-H hybrid recurrent/attention latent MoE, A12B"
+architecture_generation = "Nemotron 3"
+open_weights = true
+weight_license = "nvidia-nemotron-open-model-license"
+parameters = "120B total / 12B active"
+runnable_quant_sizes = ["MLX 4-bit: 68.0 GB (candidate artifact)"]
+facts_source = ["https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", "https://huggingface.co/mlx-community/NVIDIA-Nemotron-3-Super-120B-A12B-4bit"]
 thinking_kwarg = "enable_thinking"
 role = "challenger"
 why = "Nemotron 3 Super is trained explicitly for reasoning plus structured function calling, and 12B active params keep decode within reach of a single-user latency budget."
 
 [[candidate]]
 id = "mlx-community/gpt-oss-120b-MXFP4-Q8"
+released = "2025-08-05"
 quant = "MXFP4-Q8"
 weight_gb = 63.4
 catalogued = true
-arch = "MoE, harmony channels, sliding-window attention"
+arch = "gpt-oss MoE, 5.1B active, harmony channels, sliding-window attention"
+architecture_generation = "gpt-oss (2025)"
+open_weights = true
+weight_license = "apache-2.0"
+parameters = "117B total / 5.1B active"
+runnable_quant_sizes = ["MLX MXFP4-Q8: 63.4 GB (candidate artifact)"]
+facts_source = ["https://huggingface.co/openai/gpt-oss-120b", "https://huggingface.co/mlx-community/gpt-oss-120b-MXFP4-Q8"]
 thinking_kwarg = "reasoning_effort"
 role = "re-test"
 why = "Native harmony tool-call conventions. Scored 0% agentic on 2026-07-08, but the catalog notes an unset --reasoning-parser gpt_oss leaks harmony markers into content (nix-ai#1083) — a re-test with the parser set separates a serving bug from a model limit."
 
 [[candidate]]
 id = "mlx-community/Ling-2.6-flash-mlx-4bit-DWQ"
+status = "OLD"
+released = "2026-04-23"
+superseded_by = "Ling-3.0-Flash"
+supersession_evidence = "Ling-3.0-Flash has a 70.03 GB MLX 4-bit artifact with successful Apple-silicon generation validation: https://huggingface.co/TensorFold/Ling-3.0-flash-MLX-4bit"
 quant = "4-bit DWQ"
 weight_gb = 58.6
 catalogued = false
-arch = "MoE"
+arch = "Bailing hybrid MoE, 7.4B active"
+architecture_generation = "Ling 2.6 / Bailing hybrid v2.5"
+open_weights = true
+weight_license = "mit"
+parameters = "104B total / 7.4B active"
+runnable_quant_sizes = ["MLX 4-bit DWQ: 58.6 GB (candidate artifact)"]
+facts_source = ["https://developer.ant-ling.com/en/blogs/ling-2.6-flash-release", "https://huggingface.co/inclusionAI/Ling-2.6-flash", "https://huggingface.co/inclusionAI/Ling-2.6-flash/commit/93d187d078ce712b2c07a0a272f3466c238724b5", "https://huggingface.co/mlx-community/Ling-2.6-flash-mlx-4bit-DWQ"]
 thinking_kwarg = "enable_thinking"
-role = "challenger"
-why = "InclusionAI's agentic flash MoE. DWQ recovers most 4-bit quality loss at no size cost, and quant recipe has beaten bit width on this fabric before (the 8-bit Qwen3.6 degraded at round 6 while a 4-bit OptiQ ran clean)."
+role = "retired"
+why = "Historical Ling 2.6 candidate; Ling 3.0 has a smaller, Apple-silicon-validated MLX 4-bit artifact."
 
 [[candidate]]
 id = "mlx-community/Qwen3-Coder-Next-4bit"
+status = "OLD"
+released = "2026-02-02"
+superseded_by = "Qwen3.8-Flash-Next (Qwen4 architecture)"
+supersession_evidence = "The Qwen4-generation Qwen3.8-Flash-Next has a documented MLX-OptiQ run on M3 Max at 80.8 GB on disk: https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit"
 quant = "4-bit"
 weight_gb = 44.8
 catalogued = false
 arch = "qwen3_next MoE, A3B, hybrid attention"
+architecture_generation = "Qwen3"
+open_weights = true
+weight_license = "apache-2.0"
+parameters = "80B total / 3B active"
+runnable_quant_sizes = ["MLX 4-bit: 44.8 GB (candidate artifact)"]
+facts_source = ["https://qwen.ai/blog?id=qwen3-coder-next", "https://huggingface.co/Qwen/Qwen3-Coder-Next", "https://huggingface.co/mlx-community/Qwen3-Coder-Next-4bit"]
 thinking_kwarg = "enable_thinking"
-role = "challenger"
-why = "Coder-tuned sibling of the former fleet brain on identical qwen3_next architecture, so its serving flags are already known (paged cache off). Isolates tuning from architecture against that entry — and against the Coder-30B incumbent, it isolates scale within the same coder tuning."
+role = "retired"
+why = "Historical Qwen3 coder candidate; the Qwen4-generation Qwen3.8-Flash-Next now runs through SSD-streamed MLX-OptiQ."
 
 [[candidate]]
 id = "mlx-community/Kimi-Dev-72B-4bit-DWQ"
+released = "2025-06-16"
 quant = "4-bit DWQ"
 weight_gb = 40.9
 catalogued = false
-arch = "DENSE 72B"
+arch = "Qwen2.5-based dense Transformer"
+architecture_generation = "Kimi-Dev fine-tune of Qwen2.5"
+open_weights = true
+weight_license = "mit"
+parameters = "73B"
+runnable_quant_sizes = ["MLX 4-bit DWQ: 40.9 GB (candidate artifact)"]
+facts_source = ["https://huggingface.co/moonshotai/Kimi-Dev-72B", "https://huggingface.co/mlx-community/Kimi-Dev-72B-4bit-DWQ"]
 thinking_kwarg = "enable_thinking"
 role = "dense-control"
 why = "The slate's one dense model. The 2026-07-09 session measured dense 70B-class models as slow and KV-heavy on this hardware, but that was under concurrency 4; a single-slot run is the fair re-test of a measured negative without spending several slots on it."
 
 [[candidate]]
 id = "mlx-community/Kimi-Linear-48B-A3B-Instruct-6bit"
+released = "2025-10-30"
 quant = "6-bit"
 weight_gb = 39.9
 catalogued = false
-arch = "MoE, A3B, linear attention"
+arch = "Hybrid 3:1 Kimi Delta Attention / global MLA, MoE"
+architecture_generation = "Kimi Linear"
+open_weights = true
+weight_license = "mit"
+parameters = "48B total / 3B active"
+runnable_quant_sizes = ["MLX 6-bit: 39.9 GB (candidate artifact)"]
+facts_source = ["https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct", "https://huggingface.co/mlx-community/Kimi-Linear-48B-A3B-Instruct-6bit"]
 thinking_kwarg = "enable_thinking"
 role = "challenger"
 why = "6-bit fidelity inside the weight budget, and linear attention keeps the 64K KV cache cheap — the combination this hardware has repeatedly favoured."
 
 [[candidate]]
 id = "mlx-community/GLM-4.7-Flash-8bit"
+released = "2026-01-19"
 quant = "8-bit"
 weight_gb = 31.8
 catalogued = false
-arch = "MoE"
+arch = "GLM-4.7 MoE-lite, 30B / 3.6B active"
+architecture_generation = "GLM 4.7"
+open_weights = true
+weight_license = "mit"
+parameters = "30B total / 3.6B active"
+runnable_quant_sizes = ["MLX 8-bit: 31.8 GB (candidate artifact)"]
+facts_source = ["https://huggingface.co/zai-org/GLM-4.7-Flash", "https://huggingface.co/mlx-community/GLM-4.7-Flash-8bit"]
 thinking_kwarg = "enable_thinking"
 role = "quant-control"
-why = "GLM-4.7-Flash-4bit passed single-shot at 100% and then collapsed at multi-turn round 1. Running the near-lossless 8-bit of the same model tests whether that collapse was quantization damage or the model itself."
+why = "GLM-4.7-Flash remains the fitting local MLX control; GLM-5.3's NVIDIA NVFP4 artifact is 190.4 GiB, and no fitting MLX quant is verified."
 
 [[candidate]]
 id = "mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit"
+status = "OLD"
+released = "2026-04-16"
+superseded_by = "Qwen3.8-Flash-Next (Qwen4 architecture)"
+supersession_evidence = "The Qwen4-generation Qwen3.8-Flash-Next has a documented MLX-OptiQ run on M3 Max at 80.8 GB on disk: https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit"
 quant = "OptiQ 4-bit"
 weight_gb = 24.7
 catalogued = true
-arch = "qwen3_moe MoE, A3B"
+arch = "qwen3_5_moe, MoE, A3B"
+architecture_generation = "Qwen3.6 / qwen3_5_moe"
+open_weights = true
+weight_license = "apache-2.0"
+parameters = "35B total / 3B active"
+runnable_quant_sizes = ["MLX OptiQ 4-bit: 24.7 GB (candidate artifact)"]
+facts_source = ["https://github.com/QwenLM/Qwen3.8/blob/main/README.md", "https://huggingface.co/Qwen/Qwen3.6-35B-A3B", "https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-OptiQ-4bit"]
 thinking_kwarg = "enable_thinking"
-role = "small-end-leader"
-why = "Led the 2026-07-08 agentic selection (100% valid, clean through 20 rounds) and needs a repetition-penalty guardrail under load. Cheapest way to find out whether any of the big challengers actually buy accuracy over it."
+role = "retired"
+why = "Historical Qwen3.6 candidate; Qwen3.8-Flash-Next is a runnable Qwen4-generation successor through SSD-streamed MLX-OptiQ."
 
 # ---------------------------------------------------------------------------
 # Rejected — recorded so the next slate does not re-litigate them.

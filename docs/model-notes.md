@@ -2,29 +2,17 @@
 
 Durable, per-model-class quirks that decide whether a model can drive a
 many-tool agent (structured tool calls, thinking/reasoning parsing,
-concurrency) on vllm-mlx. Everything here is sourced from May–July 2026
-material; dated links inline. Per-run findings belong in
+concurrency) on vllm-mlx. Model-currency facts below were refreshed
+2026-10-07; dated links inline. Per-run findings belong in
 [`docs/journal/`](./journal/) — this file holds only what stays true across
 runs.
 
-Serving-flag quick reference (vllm-mlx):
+## Model currency
 
-| Family | `--tool-call-parser` | `--reasoning-parser` | Thinking control |
-| --- | --- | --- | --- |
-| Qwen3 / Qwen3.6 dense + MoE | `hermes` | `qwen3` | `chat_template_kwargs.enable_thinking` |
-| Qwen3-Coder / Coder-Next | `qwen3_coder` | `qwen3` | `enable_thinking` |
-| Qwen3-Next (hybrid attention) | `hermes` | `qwen3` | `enable_thinking`; never spec-decode/MTP |
-| GLM-4.7-Flash | `glm47` | `glm45` | thinking on by default |
-| gpt-oss (harmony) | `harmony` | `gpt_oss` | `chat_template_kwargs.reasoning_effort` |
-| DeepSeek-V4-Flash | `deepseek` + `--enable-auto-tool-choice` | `deepseek_r1` | native `<think>` |
-| MiniMax-M2.7 | `minimax` | native | native |
-| Hermes-4 | `hermes` | — | — |
+Architecture generation, release date, weight status, parameters, quant sizes, and successor evidence are recorded in [model-currency.md](./model-currency.md).
+The candidate registry keeps the upstream source links.
 
-vllm-mlx's reasoning guide documents `qwen3` and `deepseek_r1` explicitly; the
-wider tool-parser set comes from the server flags
-([vllm-mlx docs](https://github.com/waybarrios/vllm-mlx/blob/main/docs/guides/reasoning.md)).
-
-## Qwen3.x MoE (Qwen3.6-35B-A3B, Qwen3-30B-A3B, Qwen3.6-27B)
+## OLD — Qwen3.x MoE (Qwen3.6-35B-A3B, Qwen3-30B-A3B-Instruct-2507, Qwen3.6-27B)
 
 - **Quantization is the dominant tool-calling variable.** Stock
   `mlx-community` uniform quants degrade **multi-turn** tool calling: 4-bit
@@ -75,7 +63,7 @@ wider tool-parser set comes from the server flags
   (`--cache-memory-mb` well above the 3 GB default class) before blaming the
   weights for slow decode.
 
-## Qwen3-Next (hybrid SDPA + Gated-DeltaNet linear attention)
+## OLD — Qwen3-Next (hybrid SDPA + Gated-DeltaNet linear attention)
 
 - The early-2026 "crashes when two requests batch" reputation
   (conv_state shape errors) no longer holds: vllm-metal lists the family as
@@ -92,7 +80,7 @@ wider tool-parser set comes from the server flags
 - Linear attention gives the smallest KV growth of any class here — the
   long-transcript pick when reasoning depth beats raw tok/s.
 
-## Qwen3-Coder (30B-A3B, Coder-Next)
+## OLD — Qwen3-Coder (30B-A3B, Coder-Next)
 
 - Parser is `qwen3_coder`, not `qwen`; with the global
   `--enable-auto-tool-choice`, a registered model missing its parser exits at
@@ -182,12 +170,14 @@ wider tool-parser set comes from the server flags
 
 ## Serving stacks (state of play, mid-2026)
 
-| Stack | Fit for concurrent agentic tool-calling |
-| --- | --- |
-| vllm-mlx v0.4.0 (2026-06-28) | Continuous batching (4.3× at 16-way), paged/system KV, tool + reasoning parsers — the default choice |
-| Rapid-MLX v0.10.3 (2026-07-07) | 17 tool parsers + plain-text tool-call auto-recovery (mitigates mlx-lm #1011) — worth evaluating |
-| llama.cpp (Metal) | GGUF Q4_K_XL is the known-good multi-turn tool-calling fallback; MLX still ~20–40 % faster on Apple Silicon |
-| mlx-lm server | Basic batching; spec-decode buggy (mlx-lm #846) — not for concurrency |
+- **vllm-mlx v0.4.0 (2026-06-28):** Continuous batching (4.3× at 16-way),
+  paged/system KV, tool + reasoning parsers — the default choice.
+- **Rapid-MLX v0.10.3 (2026-07-07):** 17 tool parsers + plain-text tool-call
+  auto-recovery (mitigates mlx-lm #1011) — worth evaluating.
+- **llama.cpp (Metal):** GGUF Q4_K_XL is the known-good multi-turn tool-calling
+  fallback; MLX still ~20–40 % faster on Apple Silicon.
+- **mlx-lm server:** Basic batching; spec-decode buggy (mlx-lm #846) — not for
+  concurrency.
 
 Sources: [vllm-mlx releases](https://github.com/waybarrios/vllm-mlx/releases),
 [Rapid-MLX](https://github.com/raullenchai/Rapid-MLX). vllm-mlx 0.4.0 also

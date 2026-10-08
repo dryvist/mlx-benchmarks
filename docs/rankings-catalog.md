@@ -5,40 +5,235 @@ repository file-size limit. Same data, same update rules.
 
 ## Full catalog
 
-Every model with at least one published metric. Blank = not yet run for that
+Every model with at least one published metric. `—` = not yet run for that
 suite. Throughput is the best published output tok/s (concurrency in
 parentheses). `math_verify` is `minerva_math500`. Agentic is the pass-gate
 `valid%` / `first_degraded_round` (thinking ON) where a `tool-calling` sweep
 exists.
 
-| Model | Size GB | Maturity | Throughput tok/s | math_verify | Agentic (valid% / deg round) | Role (as of N runs) |
-| --- | --- | --- | --- | --- | --- | --- |
-| Qwen3.6-35B-A3B-OptiQ-4bit | ~19.5 | 1/4 | | | 100% / clean | Leads as agent brain this cycle |
-| Qwen3-Next-80B-A3B-Thinking-4bit | ~45 | 1/4 | 25.1 | 0.08 | 100% / r17 | Agent brain runner-up; weak on math_verify |
-| Qwen3-Next-80B-A3B-Instruct-4bit | ~45 | 1/4 | 28.2 | 0.34 | | Strong all-rounder MoE |
-| Qwen3.6-35B-A3B-4bit | ~19.5 | 1/4 | 24.9 / 28.4 (c2) † | | 100% / clean | Clean agent brain, slower |
-| Qwen3.6-35B-A3B-8bit | ~35 | 1/4 | | | 100% / r6 | Early multi-turn degrade |
-| Qwen3.6-35B-A3B-MLX-8bit (lmstudio) | ~35 | 1/4 | | | 100% / r19 | Near-clean agent brain |
-| Qwen3-Coder-30B-A3B-Instruct-4bit | ~17 | 1/4 | 136.7 (c4) | 0.47 | 0–67% / r1 | Coding sidecar; throughput + math leader this cycle |
-| Qwen3-Coder-30B-A3B-Instruct-8bit | ~32 | 1/4 | 41.2 | 0.37 | | Coding sidecar, 8-bit |
-| NVIDIA-Nemotron-3-Super-120B-A12B-4bit | ~63 | 1/4 | 225.3 (c1) ‡ | | | Fastest cumulative rate; will not serve c2 |
-| gpt-oss-120b-MXFP4-Q8 | ~63 | 1/4 | 44.4 (c4) | | 0% / r1 | High-throughput generalist; lags as a tool brain |
-| gpt-oss-120b-4bit | ~63 | 1/4 | 44.9 | 0.42 | | Generalist; strong math_verify |
-| GLM-4.7-Flash-4bit | ~18 | 1/4 | | | 100%¹ / r1 | Fast, tool-dead multi-turn |
-| Devstral-2-123B-Instruct-2512-4bit | ~63 | 1/4 | 2.5 | 0.42 | | Large coder; very slow decode |
-| Devstral-Small-2-24B-Instruct-2512-4bit | ~13 | 1/4 | | 0.37 | | Small coder |
-| Qwen3.5-122B-A10B-4bit | ~63 | 1/4 | 24.6 | 0.08 | | Legacy flagship MoE |
-| Qwen3.5-35B-A3B-4bit | ~19.5 | 1/4 | 32.9 | | | Legacy A3B workhorse |
-| Qwen3.5-27B-4bit | ~15 | 1/4 | 22.9 | | | Legacy dense mid |
-| Qwen3.5-9B-MLX-4bit | ~5 | 1/4 | 68.5 | | 100%³ | Small, fast |
-| DeepSeek-R1-0528-Qwen3-8B-4bit | ~5 | 1/4 | 58.7 | | | Small reasoning distill |
-| Qwen3-4B-Instruct-2507-4bit | ~2.5 | 1/4 | | | 80%³ | Resident `judge` alias on jevans-mbp; smoke only |
-| Seed-OSS-36B-Instruct-4bit | ~19 | 1/4 | 18.6 | | | Mid generalist |
-| gemma-4-31b-it-4bit | ~17 | 1/4 | 18.4 | | | Dense generalist |
-| gemma-4-e4b-it-4bit | ~3 | 1/4 | 59.9 | | | Tiny, fast |
-| GLM-4.5-Air-4bit | ~60 | 1/4 | | 0.08 | | Legacy MoE |
-| Qwopus3.5-122B-A10B-…-abliterated-4bit | ~69 | 1/4 | 52.8² | | 1.0 (c1) / OOM (c4) | Fast single-stream; OOMs conc4 + **abliterated** — not adopted |
-| Hermes-4-70B-MLX-4bit | ~37 | 1/4 | 11.8² | | 0.875 (c1) / OOM | Dense 70B; needs thinking, OOMs on concurrency AND long history — not a viable brain here |
+- **OLD; PROTECTED: served family** Qwen3.6-35B-A3B-OptiQ-4bit
+  - Size GB: ~19.5
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: —
+  - Agentic (valid% / deg round): 100% / clean
+  - Role: Historical result; served family stays protected;
+    route retirement is lead-owned.
+
+- **OLD** Qwen3-Next-80B-A3B-Thinking-4bit
+  - Size GB: ~45
+  - Maturity: 1/4
+  - Throughput tok/s: 25.1
+  - math_verify: 0.08
+  - Agentic (valid% / deg round): 100% / r17
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD** Qwen3-Next-80B-A3B-Instruct-4bit
+  - Size GB: ~45
+  - Maturity: 1/4
+  - Throughput tok/s: 28.2
+  - math_verify: 0.34
+  - Agentic (valid% / deg round): —
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD; PROTECTED: loaded** Qwen3.6-35B-A3B-4bit
+  - Size GB: ~19.5
+  - Maturity: 1/4
+  - Throughput tok/s: 24.9 / 28.4 (c2) †
+  - math_verify: —
+  - Agentic (valid% / deg round): 100% / clean
+  - Role: Historical result; loaded/served disposition stays
+    protected; route retirement is lead-owned.
+
+- **OLD** Qwen3.6-35B-A3B-8bit
+  - Size GB: ~35
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: —
+  - Agentic (valid% / deg round): 100% / r6
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD** Qwen3.6-35B-A3B-MLX-8bit (lmstudio)
+  - Size GB: ~35
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: —
+  - Agentic (valid% / deg round): 100% / r19
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD; PROTECTED: recorded resident** Qwen3-Coder-30B-A3B-Instruct-4bit
+  - Size GB: ~17
+  - Maturity: 1/4
+  - Throughput tok/s: 136.7 (c4)
+  - math_verify: 0.47
+  - Agentic (valid% / deg round): 0–67% / r1
+  - Role: Historical result; current residency UNVERIFIED;
+    route retirement is lead-owned.
+
+- **OLD** Qwen3-Coder-30B-A3B-Instruct-8bit
+  - Size GB: ~32
+  - Maturity: 1/4
+  - Throughput tok/s: 41.2
+  - math_verify: 0.37
+  - Agentic (valid% / deg round): —
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- NVIDIA-Nemotron-3-Super-120B-A12B-4bit
+  - Size GB: ~63
+  - Maturity: 1/4
+  - Throughput tok/s: 225.3 (c1) ‡
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Fastest cumulative rate; will not serve c2
+
+- gpt-oss-120b-MXFP4-Q8
+  - Size GB: ~63
+  - Maturity: 1/4
+  - Throughput tok/s: 44.4 (c4)
+  - math_verify: —
+  - Agentic (valid% / deg round): 0% / r1
+  - Role: High-throughput generalist; lags as a tool brain
+
+- gpt-oss-120b-4bit
+  - Size GB: ~63
+  - Maturity: 1/4
+  - Throughput tok/s: 44.9
+  - math_verify: 0.42
+  - Agentic (valid% / deg round): —
+  - Role: Generalist; strong math_verify
+
+- **NOT PROVEN OLD** GLM-4.7-Flash-4bit
+  - Size GB: ~18
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: —
+  - Agentic (valid% / deg round): 100%¹ / r1
+  - Role: NOT PROVEN OLD in MLX; GLM-5.3 NVIDIA NVFP4 is
+    about 190.4 GiB, with no fitting MLX quant verified.
+
+- Devstral-2-123B-Instruct-2512-4bit
+  - Size GB: ~63
+  - Maturity: 1/4
+  - Throughput tok/s: 2.5
+  - math_verify: 0.42
+  - Agentic (valid% / deg round): —
+  - Role: Large coder; very slow decode
+
+- Devstral-Small-2-24B-Instruct-2512-4bit
+  - Size GB: ~13
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: 0.37
+  - Agentic (valid% / deg round): —
+  - Role: Small coder
+
+- **OLD** Qwen3.5-122B-A10B-4bit
+  - Size GB: ~63
+  - Maturity: 1/4
+  - Throughput tok/s: 24.6
+  - math_verify: 0.08
+  - Agentic (valid% / deg round): —
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD** Qwen3.5-35B-A3B-4bit
+  - Size GB: ~19.5
+  - Maturity: 1/4
+  - Throughput tok/s: 32.9
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD** Qwen3.5-27B-4bit
+  - Size GB: ~15
+  - Maturity: 1/4
+  - Throughput tok/s: 22.9
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- **OLD; PROTECTED: served** Qwen3.5-9B-MLX-4bit
+  - Size GB: ~5
+  - Maturity: 1/4
+  - Throughput tok/s: 68.5
+  - math_verify: —
+  - Agentic (valid% / deg round): 100%³
+  - Role: Historical result; served record stays protected;
+    route retirement is lead-owned.
+
+- DeepSeek-R1-0528-Qwen3-8B-4bit
+  - Size GB: ~5
+  - Maturity: 1/4
+  - Throughput tok/s: 58.7
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Small reasoning distill
+
+- **OLD** Qwen3-4B-Instruct-2507-4bit
+  - Size GB: ~2.5
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: —
+  - Agentic (valid% / deg round): 80%³
+  - Role: Historical result; superseded by Qwen4-generation
+    Qwen3.8-Flash-Next
+
+- Seed-OSS-36B-Instruct-4bit
+  - Size GB: ~19
+  - Maturity: 1/4
+  - Throughput tok/s: 18.6
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Mid generalist
+
+- gemma-4-31b-it-4bit
+  - Size GB: ~17
+  - Maturity: 1/4
+  - Throughput tok/s: 18.4
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Dense generalist
+
+- gemma-4-e4b-it-4bit
+  - Size GB: ~3
+  - Maturity: 1/4
+  - Throughput tok/s: 59.9
+  - math_verify: —
+  - Agentic (valid% / deg round): —
+  - Role: Tiny, fast
+
+- GLM-4.5-Air-4bit
+  - Size GB: ~60
+  - Maturity: 1/4
+  - Throughput tok/s: —
+  - math_verify: 0.08
+  - Agentic (valid% / deg round): —
+  - Role: Legacy MoE
+
+- Qwopus3.5-122B-A10B-…-abliterated-4bit
+  - Size GB: ~69
+  - Maturity: 1/4
+  - Throughput tok/s: 52.8²
+  - math_verify: —
+  - Agentic (valid% / deg round): 1.0 (c1) / OOM (c4)
+  - Role: Fast single-stream; OOMs conc4 + **abliterated** —
+    not adopted
+
+- Hermes-4-70B-MLX-4bit
+  - Size GB: ~37
+  - Maturity: 1/4
+  - Throughput tok/s: 11.8²
+  - math_verify: —
+  - Agentic (valid% / deg round): 0.875 (c1) / OOM
+  - Role: Dense 70B; needs thinking, OOMs on concurrency AND
+    long history — not a viable brain here
 
 ¹ GLM-4.7-Flash passes the single-shot pass-gate cell (100% valid) but the
 multi-turn track collapses at round 1 — the exact case the degradation track
@@ -53,6 +248,11 @@ exists to expose. Single-shot validity alone is not a passing agentic verdict.
 runs, reduced matrix — not pass-gate comparable.
 [Journal](docs/journal/2026-08-23-jevans-mbp-quick-smokes.md).
 
+Qwen3.8-Flash-Next uses the Qwen4 experimental architecture (`qwen4_exp`). Its
+2-bit MLX-OptiQ artifact is 80.8 GB on disk and runs by streaming experts from
+SSD; it exceeds the 75 GB shootout entry limit, so it is evidence for model
+generation currency, not a candidate row.
+
 † 2026-09-09, ISOLATED class, `dedicated=true`, on a private loopback endpoint
 nothing routes to. Aggregate decode rate at concurrency 1 and 2, three runs each,
 256 max output tokens over a 2048-token prompt. Both cells pair-validated: the
@@ -63,7 +263,9 @@ with zero errors.
 The clean room is what makes these comparable, and it was proven rather than
 assumed: the gate logged 12 × 502 and zero 200s across the measurement interval,
 so it was demonstrably unable to reach any backend while the runs were in flight.
-The same grid on a contended host swung 60.8% and 35.5% between consecutive runs —
+The same grid on a contended host swung 60.8% and 35.5% between
+consecutive runs — so an un-quiesced throughput figure measures the
+contention, not the model.
 so an un-quiesced throughput figure measures the contention, not the model.
 
 ‡ 2026-09-09/10, ISOLATED class, `dedicated=true`, on a private loopback
