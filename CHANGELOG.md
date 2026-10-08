@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.34.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.3...v0.34.0) (2026-10-08)
+
+
+### Features
+
+* **models:** retire superseded MLX candidates ([589ef48](https://github.com/dryvist/mlx-benchmarks/commit/589ef48e761db8b94b1dd789ebab292cb3bc7f3f))
+* **models:** retire superseded MLX candidates ([820c500](https://github.com/dryvist/mlx-benchmarks/commit/820c500dd9fac94092725fc67b9a8db840b44a4c))
+
+
+### Bug Fixes
+
+* **docs:** fit model currency within CI limits ([451ccc6](https://github.com/dryvist/mlx-benchmarks/commit/451ccc66f455b657613459c61e8003dbe72b16be))
+
 ## [0.33.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.2...v0.33.3) (2026-10-07)
 
 
