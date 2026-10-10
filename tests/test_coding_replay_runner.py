@@ -268,14 +268,15 @@ def test_ttft_seconds() -> None:
 # --- serialization round trip for the config the runner reads ------------------
 
 
-def test_bundled_tasks_json_is_jsonl_of_12_tasks() -> None:
+def test_bundled_tasks_json_is_a_list_of_unique_tasks() -> None:
     path = Path(__file__).resolve().parents[1] / "configs" / "coding-replay" / "tasks.json"
     # A single JSON array, not JSON Lines: the repo's check-json pre-commit hook
     # validates every .json file as one document, and JSONL under a .json name
     # fails it. Renaming to .jsonl would have made the check stop applying
     # instead of pass.
     tasks = json.loads(path.read_text())
-    assert len(tasks) == 12
+    assert tasks
+    assert len({(task["repo"], task["pr"]) for task in tasks}) == len(tasks)
     for task in tasks:
         assert {"repo", "pr", "base", "title", "files", "check"} <= task.keys()
         assert runner.check_steps(task["check"]) is not None

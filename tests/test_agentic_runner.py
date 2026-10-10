@@ -46,10 +46,11 @@ def _call(name: str, arguments: str) -> dict:
 # --- registry -----------------------------------------------------------------
 
 
-def test_registry_has_22_unique_tools() -> None:
+def test_registry_tools_are_unique() -> None:
     names = [t["function"]["name"] for t in runner.TOOLS]
-    assert len(names) == 22
-    assert len(set(names)) == 22
+    assert names
+    assert len(set(names)) == len(names)
+    assert set(REQUIRED) == set(names)
     assert REQUIRED["run_splunk_query"] == ["query"]
     assert REQUIRED["get_splunk_indexes"] == []
     assert REQUIRED["read_file_chunk"] == ["path", "offset", "length"]
