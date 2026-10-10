@@ -86,10 +86,11 @@ jobs:
       # `actions: write` must be granted here or the run fails at graph
       # validation (startup_failure).
       actions: write
-    uses: dryvist/.github/.github/workflows/_ci-gate.yml@main
+    uses: dryvist/.github/.github/workflows/_ci-gate.yml@v1
     secrets:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:
+      profile: python
       python_ci: true
       # Floor is 3.13; CI additionally validates 3.14 (stable since 2025-10).
       python_ci_versions: '["3.13", "3.14"]'
