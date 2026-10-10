@@ -2,7 +2,7 @@
 #
 # The standard checks (ruff lint/format, pyright type-check, pytest, zizmor,
 # markdown lint, file size) are delegated to the org orchestrator
-# `dryvist/.github/.github/workflows/_ci-gate.yml@main`. This repo carries NO
+# `dryvist/.github/.github/workflows/_ci-gate.yml@<40-hex commit SHA> # vX.Y.Z`. This repo carries NO
 # `run:` lint config of its own for those — pyproject.toml + .pre-commit-config
 # are the single source the org `_python-ci.yml` consumes via `uv run pre-commit`.
 #
@@ -86,7 +86,7 @@ jobs:
       # `actions: write` must be granted here or the run fails at graph
       # validation (startup_failure).
       actions: write
-    uses: dryvist/.github/.github/workflows/_ci-gate.yml@v1
+    uses: dryvist/.github/.github/workflows/_ci-gate.yml@c4501ea67ce4469a5cc95216c9a989516da2adb8 # v1.10.0
     secrets:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     with:
