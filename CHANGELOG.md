@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.38.0...v0.39.0) (2026-10-16)
+
+
+### Features
+
+* accept domain evaluation suites ([#327](https://github.com/dryvist/mlx-benchmarks/issues/327)) ([2b0ee1b](https://github.com/dryvist/mlx-benchmarks/commit/2b0ee1bc3d21936dc25c2813609bc8dbd57265aa))
+
 ## [0.38.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.37.0...v0.38.0) (2026-10-16)
 
 
