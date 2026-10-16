@@ -24,6 +24,7 @@ TARGET_INPUTS_DOC = REPO_ROOT / "docs" / "benchmark-campaign-target-inputs.md"
 EXPECTED = {
     "llama-cpp/throughput",
     "llama-cpp/vllm-fixed-length",
+    "strata/throughput",
     "llama-cpp/cross-card",
     "vllm/cross-card",
     "mlx/cross-card",
@@ -43,10 +44,10 @@ LONG_CONTEXT_RECIPES = EXPECTED - {
     "lm-eval/reasoning",
     "evalscope/mmlu-pro-reasoning-effort",
 }
-ENGINES = {"llama_cpp", "vllm", "mlx_lm", "mlx_vlm_native", "vllm_mlx"}
+ENGINES = {"llama_cpp", "vllm", "mlx_lm", "mlx_vlm_native", "vllm_mlx", "strata"}
 AGENT_COUNTS = {1, 2, 4, 8}
 LONG_CONTEXT_TOKENS = 131072
-CONFIG_NAME = re.compile(r"^(llama-cpp|vllm|mlx|lm-eval|evalscope)/[a-z0-9-]+$")
+CONFIG_NAME = re.compile(r"^(llama-cpp|strata|vllm|mlx|lm-eval|evalscope)/[a-z0-9-]+$")
 # The only tokens the consumer's argv template substitutes.
 PLACEHOLDERS = {
     "artifact_path",
@@ -271,6 +272,18 @@ def test_llama_cpp_fixed_length_recipe_uses_the_native_vllm_chat_client() -> Non
         assert _argument_after(run, "--backend") == "openai-chat"
         assert "--ignore-eos" in run["argv"]
         assert run["converter"]["kind"] == "vllm"
+
+
+def test_strata_throughput_recipe_matches_the_batch_campaign_shape() -> None:
+    recipe = RECIPES["strata/throughput"]
+    (run,) = recipe["run"]
+    assert set(recipe["concurrency_list"]) == {1, 2, 4, 6, 8}
+    assert recipe["context_list"] == [25, 8192, 32768, 65536, 131072]
+    assert run["output_tokens"] == 512
+    assert run["dimensions"] == ["context_list", "concurrency_list"]
+    assert _argument_after(run, "--base-url") == "{{ benchmark_endpoint }}"
+    assert _argument_after(run, "--max-tokens") == "{{ output_tokens }}"
+    assert run["converter"]["kind"] == "throughput-probe"
 
 
 @pytest.mark.parametrize("name", sorted(RECIPES))

@@ -1,0 +1,31 @@
+# OpenAI-compatible Strata serving throughput. The campaign selects the
+# endpoint and model; batch slots are configured on the target before each
+# campaign (1, 4, or 8), while concurrency is swept within that profile.
+config_name = "strata/throughput"
+engines = ["strata"]
+concurrency_list = [1, 2, 4, 6, 8]
+context_list = [25, 8192, 32768, 65536, 131072]
+power_cap_w = "inventory"
+
+[[run]]
+name = "serving-throughput"
+executable = "uv"
+argv = [
+  "run", "harness/throughput/run.py",
+  "--base-url", "{{ benchmark_endpoint }}",
+  "--model", "{{ model_id }}",
+  "--target-prompt-tokens", "{{ context }}",
+  "--window-limit-tokens", "{{ context_window_tokens }}",
+  "--max-tokens", "{{ output_tokens }}",
+  "--repeats", "4",
+  "--concurrency", "{{ concurrency }}",
+  "--initial-model-state", "resident",
+  "--output", "{{ result_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "controller"
+capture_stdout = true
+converter = { executable = "mlx-bench-publish", kind = "throughput-probe", suite = "throughput", run_on = "controller" }
+output_tokens = 512

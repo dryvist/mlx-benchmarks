@@ -33,6 +33,8 @@ configs/
 │   ├── manual-throughput.toml # historical serving runbook; draft-model A/B sweep
 │   └── cross-card.toml       # llama-bench and batched-bench diagnostics
 │                             # plus probe envelope
+├── strata/
+│   └── throughput.toml       # registry-selected OpenAI-compatible serving throughput
 ├── mlx/
 │   └── cross-card.toml       # mlx_lm.benchmark diagnostics
 │                             # plus throughput-probe envelope

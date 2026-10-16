@@ -39,6 +39,8 @@ target's inventory facts so the envelope describes the benchmark target.
   prompt length and concurrency.
 - `llama-cpp/vllm-fixed-length` (`llama_cpp`): fixed-output OpenAI chat cells
   against llama.cpp using `vllm bench serve --ignore-eos`.
+- `strata/throughput` (`strata`): OpenAI-compatible serving throughput by
+  prompt length and concurrency.
 - `llama-cpp/cross-card` (`llama_cpp`): llama.cpp native diagnostics and serving
   throughput.
 - `vllm/cross-card` (`vllm`): `vllm bench serve` throughput at two output sizes.
@@ -70,6 +72,10 @@ other context ranges are listed in each recipe. The target, model class
 (`small`, `medium`, or `large`), and engine are survey values resolved against the
 inventory and the model registry, so one recipe covers every class on every target
 that serves one of its engines.
+
+For Strata, configure `--batch` to 1, 4, and 8 in separate serving runs before
+dispatching this recipe. Each run sweeps concurrent agents at 1, 2, 4, 6, and 8;
+the recipe does not change the running engine configuration between cells.
 
 Short intelligence screens use two repetitions to check score stability. Choose
 the remaining suites for measurable headroom at current scores, and weigh their
