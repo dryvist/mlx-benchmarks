@@ -214,9 +214,9 @@ Read the **`math_verify`** metric, not `exact_match`
 
 ### 4d. Reasoning (`--kind lm-eval --suite reasoning`) — ~2.5–4 h full
 
-`arc_challenge_chat` (`--limit 15` ≈ 10 min) for a quick pass, `gsm8k` for the
-canonical run. Use `--tasks a,b`
-([trap 3](benchmark-traps.md#trap-3-lm-eval-tasks-flag)). Excluded-task
+`leaderboard_mmlu_pro` (`--samples` 420, `--suite knowledge`) for
+a quick pass, `gsm8k` for the canonical run. Use `--tasks a,b`
+([trap 3](benchmark-traps.md#trap-3-lm-eval-tasks-flag)). Exclusion
 rationale: [`../configs/lm-eval/reasoning.toml`](../configs/lm-eval/reasoning.toml).
 
 ### 4e. Agentic tool-calling (`--kind agentic --suite tool-calling`) — ~30 min

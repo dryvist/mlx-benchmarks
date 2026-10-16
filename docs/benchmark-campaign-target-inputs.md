@@ -50,8 +50,8 @@ target's inventory facts so the envelope describes the benchmark target.
   MTP enabled.
 - `mlx/vllm-mlx` (`vllm_mlx`): vllm-mlx serving throughput with continuous
   batching.
-- `lm-eval/quick-intelligence` (`llama_cpp`, `vllm`, `mlx_lm`): ARC-Challenge
-  quick screen; x2.
+- `lm-eval/quick-intelligence` (`llama_cpp`, `vllm`, `mlx_lm`): MMLU-Pro
+  quick screen (20 items); x2.
 - `lm-eval/gpqa-diamond` (`llama_cpp`, `vllm`, `mlx_lm`): GPQA-Diamond
   chain-of-thought, zero-shot.
 - `lm-eval/ruler` (`llama_cpp`, `vllm`, `mlx_lm`): RULER

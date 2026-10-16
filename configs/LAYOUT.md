@@ -15,7 +15,7 @@ configs/
 │   ├── coding.toml           # registry-selected MBPP campaign
 │   ├── ruler.toml            # registry-selected long-context RULER campaign
 │   ├── math-hard.toml        # minerva_math500
-│   ├── quick-intelligence.toml # registry-selected arc_challenge_chat quick pass
+│   ├── quick-intelligence.toml # registry-selected leaderboard_mmlu_pro quick pass
 │   ├── gpqa-diamond.toml     # registry-selected gpqa_diamond_cot_zeroshot pass
 │   └── qwen3-tasks/          # optional <think>-stripping overlay (see below)
 ├── evalscope/
