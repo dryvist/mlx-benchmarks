@@ -8,8 +8,9 @@ repository has no TOML-to-argv runner. The consumer supplies its checkout path;
 The consumer validates these survey values at runtime:
 
 - `machine`: inventory alias for the selected target.
+- `artifact_id`: exact artifact key in the Ansible model registry.
 - `engine`, `model_size`, `concurrency_list`, and `context_list`: recipe axes
-  resolved against the model registry and the selected inventory.
+  resolved against the selected registry artifact and inventory.
 - `benchmark_endpoint_root`: HTTPS endpoint origin for the target.
 - `benchmark_cache_path`: writable cache path on that target.
 - `power_cap_w`: inventory-derived cap checked against target telemetry.
@@ -34,23 +35,35 @@ target's inventory facts so the envelope describes the benchmark target.
 
 ## Recipes
 
-| `config_name` | Engines | Measures |
-| --- | --- | --- |
-| `llama-cpp/throughput` | `llama_cpp` | Prompt-size and concurrency throughput |
-| `llama-cpp/cross-card` | `llama_cpp` | Native diagnostics and throughput |
-| `vllm/cross-card` | `vllm` | `vllm bench serve` at two output sizes |
-| `mlx/cross-card` | `mlx_lm` | `mlx_lm.benchmark` diagnostics and throughput |
-| `lm-eval/quick-intelligence` | all engines | ARC-Challenge quick screen; x2 |
-| `lm-eval/gpqa-diamond` | all engines | GPQA-Diamond chain-of-thought |
-| `lm-eval/ruler` | all engines | RULER 64k/128k/256k/model-card max |
-| `lm-eval/coding` | all engines | MBPP code generation |
-| `lm-eval/reasoning` | all engines | GSM8K reasoning |
-| `evalscope/livecodebench` | `llama_cpp`, `vllm` | LiveCodeBench v6 in Docker |
+- `llama-cpp/throughput` (`llama_cpp`): OpenAI-compatible serving throughput by
+  prompt length and concurrency.
+- `llama-cpp/cross-card` (`llama_cpp`): llama.cpp native diagnostics and serving
+  throughput.
+- `vllm/cross-card` (`vllm`): `vllm bench serve` throughput at two output sizes.
+- `mlx/cross-card` (`mlx_lm`): `mlx_lm.benchmark` diagnostics and serving
+  throughput through a 262144-token window.
+- `mlx/vlm-native` (`mlx_vlm_native`): Native mlx-vlm serving throughput with
+  MTP disabled.
+- `mlx/vlm-native-mtp` (`mlx_vlm_native`): Native mlx-vlm serving throughput with
+  MTP enabled.
+- `mlx/vllm-mlx` (`vllm_mlx`): vllm-mlx serving throughput with continuous
+  batching.
+- `lm-eval/quick-intelligence` (`llama_cpp`, `vllm`, `mlx_lm`): ARC-Challenge
+  quick screen; x2.
+- `lm-eval/gpqa-diamond` (`llama_cpp`, `vllm`, `mlx_lm`): GPQA-Diamond
+  chain-of-thought, zero-shot.
+- `lm-eval/ruler` (`llama_cpp`, `vllm`, `mlx_lm`): RULER
+  64k/128k/256k/model-card max.
+- `lm-eval/coding` (`llama_cpp`, `vllm`, `mlx_lm`): MBPP code generation.
+- `lm-eval/reasoning` (`llama_cpp`, `vllm`, `mlx_lm`): GSM8K reasoning.
+- `evalscope/livecodebench` (`llama_cpp`, `vllm`): LiveCodeBench v6 through
+  EvalScope's Docker sandbox.
 
-Every recipe declares 1, 2, 4, and 8 concurrent agents in `concurrency_list` and
-a `context_list` that reaches 131072 tokens. RULER also resolves the model-card
-maximum. The target, model class (`small`, `medium`, or `large`), and engine are
-survey values resolved against the
+Recipes declare concurrency values 1, 2, 4, and 8. MLX serving recipes include
+a 262016-token prompt with 128 output tokens to reach a 262144-token window.
+The RULER recipe sweeps 64k, 128k, 256k, and the selected model-card maximum;
+other context ranges are listed in each recipe. The target, model class
+(`small`, `medium`, or `large`), and engine are survey values resolved against the
 inventory and the model registry, so one recipe covers every class on every target
 that serves one of its engines.
 

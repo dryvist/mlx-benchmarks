@@ -26,6 +26,9 @@ EXPECTED = {
     "llama-cpp/cross-card",
     "vllm/cross-card",
     "mlx/cross-card",
+    "mlx/vlm-native",
+    "mlx/vlm-native-mtp",
+    "mlx/vllm-mlx",
     "lm-eval/quick-intelligence",
     "lm-eval/gpqa-diamond",
     "lm-eval/ruler",
@@ -34,7 +37,7 @@ EXPECTED = {
     "evalscope/livecodebench",
 }
 LONG_CONTEXT_RECIPES = EXPECTED - {"lm-eval/coding", "lm-eval/reasoning"}
-ENGINES = {"llama_cpp", "vllm", "mlx_lm"}
+ENGINES = {"llama_cpp", "vllm", "mlx_lm", "mlx_vlm_native", "vllm_mlx"}
 AGENT_COUNTS = {1, 2, 4, 8}
 LONG_CONTEXT_TOKENS = 131072
 CONFIG_NAME = re.compile(r"^(llama-cpp|vllm|mlx|lm-eval|evalscope)/[a-z0-9-]+$")
@@ -226,3 +229,25 @@ def test_llama_cpp_throughput_recipe_matches_the_headline_cell_shape() -> None:
 @pytest.mark.parametrize("name", sorted(RECIPES))
 def test_recipe_is_listed_in_the_target_inputs_doc(name: str) -> None:
     assert f"`{name}`" in TARGET_INPUTS_DOC.read_text()
+
+
+def test_mlx_recipe_reaches_a_full_256k_window_with_128_output_tokens() -> None:
+    recipe = RECIPES["mlx/cross-card"]
+    assert 262016 in recipe["context_list"]
+    assert all(run["output_tokens"] == 128 for run in recipe["run"])
+
+
+def test_native_mlx_vlm_recipes_separate_mtp_modes() -> None:
+    off = RECIPES["mlx/vlm-native"]
+    on = RECIPES["mlx/vlm-native-mtp"]
+    assert off["engines"] == on["engines"] == ["mlx_vlm_native"]
+    assert off["context_list"] == on["context_list"]
+    assert off["concurrency_list"] == on["concurrency_list"]
+    assert off["description"] == "MTP disabled"
+    assert on["description"] == "MTP enabled"
+
+
+def test_vllm_mlx_recipe_declares_its_continuous_batching_engine() -> None:
+    recipe = RECIPES["mlx/vllm-mlx"]
+    assert recipe["engines"] == ["vllm_mlx"]
+    assert 262016 in recipe["context_list"]
