@@ -1,7 +1,7 @@
 # Fast leaderboard MMLU-Pro evaluation; the survey selects the serving target
 # and registry model. `context_list` maps to the server-side max_length setting.
 # Never add a suite whose best reported open-weight score is >= 90% (see configs/nvidia/quality.toml exclusions).
-# --limit 20 on its single subtask evaluates 20 items total.
+# --limit takes the first N items (one subject), so --samples pins 30 per subject x 14 (420, seed 1).
 config_name = "lm-eval/quick-intelligence"
 engines = ["llama_cpp", "vllm", "mlx_lm"]
 concurrency_list = [1, 2, 4, 8]
@@ -16,7 +16,7 @@ argv = [
   "--model_args", "base_url={{ benchmark_endpoint }}/completions,model={{ model_id }},num_concurrent={{ concurrency }},max_length={{ context }},timeout=3600",
   "--tasks", "leaderboard_mmlu_pro",
   "--batch_size", "1",
-  "--limit", "20",
+  "--samples", "configs/lm-eval/mmlu-pro-quick-samples.json",
   "--log_samples",
   "--output_path", "{{ output_path }}",
 ]
