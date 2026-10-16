@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.40.0...v0.41.0) (2026-10-16)
+
+
+### Features
+
+* **lm-eval:** use MMLU-Pro for quick intelligence runs ([#332](https://github.com/dryvist/mlx-benchmarks/issues/332)) ([c896d98](https://github.com/dryvist/mlx-benchmarks/commit/c896d980ecf92a04997a07022ebea89f49a31849))
+
 ## [0.40.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.39.0...v0.40.0) (2026-10-16)
 
 
