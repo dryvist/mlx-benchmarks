@@ -1,34 +1,33 @@
-# lm-eval coding suite — tasks: humaneval_instruct_qwen3, mbpp_instruct_qwen3
-#
-# Canonical run (via the nix-ai wrapper, which owns base_url/max_length/concurrency):
-#   HF_ALLOW_CODE_EVAL=1 mlx-eval \
-#     --include_path configs/lm-eval/qwen3-tasks \
-#     --tasks humaneval_instruct_qwen3,mbpp_instruct_qwen3 \
-#     --confirm_run_unsafe_code --log_samples --output_path ./run-output/$SLUG
-#
-# Coding benchmarks execute model-generated code — see ../../SECURITY.md before
-# running outside a sandbox.
-#
-# The qwen3-tasks overlay is the DEFAULT, not the exception. Measured
-# 2026-07-08 (Qwen3-30B-A3B-Instruct-2507-4bit via vllm-mlx chat API): with
-# plain humaneval/mbpp the model answers in prose + fenced code, the plain
-# tasks' extractor grabs only the echoed prompt, and the scores are garbage —
-# humaneval pass@1 = 0.0, mbpp 0.128 — for a model whose real coding ability
-# is far higher. The overlay's custom filter strips any <think> content AND
-# extracts the fenced code block, which is what chat-served Instruct output
-# actually needs. Use the plain humaneval/mbpp tasks only for a
-# completion-style (non-chat) endpoint that emits bare code.
-model = "local-chat-completions"
-tasks = ["humaneval_instruct_qwen3", "mbpp_instruct_qwen3"]
-include_path = "configs/lm-eval/qwen3-tasks"
-batch_size = 1
-num_fewshot = 0
-apply_chat_template = true
-fewshot_as_multiturn = true
+# MBPP code-generation evaluation through a run-time OpenAI-compatible endpoint.
+config_name = "lm-eval/coding"
+engines = ["llama_cpp", "vllm", "mlx_lm"]
+concurrency_list = [1, 2, 4, 8]
+context_list = [8192]
+power_cap_w = "inventory"
 
-[model_args]
-base_url = "http://localhost:11434/v1/chat/completions"
-# model injected per-sweep; base_url/max_length/timeout are owned by the nix-ai
-# `mlx-eval` wrapper — mirrored here only so the runbook reads standalone.
-max_length = 32768
-timeout = 3600
+[[run]]
+name = "mbpp-code-generation"
+executable = "lm_eval"
+argv = [
+  "--model", "local-chat-completions",
+  "--model_args", "base_url={{ benchmark_endpoint }}/chat/completions,model={{ serving_model }},tokenizer={{ model_id }},max_length={{ context }},num_concurrent={{ concurrency }},timeout=3600",
+  "--tasks", "mbpp",
+  "--batch_size", "1",
+  "--num_fewshot", "3",
+  "--limit", "100",
+  "--apply_chat_template",
+  "--fewshot_as_multiturn",
+  "--gen_kwargs", "max_gen_toks={{ output_tokens }}",
+  "--confirm_run_unsafe_code",
+  "--log_samples",
+  "--output_path", "{{ output_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "controller"
+capture_stdout = false
+converter = { executable = "mlx-bench-publish", kind = "lm-eval", suite = "coding", run_on = "controller" }
+output_tokens = 1024
+api_key_env = "OPENAI_API_KEY"
+code_eval = true

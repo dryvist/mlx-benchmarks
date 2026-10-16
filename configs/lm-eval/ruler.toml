@@ -1,0 +1,33 @@
+# RULER long-context evaluation through a run-time OpenAI-compatible endpoint.
+# `model_card_max` is resolved by the campaign consumer to the registered model
+# context limit minus the recipe's output-token reservation.
+config_name = "lm-eval/ruler"
+engines = ["llama_cpp", "vllm", "mlx_lm"]
+concurrency_list = [1, 2, 4, 8]
+context_list = [65536, 131072, 262144, "model_card_max"]
+power_cap_w = "inventory"
+
+[[run]]
+name = "ruler-long-context"
+executable = "lm_eval"
+argv = [
+  "--model", "local-chat-completions",
+  "--model_args", "base_url={{ benchmark_endpoint }}/chat/completions,model={{ serving_model }},tokenizer={{ model_id }},max_length={{ context }},num_concurrent={{ concurrency }},timeout=3600",
+  "--tasks", "ruler",
+  "--metadata", "{\"max_seq_lengths\":[{{ context }}]}",
+  "--batch_size", "1",
+  "--num_fewshot", "0",
+  "--apply_chat_template",
+  "--fewshot_as_multiturn",
+  "--gen_kwargs", "max_gen_toks={{ output_tokens }}",
+  "--log_samples",
+  "--output_path", "{{ output_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "controller"
+capture_stdout = false
+converter = { executable = "mlx-bench-publish", kind = "lm-eval", suite = "reasoning", run_on = "controller" }
+output_tokens = 128
+api_key_env = "OPENAI_API_KEY"
