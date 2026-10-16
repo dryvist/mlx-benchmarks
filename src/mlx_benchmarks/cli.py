@@ -183,14 +183,24 @@ def main(argv: list[str] | None = None) -> int:
             log.error("%s is not published metadata: %s", args.published_metadata, exc)
             return 2
 
+    if campaign_dimensions is not None:
+        software = campaign_dimensions.get("software")
+        if isinstance(software, dict) and isinstance(software.get("engine"), str):
+            software["engine"] = _normalize_engine_name(software["engine"])
+    if published_metadata is not None and isinstance(published_metadata.get("engine"), str):
+        published_metadata["engine"] = _normalize_engine_name(published_metadata["engine"])
+
     model = args.model or _extract_model(raw)
     git_sha = args.git_sha or current_git_sha()
     extra_tags = dict(_parse_kv_pairs(args.tag))
     system = detect_system()
+    system_engine = system.get("engine")
+    if isinstance(system_engine, dict) and isinstance(system_engine.get("name"), str):
+        system_engine["name"] = _normalize_engine_name(system_engine["name"])
 
     serving: Serving = {}
     if args.serving_stack is not None:
-        serving["stack"] = args.serving_stack
+        serving["stack"] = _normalize_engine_name(args.serving_stack)
     if args.serving_port is not None:
         serving["endpoint_port"] = args.serving_port
     if args.serving_model is not None:
@@ -334,6 +344,10 @@ def _parse_kv_pairs(raw_pairs: list[str]) -> Iterator[tuple[str, str]]:
         if not key:
             raise SystemExit(f"invalid --tag {pair!r}; empty key")
         yield key, value
+
+
+def _normalize_engine_name(value: str) -> str:
+    return {"vllm": "vLLM", "mlx": "MLX"}.get(value.casefold(), value)
 
 
 if __name__ == "__main__":  # pragma: no cover
