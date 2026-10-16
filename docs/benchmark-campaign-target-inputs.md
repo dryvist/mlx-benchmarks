@@ -36,6 +36,7 @@ target's inventory facts so the envelope describes the benchmark target.
 
 | `config_name` | Engines | Measures |
 | --- | --- | --- |
+| `llama-cpp/throughput` | `llama_cpp` | OpenAI-compatible serving throughput by prompt length and concurrency |
 | `llama-cpp/cross-card` | `llama_cpp` | llama.cpp native diagnostics and serving throughput |
 | `vllm/cross-card` | `vllm` | `vllm bench serve` throughput at two output sizes |
 | `mlx/cross-card` | `mlx_lm` | `mlx_lm.benchmark` diagnostics and serving throughput |

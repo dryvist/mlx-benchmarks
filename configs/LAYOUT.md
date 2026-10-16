@@ -1,7 +1,7 @@
 # configs/ layout
 
 One TOML file per `(upstream-tool, suite)` pair. Most files are documentation
-runbooks that record the task list and tool-native options. The `cross-card`,
+runbooks that record the task list and tool-native options. The `throughput`, `cross-card`,
 `quick-intelligence`, `gpqa-diamond`, and `livecodebench` campaign files below are
 structured recipes for the external Ansible consumer. They are not executable in this repository:
 the TOML reader/dispatcher lives separately and uses `community.general.from_toml`
@@ -28,8 +28,8 @@ configs/
 ├── agentic/
 │   └── tool-calling.toml     # in-repo runner: harness/agentic/run.py
 ├── llama-cpp/
-│   ├── throughput.toml       # historical OpenAI-compatible serving recipe;
-│                             # draft-model A/B sweep for speculative decoding
+│   ├── throughput.toml       # registry-selected OpenAI-compatible serving campaign
+│   ├── manual-throughput.toml # historical serving runbook; draft-model A/B sweep
 │   └── cross-card.toml       # llama-bench and batched-bench diagnostics + probe envelope
 ├── mlx/
 │   └── cross-card.toml       # mlx_lm.benchmark diagnostics + throughput-probe envelope

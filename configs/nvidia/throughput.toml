@@ -6,7 +6,7 @@
 # already reads, so this runbook needs no new code. GenAI-Perf is deliberately not
 # wired: NVIDIA states it is being phased out, and no converter exists for its export.
 #
-# Same shape as configs/llama-cpp/throughput.toml: this repo never starts a server.
+# Same shape as configs/llama-cpp/manual-throughput.toml: this repo never starts a server.
 # Launch vLLM out-of-band, with prefix caching OFF and a window covering the longest
 # cell plus its output:
 #   vllm serve $MODEL --no-enable-prefix-caching --max-model-len $CONTEXT_LEN
