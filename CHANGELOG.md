@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.39.0...v0.40.0) (2026-10-16)
+
+
+### Features
+
+* **benchmark:** add fixed-output llama.cpp recipe ([#330](https://github.com/dryvist/mlx-benchmarks/issues/330)) ([7152313](https://github.com/dryvist/mlx-benchmarks/commit/71523131b7dba4c0e129bda89f4fbed6bcf20690))
+
 ## [0.39.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.38.0...v0.39.0) (2026-10-16)
 
 
