@@ -1,0 +1,295 @@
+- section: shared
+  engine: "*"
+  engine_version_seen: null
+  case_id: wave2-throughput-shapes
+  knobs:
+    request_shapes:
+      - {prompt_tokens: 25, output_tokens: 512, context_tokens: 65536}
+      - {prompt_tokens: 1000, output_tokens: 2048}
+      - {prompt_tokens: 4096, output_tokens: 1024}
+    concurrency: [1, 4, 8]
+  knob_catalog:
+    - name: Request shapes
+      flag_env: workload input; engine-specific client flags
+      values_seen: ["25/512 at 64k", "1000/2048", "4096/1024"]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/bench/serve.html
+    - name: Client concurrency
+      flag_env: workload concurrency; engine-specific client flag
+      values_seen: [1, 4, 8]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/bench/serve.html
+
+- section: shared
+  engine: "*"
+  engine_version_seen: null
+  case_id: wave3-max-context
+  knobs:
+    context_tokens: [1000000]
+    concurrency: [1, 2]
+    yarn_factor: 4
+  knob_catalog:
+    - name: Maximum context capacity
+      flag_env: engine-specific context-length flag
+      values_seen: [1000000]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+    - name: YaRN factor
+      flag_env: engine-specific model configuration
+      values_seen: [4]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+
+- section: shared
+  engine: "*"
+  engine_version_seen: null
+  case_id: wave3-mixed-context
+  knobs:
+    request_mix:
+      - {requests: 4, context_tokens: 65536}
+      - {requests: 2, context_tokens: 131072}
+      - {requests: 2, context_tokens: 262144}
+    total_requests: 8
+  knob_catalog:
+    - name: Mixed context request distribution
+      flag_env: benchmark workload input
+      values_seen: ["4x64k", "2x128k", "2x256k"]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/bench/serve.html
+
+- section: shared
+  engine: "*"
+  engine_version_seen: null
+  case_id: wave3-elastic
+  knobs:
+    concurrency: [10, 12, 16, 24]
+    max_running_requests: raised
+    measurements: [queue_time, kv_cache_usage_pct, c_at_p10_35tps]
+  knob_catalog:
+    - name: Elastic concurrency
+      flag_env: workload concurrency
+      values_seen: [10, 12, 16, 24]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/bench/serve.html
+    - name: Maximum running requests
+      flag_env: --max-running-requests (SGLang) / --max-num-seqs (vLLM)
+      values_seen: [raised for the tested concurrency]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+
+- section: sglang
+  engine: SGLang
+  engine_version_seen: 0.5.20
+  case_id: wave2-flash-next-mtp-on-ple-ram
+  knobs:
+    ple_offload_target: ram
+    kv_cache_dtype: fp8
+    speculative_algorithm: NEXTN
+    reasoning_parser: auto
+    tool_call_parser: auto
+  knob_catalog:
+    - name: PLE embedding offload
+      flag_env: --ple-offload-embedding
+      values_seen: [enabled]
+      default: null
+      source_url: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+    - name: KV cache dtype
+      flag_env: --kv-cache-dtype
+      values_seen: [fp8]
+      default: null
+      source_url: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+    - name: Speculative algorithm
+      flag_env: --speculative-algorithm
+      values_seen: [NEXTN]
+      default: null
+      source_url: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+    - name: Parser selection
+      flag_env: --reasoning-parser / --tool-call-parser
+      values_seen: [auto]
+      default: null
+      source_url: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+
+- section: sglang
+  engine: SGLang
+  engine_version_seen: 0.5.20
+  case_id: wave3-mtp-ple-matrix
+  knobs:
+    mtp: ["off", 3, adaptive]
+    ple_offload_target: [ram, nvme-file]
+  knob_catalog:
+    - name: MTP mode
+      flag_env: --speculative-algorithm / --speculative-num-steps
+      values_seen: ["off", "NEXTN with 3 steps", adaptive]
+      default: null
+      source_url: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+    - name: PLE offload target
+      flag_env: --ple-offload-embedding and backend configuration
+      values_seen: [RAM, NVMe file]
+      default: null
+      source_url: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+
+- section: vllm
+  engine: vLLM
+  engine_version_seen: 0.31.0
+  case_id: wave2-flash-next-mtp-on
+  knobs:
+    speculative_method: mtp
+    num_speculative_tokens: model default
+    percentile_metrics: [ttft, tpot, itl, e2el]
+    metric_percentiles: [50, 90, 99]
+  knob_catalog:
+    - name: Speculative decoding
+      flag_env: --speculative-config
+      values_seen: [MTP enabled]
+      default: no speculative decoding
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+    - name: Serving percentile metrics
+      flag_env: --percentile-metrics / --metric-percentiles
+      values_seen: [ttft, tpot, itl, e2el; 50, 90, 99]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/bench/serve.html
+
+- section: vllm
+  engine: vLLM
+  engine_version_seen: 0.31.0
+  case_id: wave2-flash-next-mtp-off
+  knobs:
+    speculative_method: disabled
+    concurrency: [1, 4, 8]
+  knob_catalog:
+    - name: Speculative decoding
+      flag_env: omit --speculative-config
+      values_seen: [disabled]
+      default: disabled when the flag is omitted
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+
+- section: vllm
+  engine: vLLM
+  engine_version_seen: 0.31.0
+  case_id: wave3-flash-next-mtp-sweep
+  knobs:
+    num_speculative_tokens: [0, 2, 3, 4]
+    parsers: [qwen3, qwen3_coder]
+    kv_metrics: [per-request, spec-decode-summary, kv-cache]
+  knob_catalog:
+    - name: MTP proposal count
+      flag_env: --speculative-config num_speculative_tokens
+      values_seen: [0, 2, 3, 4]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+    - name: Parser selection
+      flag_env: --reasoning-parser / --tool-call-parser
+      values_seen: [qwen3, qwen3_coder]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+    - name: Request and KV metrics
+      flag_env: --enable-per-request-metrics / --per-request-spec-decode-metrics / --kv-cache-metrics
+      values_seen: [enabled]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+
+- section: vllm
+  engine: vLLM
+  engine_version_seen: 0.31.0
+  case_id: wave3-dflash2-seven-draft-tokens
+  knobs:
+    speculative_method: DFlash2
+    num_speculative_tokens: 7
+  knob_catalog:
+    - name: DFlash2 draft configuration
+      flag_env: --speculative-config
+      values_seen: [7 draft tokens]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+
+- section: vllm
+  engine: vLLM
+  engine_version_seen: 0.31.0
+  case_id: wave3-engram-cpu-offload
+  knobs:
+    engram_cpu_offload: true
+    kv_cache_dtype: fp8
+  knob_catalog:
+    - name: Engram CPU offload
+      flag_env: --engram-config
+      values_seen: [cpu_offload=true]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+    - name: KV cache dtype
+      flag_env: --kv-cache-dtype
+      values_seen: [fp8]
+      default: null
+      source_url: https://docs.vllm.ai/en/latest/cli/serve/
+
+- section: llama_cpp
+  engine: llama.cpp
+  engine_version_seen: b11459
+  case_id: wave3-llama-jinja-flash-attn-metrics
+  knobs:
+    jinja: true
+    flash_attention: true
+    metrics: true
+    perf: true
+    mtp_parallel_slots: 1
+  knob_catalog:
+    - name: Chat template processing
+      flag_env: --jinja
+      values_seen: [enabled]
+      default: null
+      source_url: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+    - name: Flash attention
+      flag_env: -fa on
+      values_seen: [on]
+      default: null
+      source_url: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+    - name: Server metrics and performance counters
+      flag_env: --metrics / --perf
+      values_seen: [enabled]
+      default: null
+      source_url: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+
+- section: mlx
+  engine: MLX
+  engine_version_seen: mlx 0.32.4; mlx-lm 0.32.2; mlx-vlm 0.7.8
+  case_id: wave3-mac-direct-serving
+  knobs:
+    serving_stack: direct
+    concurrency: [1, 2, 4, 6, 8]
+    fan_telemetry: macmon
+  knob_catalog:
+    - name: Direct serving endpoint
+      flag_env: serving.stack
+      values_seen: [direct]
+      default: null
+      source_url: https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/server.py
+    - name: Host power telemetry
+      flag_env: macmon /metrics
+      values_seen: [macmon_sys_power_watts]
+      default: null
+      source_url: https://github.com/vladkens/macmon/blob/main/src_app/serve.rs
+
+- section: strata
+  engine: Strata
+  engine_version_seen: v0.1.44.1
+  case_id: wave3-strata-batch-matrix
+  knobs:
+    batch: [1, 4, 8]
+    mtp: true
+    request_lines: 1
+    metrics_format: prometheus
+  knob_catalog:
+    - name: Batch slots
+      flag_env: --batch
+      values_seen: [1, 4, 8]
+      default: 1
+      source_url: https://github.com/Niko1221/Strata/blob/main/docs/BATCHING.md
+    - name: MTP
+      flag_env: --mtp
+      values_seen: [enabled]
+      default: null
+      source_url: https://github.com/Niko1221/Strata
+    - name: Prometheus metrics and request input
+      flag_env: /metrics?format=prometheus / STRATA_REQUEST_LINES
+      values_seen: [prometheus, 1]
+      default: null
+      source_url: https://github.com/Niko1221/Strata

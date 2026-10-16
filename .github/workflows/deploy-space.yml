@@ -7,6 +7,7 @@ on:
       - space/**
       - metadata/run-index-v1.json
       - dataset-card/README.md
+      - knob-catalog.yaml
       - scripts/normalize_dataset_schema.py
       - src/mlx_benchmarks/dataset_schema.py
       - src/mlx_benchmarks/publish.py
@@ -56,6 +57,15 @@ jobs:
           hf upload JacobPEvans/mlx-benchmarks metadata/run-index-v1.json metadata/run-index-v1.json \
             --repo-type=dataset \
             --commit-message="Publish run index from ${GIT_SHA}"
+
+      - name: Upload serving knob catalog
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN_WRITE_ALL }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          hf upload JacobPEvans/mlx-benchmarks knob-catalog.yaml knob-catalog.yaml \
+            --repo-type=dataset \
+            --commit-message="Publish serving knob catalog from ${GIT_SHA}"
 
       - name: Upload space
         env:
