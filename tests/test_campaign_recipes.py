@@ -22,6 +22,7 @@ CONFIGS = REPO_ROOT / "configs"
 TARGET_INPUTS_DOC = REPO_ROOT / "docs" / "benchmark-campaign-target-inputs.md"
 
 EXPECTED = {
+    "llama-cpp/throughput",
     "llama-cpp/cross-card",
     "vllm/cross-card",
     "mlx/cross-card",
@@ -169,6 +170,17 @@ def test_livecodebench_runs_through_evalscope_in_the_sandbox() -> None:
     assert '"v6"' in _argument_after(run, "--dataset-args")
     assert '"enabled": true' in _argument_after(run, "--sandbox")
     assert _argument_after(run, "--eval-batch-size") == "{{ concurrency }}"
+
+
+def test_llama_cpp_throughput_recipe_matches_the_headline_cell_shape() -> None:
+    (run,) = RECIPES["llama-cpp/throughput"]["run"]
+    assert run["output_tokens"] == 512
+    assert run["repetitions"] == 1
+    assert run["dimensions"] == ["context_list", "concurrency_list"]
+    assert {25, 65536} <= set(RECIPES["llama-cpp/throughput"]["context_list"])
+    assert _argument_after(run, "--target-prompt-tokens") == "{{ context }}"
+    assert _argument_after(run, "--max-tokens") == "{{ output_tokens }}"
+    assert _argument_after(run, "--repeats") == "4"
 
 
 @pytest.mark.parametrize("name", sorted(RECIPES))
