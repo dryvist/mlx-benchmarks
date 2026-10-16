@@ -1,13 +1,9 @@
 # configs/ layout
 
-One TOML file per `(upstream-tool, suite)` pair. Most files are documentation
-runbooks that record the task list and tool-native options. The `throughput`, `cross-card`,
-`quick-intelligence`, `gpqa-diamond`, `ruler`, `coding`, `reasoning`, and
-`livecodebench` campaign files below are structured recipes for the external
-Ansible consumer. They are not executable in this repository:
-the TOML reader/dispatcher lives separately and uses `community.general.from_toml`
-to parse a selected allow-listed file, validate survey values against inventory
-and the model registry, then dispatch its argv entries.
+TOML files define upstream-tool suites. Some are runbooks; campaign recipes
+are consumed by the external Ansible dispatcher. It reads the allow-list with
+`community.general.from_toml` and validates survey inputs against inventory
+and the model registry before dispatch.
 
 ## Layout (as shipped)
 
