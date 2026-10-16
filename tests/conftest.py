@@ -34,6 +34,11 @@ def promptstack_sample() -> dict[str, Any]:
 
 
 @pytest.fixture
+def promptfoo_sample() -> dict[str, Any]:
+    return json.loads((FIXTURES / "promptfoo_sample.json").read_text())
+
+
+@pytest.fixture
 def factual_sample() -> dict[str, Any]:
     return json.loads((FIXTURES / "factual_sample.json").read_text())
 

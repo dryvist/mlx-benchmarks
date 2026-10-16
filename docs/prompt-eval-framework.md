@@ -53,6 +53,15 @@ carries over as framework rules. Published promptstack shards remain valid
 history in the dataset. The harness code stays until `llm-prompt-evals` covers
 all four probe classes, then gets retired in a follow-up.
 
+### Publishing Promptfoo JSON
+
+`mlx-bench-publish --kind promptfoo --suite framework-eval` converts
+`promptfoo eval -o results.json` output into one score row per test, one
+pass/score row per assertion, and an arithmetic mean score row for the suite.
+Use `--tag domain=<value>` for a declared domain from the envelope schema. The
+converter records indexes and scores only; prompts, variables, configuration,
+assertion reasons, and model outputs stay out of the published envelope.
+
 ## CI and security model
 
 - Cloud-provider matrix (Anthropic + OpenRouter) runs on GitHub-hosted

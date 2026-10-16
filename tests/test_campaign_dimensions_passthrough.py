@@ -83,6 +83,7 @@ RAW_BY_KIND: dict[str, tuple[str, Callable[[pytest.FixtureRequest], Any]]] = {
     "mbw": ("mbw", lambda r: r.getfixturevalue("mbw_sample")),
     "nvbandwidth": ("nvbandwidth", lambda r: r.getfixturevalue("nvbandwidth_sample")),
     "promptstack": ("promptstack", lambda r: r.getfixturevalue("promptstack_sample")),
+    "promptfoo": ("framework-eval", lambda r: r.getfixturevalue("promptfoo_sample")),
     "throughput-probe": ("throughput", lambda _: _throughput_probe()),
     "vllm": ("throughput", lambda r: r.getfixturevalue("vllm_sample")),
 }
