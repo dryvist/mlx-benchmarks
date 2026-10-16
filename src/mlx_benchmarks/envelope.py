@@ -105,6 +105,7 @@ class Campaign(TypedDict, total=False):
 
 
 class CampaignDimensions(TypedDict, total=False):
+    environment: dict[str, Any]
     hardware: dict[str, Any]
     software: dict[str, Any]
     model: dict[str, Any]
