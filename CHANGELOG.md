@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.41.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.41.0...v0.41.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **publish:** accept the Hub benchmark:* dataset tags ([#337](https://github.com/dryvist/mlx-benchmarks/issues/337)) ([8e4f778](https://github.com/dryvist/mlx-benchmarks/commit/8e4f778a6cfb380cd6a35665062225808261508a))
+* **publish:** accept the Hub's benchmark:* dataset tags ([8e4f778](https://github.com/dryvist/mlx-benchmarks/commit/8e4f778a6cfb380cd6a35665062225808261508a))
+
 ## [0.41.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.40.0...v0.41.0) (2026-10-16)
 
 
