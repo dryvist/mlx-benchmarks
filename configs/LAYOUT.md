@@ -2,8 +2,9 @@
 
 One TOML file per `(upstream-tool, suite)` pair. Most files are documentation
 runbooks that record the task list and tool-native options. The `throughput`, `cross-card`,
-`quick-intelligence`, `gpqa-diamond`, and `livecodebench` campaign files below are
-structured recipes for the external Ansible consumer. They are not executable in this repository:
+`quick-intelligence`, `gpqa-diamond`, `ruler`, `coding`, `reasoning`, and
+`livecodebench` campaign files below are structured recipes for the external
+Ansible consumer. They are not executable in this repository:
 the TOML reader/dispatcher lives separately and uses `community.general.from_toml`
 to parse a selected allow-listed file, validate survey values against inventory
 and the model registry, then dispatch its argv entries.
@@ -14,8 +15,9 @@ and the model registry, then dispatch its argv entries.
 configs/
 ├── LAYOUT.md                 # this file
 ├── lm-eval/
-│   ├── reasoning.toml        # arc_challenge_chat (quick) / gsm8k (canonical)
-│   ├── coding.toml           # humaneval, mbpp
+│   ├── reasoning.toml        # registry-selected GSM8K campaign
+│   ├── coding.toml           # registry-selected MBPP campaign
+│   ├── ruler.toml            # registry-selected long-context RULER campaign
 │   ├── math-hard.toml        # minerva_math500
 │   ├── quick-intelligence.toml # registry-selected arc_challenge_chat quick pass
 │   ├── gpqa-diamond.toml     # registry-selected gpqa_diamond_cot_zeroshot pass
@@ -116,12 +118,12 @@ it without dispatch. The batched diagnostic is limited to SMALL/MEDIUM models
 by the external consumer. See the top-level
 [README](../README.md) → "Run + publish a benchmark".
 
-## qwen3-tasks overlay (the coding default)
+## qwen3-tasks overlay (local coding runs)
 
 `configs/lm-eval/qwen3-tasks/` provides `humaneval`/`mbpp` variants whose
 custom filter strips `<think>…</think>` content AND extracts the fenced
 Python code block from a chat-style answer. This overlay is the **default**
-for the coding suite (see `coding.toml`), not an optional extra: chat-served
+for the local `mlx-eval` coding suite, not an optional extra: chat-served
 Instruct models answer in prose + markdown, and the plain `humaneval`/`mbpp`
 extractors grab only the echoed prompt — measured 2026-07-08, a 30B Instruct
 model scored humaneval pass@1 = 0.0 / mbpp 0.128 under the plain tasks purely

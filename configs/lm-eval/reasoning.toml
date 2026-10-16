@@ -1,39 +1,31 @@
-# lm-eval reasoning suite. Run via the nix-ai `mlx-eval` wrapper (lm-eval is not
-# a dependency of this repo — it only parses lm-eval's JSON output).
-#
-# IMPORTANT: base_url must be the full chat/completions endpoint URL, not just /v1.
-# lm_eval POSTs to base_url directly. The wrapper owns base_url/max_length/
-# num_concurrent — the values below mirror it so the runbook reads standalone.
-#
-# Default suite: arc_challenge_chat, generate_until, HTTP-API compatible.
-# Run with --limit 15 for a ~10-min indicative pass (~33s/example on 35B MLX models).
-# Full dataset (1172 examples) = ~10.7 h — requires explicit user request.
-#
-# Excluded tasks and why:
-#   arc_challenge          — output_type=multiple_choice, incompatible with local-chat-completions
-#   gpqa_diamond           — name doesn't exist; use gpqa_diamond_cot_zeroshot, but dataset is gated
-#   gsm8k_cot_zeroshot     — ~157s/example, full run ~2300 examples = many hours; opt-in only
-#   ifeval                 — requires langdetect package not in devenv
-#
-# Usage — local models (quick pass, ~10 min):
-#   lm_eval --model local-chat-completions \
-#     --model_args "base_url=http://localhost:11434/v1/chat/completions,model=$MODEL,max_length=32768,timeout=3600" \
-#     --tasks arc_challenge_chat \
-#     --batch_size 1 --num_fewshot 0 --limit 15 \
-#     --gen_kwargs "max_gen_toks=4096" \
-#     --apply_chat_template --fewshot_as_multiturn \
-#     --log_samples \
-#     --output_path ./run-output/$SLUG
+# GSM8K reasoning evaluation through a run-time OpenAI-compatible endpoint.
+config_name = "lm-eval/reasoning"
+engines = ["llama_cpp", "vllm", "mlx_lm"]
+concurrency_list = [1, 2, 4, 8]
+context_list = [8192]
+power_cap_w = "inventory"
 
-model = "local-chat-completions"
-tasks = ["arc_challenge_chat"]
-batch_size = 1
-num_fewshot = 0
-apply_chat_template = true
-fewshot_as_multiturn = true
-
-[model_args]
-base_url = "http://localhost:11434/v1/chat/completions"
-# model is injected per-sweep
-max_length = 32768
-timeout = 3600
+[[run]]
+name = "gsm8k-chain-of-thought"
+executable = "lm_eval"
+argv = [
+  "--model", "local-chat-completions",
+  "--model_args", "base_url={{ benchmark_endpoint }}/chat/completions,model={{ serving_model }},tokenizer={{ model_id }},max_length={{ context }},num_concurrent={{ concurrency }},timeout=3600",
+  "--tasks", "gsm8k",
+  "--batch_size", "1",
+  "--num_fewshot", "5",
+  "--limit", "100",
+  "--apply_chat_template",
+  "--fewshot_as_multiturn",
+  "--gen_kwargs", "max_gen_toks={{ output_tokens }}",
+  "--log_samples",
+  "--output_path", "{{ output_path }}",
+]
+dimensions = ["context_list", "concurrency_list"]
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "controller"
+capture_stdout = false
+converter = { executable = "mlx-bench-publish", kind = "lm-eval", suite = "reasoning", run_on = "controller" }
+output_tokens = 1024
+api_key_env = "OPENAI_API_KEY"

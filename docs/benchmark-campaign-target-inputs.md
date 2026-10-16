@@ -42,10 +42,14 @@ target's inventory facts so the envelope describes the benchmark target.
 | `mlx/cross-card` | `mlx_lm` | `mlx_lm.benchmark` diagnostics and serving throughput |
 | `lm-eval/quick-intelligence` | all three engines | ARC-Challenge; x2 |
 | `lm-eval/gpqa-diamond` | `llama_cpp`, `vllm`, `mlx_lm` | GPQA-Diamond chain-of-thought, zero-shot |
+| `lm-eval/ruler` | all three engines | RULER at 64k, 128k, 256k, and model-card context |
+| `lm-eval/coding` | all three engines | MBPP code generation |
+| `lm-eval/reasoning` | all three engines | GSM8K reasoning |
 | `evalscope/livecodebench` | `llama_cpp`, `vllm` | LiveCodeBench v6 through EvalScope's Docker sandbox |
 
 Every recipe declares 1, 2, 4, and 8 concurrent agents in `concurrency_list` and a
-`context_list` that reaches 131072 tokens. The target, the model class (`small`,
+`context_list` that reaches 131072 tokens; RULER also resolves the model-card maximum.
+The target, the model class (`small`,
 `medium`, or `large`), and the engine are survey values resolved against the
 inventory and the model registry, so one recipe covers every class on every target
 that serves one of its engines.

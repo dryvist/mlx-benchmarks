@@ -28,8 +28,12 @@ EXPECTED = {
     "mlx/cross-card",
     "lm-eval/quick-intelligence",
     "lm-eval/gpqa-diamond",
+    "lm-eval/ruler",
+    "lm-eval/coding",
+    "lm-eval/reasoning",
     "evalscope/livecodebench",
 }
+LONG_CONTEXT_RECIPES = EXPECTED - {"lm-eval/coding", "lm-eval/reasoning"}
 ENGINES = {"llama_cpp", "vllm", "mlx_lm"}
 AGENT_COUNTS = {1, 2, 4, 8}
 LONG_CONTEXT_TOKENS = 131072
@@ -40,6 +44,7 @@ PLACEHOLDERS = {
     "benchmark_endpoint_root",
     "benchmark_endpoint",
     "model_id",
+    "serving_model",
     "context_window_tokens",
     "context",
     "concurrency",
@@ -89,10 +94,15 @@ def test_recipe_declares_the_agent_and_long_context_axes(name: str) -> None:
     assert set(recipe["engines"]) <= ENGINES
     for axis in ("concurrency_list", "context_list"):
         values = recipe[axis]
-        assert all(isinstance(value, int) and value > 0 for value in values)
+        assert all(
+            (isinstance(value, int) and value > 0)
+            or (name == "lm-eval/ruler" and axis == "context_list" and value == "model_card_max")
+            for value in values
+        )
         assert len(set(values)) == len(values)
     assert set(recipe["concurrency_list"]) >= AGENT_COUNTS
-    assert max(recipe["context_list"]) >= LONG_CONTEXT_TOKENS
+    if name in LONG_CONTEXT_RECIPES:
+        assert max(value for value in recipe["context_list"] if isinstance(value, int)) >= LONG_CONTEXT_TOKENS
 
 
 @pytest.mark.parametrize("name", sorted(RECIPES))
@@ -160,6 +170,36 @@ def test_gpqa_diamond_runs_its_task_through_the_lm_eval_converter() -> None:
     assert _argument_after(run, "--num_fewshot") == "0"
     assert "--apply_chat_template" in run["argv"]
     assert run["converter"]["kind"] == "lm-eval"
+
+
+def test_ruler_sweeps_standard_and_model_card_context_lengths() -> None:
+    recipe = RECIPES["lm-eval/ruler"]
+    (run,) = recipe["run"]
+    argv = "\n".join(run["argv"])
+
+    assert recipe["context_list"] == [65536, 131072, 262144, "model_card_max"]
+    assert _argument_after(run, "--tasks") == "ruler"
+    assert "max_seq_lengths" in argv and "{{ context }}" in argv
+    assert "model={{ serving_model }}" in argv
+    assert "tokenizer={{ model_id }}" in argv
+    assert run["api_key_env"] == "OPENAI_API_KEY"
+    assert run["run_on"] == "controller"
+    assert run["converter"]["suite"] == "reasoning"
+
+
+def test_coding_and_reasoning_use_runtime_chat_completions_recipes() -> None:
+    (coding,) = RECIPES["lm-eval/coding"]["run"]
+    (reasoning,) = RECIPES["lm-eval/reasoning"]["run"]
+
+    assert _argument_after(coding, "--tasks") == "mbpp"
+    assert "--confirm_run_unsafe_code" in coding["argv"]
+    assert coding["converter"]["suite"] == "coding"
+    assert _argument_after(reasoning, "--tasks") == "gsm8k"
+    assert reasoning["converter"]["suite"] == "reasoning"
+    for run in (coding, reasoning):
+        assert run["run_on"] == "controller"
+        assert run["api_key_env"] == "OPENAI_API_KEY"
+        assert any("model={{ serving_model }}" in arg for arg in run["argv"])
 
 
 def test_livecodebench_runs_through_evalscope_in_the_sandbox() -> None:
