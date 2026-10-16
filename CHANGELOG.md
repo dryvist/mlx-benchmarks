@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.34.1...v0.35.0) (2026-10-16)
+
+
+### Features
+
+* add serving benchmark schema and evaluation support ([#319](https://github.com/dryvist/mlx-benchmarks/issues/319)) ([c1d0963](https://github.com/dryvist/mlx-benchmarks/commit/c1d09637ace78aea540d7d31386ddb32f9a80122))
+
 ## [0.34.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.34.0...v0.34.1) (2026-10-16)
 
 
