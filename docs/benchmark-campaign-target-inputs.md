@@ -44,14 +44,17 @@ target's inventory facts so the envelope describes the benchmark target.
 | `mlx/vlm-native` | `mlx_vlm_native` | Native mlx-vlm serving throughput with MTP disabled |
 | `mlx/vlm-native-mtp` | `mlx_vlm_native` | Native mlx-vlm serving throughput with MTP enabled |
 | `mlx/vllm-mlx` | `vllm_mlx` | vllm-mlx serving throughput with continuous batching |
-| `lm-eval/quick-intelligence` | all three engines | ARC-Challenge; x2 |
+| `lm-eval/quick-intelligence` | `llama_cpp`, `vllm`, `mlx_lm` | ARC-Challenge quick screen; x2 |
 | `lm-eval/gpqa-diamond` | `llama_cpp`, `vllm`, `mlx_lm` | GPQA-Diamond chain-of-thought, zero-shot |
+| `lm-eval/ruler` | `llama_cpp`, `vllm`, `mlx_lm` | RULER 64k/128k/256k/model-card max |
+| `lm-eval/coding` | `llama_cpp`, `vllm`, `mlx_lm` | MBPP code generation |
+| `lm-eval/reasoning` | `llama_cpp`, `vllm`, `mlx_lm` | GSM8K reasoning |
 | `evalscope/livecodebench` | `llama_cpp`, `vllm` | LiveCodeBench v6 through EvalScope's Docker sandbox |
-
-Every recipe declares 1, 2, 4, and 8 concurrent agents in `concurrency_list`.
-MLX recipes include a 262016-token prompt with 128 output tokens, reaching the
-262144-token context window. The target, the model class (`small`,
-`medium`, or `large`), and the engine are survey values resolved against the
+Recipes declare concurrency values 1, 2, 4, and 8. MLX serving recipes include
+a 262016-token prompt with 128 output tokens to reach a 262144-token window.
+The RULER recipe sweeps 64k, 128k, 256k, and the selected model-card maximum;
+other context ranges are listed in each recipe. The target, model class
+(`small`, `medium`, or `large`), and engine are survey values resolved against the
 inventory and the model registry, so one recipe covers every class on every target
 that serves one of its engines.
 
@@ -63,5 +66,5 @@ results equally with throughput when selecting a model.
 Face read credential in its own environment. `evalscope/livecodebench` needs
 `evalscope[sandbox]` and a running Docker engine on the benchmark target; the recipe
 declares no converter, so its raw reports stay in the target results directory.
-`tests/test_campaign_recipes.py` pins this list, the axes, and the placeholders the
-consumer substitutes.
+`tests/test_campaign_recipes.py` pins this list, its axes, and the placeholders
+the consumer substitutes.
