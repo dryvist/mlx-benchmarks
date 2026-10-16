@@ -106,7 +106,8 @@ def _registered_task(api: HfApi, metadata: dict[str, Any]) -> dict[str, Any]:
             f"Hub API returned a different dataset SHA than the recorded revision for {dataset_id}"
         )
     tags = set(_value(info, "tags", []) or [])
-    if "benchmark" not in tags:
+    # The Hub tags HF Benchmarks as benchmark:official / benchmark:eval-yaml.
+    if not any(tag == "benchmark" or str(tag).startswith("benchmark:") for tag in tags):
         raise ValueError(f"{dataset_id} at the requested revision is not tagged as an HF Benchmark")
 
     files = api.list_repo_files(repo_id=dataset_id, repo_type="dataset", revision=dataset_revision)
