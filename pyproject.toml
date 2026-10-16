@@ -37,6 +37,8 @@ dependencies = [
 # extra — NOT a PEP 735 [dependency-groups] table — because `uv run --extra`
 # only resolves optional-dependencies.
 dev = [
+    # harness/agentic/run.py imports httpx; the PEP 723 header covers script runs, this covers pytest.
+    "httpx>=0.28.1",
     "pyright>=1.1.411",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
