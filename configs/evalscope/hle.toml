@@ -1,5 +1,6 @@
-# Text-only HLE subset run by EvalScope. `limit` applies per subject category;
-# shuffle plus seed 1 samples 25 from each of the eight categories (about 200).
+# Artificial Analysis Intelligence Index v4.3.2 uses 2,158 text-only HLE
+# questions. Shuffle and seed 1 sample 25 from each of eight subject categories.
+# `limit` applies per category, for about 200 samples total.
 # Set `HF_TOKEN` in the consuming shell using the approved read-only source.
 # Set `JUDGE_MODEL` to a model family different from the model under test.
 
@@ -10,7 +11,7 @@ uvx --from evalscope==1.13.0 evalscope eval \\
   --datasets hle --dataset-hub huggingface \\
   --dataset-args '{"hle":{"shuffle":true,"extra_params":{"include_multi_modal":false}}}' \\
   --seed 1 --limit 25 --eval-batch-size 8 \\
-  --judge "{\"strategy\":\"llm\",\"models\":{\"model_id\":\"$JUDGE_MODEL\",\"api_url\":\"$JUDGE_BASE_URL\",\"api_key\":\"$JUDGE_API_KEY\",\"eval_type\":\"openai_api\",\"generation_config\":{\"temperature\":0.0,\"retries\":3}}}" \\
+  --judge "{\"strategy\":\"llm\",\"models\":[{\"model_id\":\"$JUDGE_MODEL\",\"api_url\":\"$JUDGE_BASE_URL\",\"api_key\":\"$JUDGE_API_KEY\",\"eval_type\":\"openai_api\",\"generation_config\":{\"temperature\":0.0,\"retries\":3}}]}" \\
   --work-dir "$OUTPUT_PATH" --no-timestamp
 """
 
@@ -21,7 +22,7 @@ uvx --from evalscope==1.13.0 evalscope eval \\
   --datasets hle --dataset-hub huggingface \\
   --dataset-args '{"hle":{"shuffle":true,"extra_params":{"include_multi_modal":false}}}' \\
   --seed 1 --limit 5 --eval-batch-size 8 \\
-  --judge "{\"strategy\":\"llm\",\"models\":{\"model_id\":\"$JUDGE_MODEL\",\"api_url\":\"$JUDGE_BASE_URL\",\"api_key\":\"$JUDGE_API_KEY\",\"eval_type\":\"openai_api\",\"generation_config\":{\"temperature\":0.0,\"retries\":3}}}" \\
+  --judge "{\"strategy\":\"llm\",\"models\":[{\"model_id\":\"$JUDGE_MODEL\",\"api_url\":\"$JUDGE_BASE_URL\",\"api_key\":\"$JUDGE_API_KEY\",\"eval_type\":\"openai_api\",\"generation_config\":{\"temperature\":0.0,\"retries\":3}}]}" \\
   --work-dir "$OUTPUT_PATH" --no-timestamp
 """
 
