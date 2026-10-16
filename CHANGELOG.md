@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.34.0...v0.34.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **deps:** declare httpx for the agentic runner tests ([#317](https://github.com/dryvist/mlx-benchmarks/issues/317)) ([d0b6b78](https://github.com/dryvist/mlx-benchmarks/commit/d0b6b7871b1b2f6dda16af8379a86c902bacd167))
+
 ## [0.34.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.33.3...v0.34.0) (2026-10-08)
 
 
