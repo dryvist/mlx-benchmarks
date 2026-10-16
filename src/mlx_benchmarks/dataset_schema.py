@@ -40,6 +40,7 @@ TAG_KEYS = (
     "decode_tok_s_min",
     "dedicated",
     "degraded",
+    "domain",
     "experiment",
     "failure_bad_json_args",
     "failure_bad_response_body",
@@ -147,6 +148,10 @@ SYSTEM_COLUMNS = (
 )
 
 CAMPAIGN_DIMENSION_TYPES = {
+    "environment": {
+        "ambient_temp_f": pa.float64(),
+        "fan_duty_pct": pa.string(),
+    },
     "hardware": {
         "machine": pa.string(),
         "accelerator_model": pa.string(),
@@ -162,6 +167,7 @@ CAMPAIGN_DIMENSION_TYPES = {
         "power_cap_w": pa.float64(),
         "ups_circuit": pa.string(),
         "chassis_container": pa.string(),
+        "nautobot_device_id": pa.string(),
     },
     "software": {
         "operating_system": pa.string(),
@@ -176,6 +182,7 @@ CAMPAIGN_DIMENSION_TYPES = {
         "gpu_architectures": pa.string(),
         "build_flags": pa.string(),
         "flash_attention": pa.bool_(),
+        "cuda_toolkit_version": pa.string(),
     },
     "model": {
         "family": pa.string(),
@@ -201,6 +208,7 @@ CAMPAIGN_DIMENSION_TYPES = {
         "prompt_tokens": pa.int64(),
         "depth_tokens": pa.int64(),
         "output_tokens": pa.int64(),
+        "measured_output_tokens": pa.int64(),
         "concurrent_agents": pa.int64(),
         "load_phase": pa.string(),
         "phase_duration_seconds": pa.int64(),
@@ -220,6 +228,17 @@ CAMPAIGN_DIMENSION_TYPES = {
         "seed": pa.int64(),
         "repeats": pa.int64(),
         "warm_cold": pa.string(),
+        "started_at": pa.string(),
+        "ended_at": pa.string(),
+        "patches": pa.string(),
+        "knob_case": pa.string(),
+        "knobs": pa.string(),
+        "sampling": pa.string(),
+        "num_speculative_tokens": pa.int64(),
+        "kv_pool_tokens": pa.int64(),
+        "max_running_requests": pa.int64(),
+        "ple_offload_target": pa.string(),
+        "load_time_s": pa.float64(),
     },
     "speed": {
         "ttft_p50_ms": pa.float64(),
@@ -244,11 +263,19 @@ CAMPAIGN_DIMENSION_TYPES = {
         "itl_p99_ms": pa.float64(),
         "mtp_acceptance_rate": pa.float64(),
         "request_success_rate": pa.float64(),
+        "mtp_accept_length": pa.float64(),
+        "kv_cache_usage_peak_pct": pa.float64(),
+        "prefix_cache_hit_rate": pa.float64(),
+        "queue_time_p50_ms": pa.float64(),
+        "queue_time_p99_ms": pa.float64(),
+        "goodput_pct": pa.float64(),
+        "c_at_p10_35tps": pa.int64(),
     },
     "resource": {
         "accelerator_memory_peak_gb": pa.float64(),
         "host_ram_peak_gb": pa.float64(),
         "cpu_offload_layers": pa.int64(),
+        "ple_bytes": pa.int64(),
         "gpu_utilization_avg_percent": pa.float64(),
         "gpu_utilization_max_percent": pa.float64(),
         "cpu_performance_utilization_avg_percent": pa.float64(),
@@ -307,9 +334,13 @@ CAMPAIGN_DIMENSION_TYPES = {
 
 CAMPAIGN_DIMENSION_JSON_FIELDS = frozenset(
     {
+        ("environment", "fan_duty_pct"),
         ("software", "gpu_architectures"),
         ("software", "build_flags"),
         ("resource", "throttle_reasons"),
+        ("run", "patches"),
+        ("run", "knobs"),
+        ("run", "sampling"),
     }
 )
 

@@ -19,7 +19,16 @@ from mlx_benchmarks.envelope import EnvelopeValidationError, load_schema, valida
 from mlx_benchmarks.publish import envelope_to_rows, publish, rows_to_parquet
 
 NVIDIA_SYSTEM_KEYS = ("gpu", "engine", "power_limit_w", "container")
-NEW_SUITES = ("gpu-burn", "nvbandwidth", "mbw", "fio")
+NEW_SUITES = (
+    "gpu-burn",
+    "nvbandwidth",
+    "mbw",
+    "fio",
+    "throughput-serving",
+    "mixed-context",
+    "elastic",
+    "max-context",
+)
 # The suite enum as it stood before the NVIDIA campaign: none of these may disappear.
 LEGACY_SUITES = (
     "throughput",
@@ -101,6 +110,13 @@ def test_sweep_tag_keys_are_documented_strings() -> None:
     for key in ("prompt_tokens", "concurrency", "context_len"):
         assert tags["properties"][key]["type"] == "string"
         assert tags["properties"][key]["description"]
+    assert set(tags["properties"]["domain"]["enum"]) == {
+        "spl",
+        "tool-queries",
+        "agentic",
+        "triage",
+        "homelab-access",
+    }
 
 
 @pytest.mark.parametrize("key", ["prompt_tokens", "concurrency", "context_len", "anything_else"])

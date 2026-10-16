@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "results": {
+    "version": 3,
+    "timestamp": "2026-10-16T12:00:00Z",
+    "results": [
+      {
+        "testIdx": 0,
+        "promptIdx": 0,
+        "success": true,
+        "score": 1.0,
+        "gradingResult": {
+          "componentResults": [{"pass": true, "score": 1.0, "assertion": {"type": "contains"}}]
+        }
+      },
+      {
+        "testIdx": 1,
+        "promptIdx": 0,
+        "success": false,
+        "score": 0.0,
+        "gradingResult": {
+          "componentResults": [{"pass": false, "score": 0.0, "assertion": {"type": "equals"}}]
+        }
+      }
+    ],
+    "stats": {}
+  }
+}

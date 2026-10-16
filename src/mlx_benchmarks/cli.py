@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
             "lm-eval",
             "mbw",
             "nvbandwidth",
+            "promptfoo",
             "promptstack",
             "throughput-probe",
             "vllm",

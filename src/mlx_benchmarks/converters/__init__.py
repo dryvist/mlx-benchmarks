@@ -12,6 +12,7 @@ from mlx_benchmarks.converters.llamacpp_server import LlamaCppServerConverter
 from mlx_benchmarks.converters.lm_eval import LmEvalConverter
 from mlx_benchmarks.converters.mbw import MbwConverter
 from mlx_benchmarks.converters.nvbandwidth import NvbandwidthConverter
+from mlx_benchmarks.converters.promptfoo import PromptfooConverter
 from mlx_benchmarks.converters.promptstack import PromptstackConverter
 from mlx_benchmarks.converters.throughput_probe import ThroughputProbeConverter
 from mlx_benchmarks.converters.vllm import VllmConverter
@@ -30,6 +31,7 @@ __all__ = [
     "LmEvalConverter",
     "MbwConverter",
     "NvbandwidthConverter",
+    "PromptfooConverter",
     "PromptstackConverter",
     "ThroughputProbeConverter",
     "VllmConverter",
@@ -56,6 +58,7 @@ def get_converter(kind: str) -> Converter:
         "mbw": MbwConverter,
         "nvbandwidth": NvbandwidthConverter,
         "promptstack": PromptstackConverter,
+        "promptfoo": PromptfooConverter,
         "throughput-probe": ThroughputProbeConverter,
         "vllm": VllmConverter,
     }

@@ -411,7 +411,7 @@ def _seed_repo(path: Path) -> str:
     _git("-C", str(path), "add", "AGENTS.md")
     # No signing in a throwaway fixture: -c disables it for THIS call only and
     # never writes commit.gpgsign into any config.
-    _git("-C", str(path), "-c", "commit.gpgsign=false", "commit", "-q", "-m", "seed")
+    _git("-C", str(path), "-c", "commit.gpgsign=false", "commit", "-q", "-m", "test: seed")
     out = subprocess.run(
         ["git", "-C", str(path), "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     )

@@ -189,7 +189,11 @@
       "type": "string",
       "enum": [
         "throughput",
+        "throughput-serving",
         "ttft",
+        "mixed-context",
+        "elastic",
+        "max-context",
         "tool-calling",
         "code-accuracy",
         "framework-eval",
@@ -245,6 +249,27 @@
       "additionalProperties": false,
       "description": "Optional first-class performance campaign dimensions. Each category is optional so legacy envelopes remain valid; unknown values may be explicit nulls.",
       "properties": {
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional ambient and cooling conditions for detailed benchmark campaigns.",
+          "properties": {
+            "ambient_temp_f": {
+              "type": ["number", "null"],
+              "description": "Ambient air temperature in degrees Fahrenheit."
+            },
+            "fan_duty_pct": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "description": "Fan duty percentage by component, when the controller exposes a duty value.",
+              "properties": {
+                "gpu": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+                "chassis": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+                "mac": {"type": ["number", "null"], "minimum": 0, "maximum": 100}
+              }
+            }
+          }
+        },
         "hardware": {
           "type": "object",
           "additionalProperties": false,
@@ -314,6 +339,10 @@
               "type": ["string", "null"],
               "description": "Host chassis or container class.",
               "enum": ["host-interim", "lxc", "macos", null]
+            },
+            "nautobot_device_id": {
+              "type": ["string", "null"],
+              "description": "Opaque inventory device identifier, if approved for publication."
             }
           }
         },
@@ -345,7 +374,7 @@
             "engine": {
               "type": ["string", "null"],
               "description": "Inference engine name.",
-              "enum": ["llama.cpp", "vLLM", "MLX", "SGLang", null]
+              "enum": ["llama.cpp", "vLLM", "MLX", "SGLang", "Strata", null]
             },
             "engine_version": {
               "type": ["string", "null"],
@@ -378,6 +407,10 @@
             "flash_attention": {
               "type": ["boolean", "null"],
               "description": "Whether flash attention was enabled in the build or run."
+            },
+            "cuda_toolkit_version": {
+              "type": ["string", "null"],
+              "description": "CUDA Toolkit version used to build or run the engine."
             }
           }
         },
@@ -490,6 +523,11 @@
               "description": "Requested output token count.",
               "minimum": 0
             },
+            "measured_output_tokens": {
+              "type": ["integer", "null"],
+              "description": "Measured total output tokens produced by this campaign cell.",
+              "minimum": 0
+            },
             "concurrent_agents": {
               "type": ["integer", "null"],
               "description": "Number of concurrent requests or agents.",
@@ -577,6 +615,70 @@
               "type": ["string", "null"],
               "description": "Whether weights and runtime were warm or cold.",
               "enum": ["warm", "cold", null]
+            },
+            "started_at": {
+              "type": ["string", "null"],
+              "format": "date-time",
+              "description": "UTC timestamp at the start of this measured campaign cell."
+            },
+            "ended_at": {
+              "type": ["string", "null"],
+              "format": "date-time",
+              "description": "UTC timestamp at the end of this measured campaign cell."
+            },
+            "patches": {
+              "type": ["array", "null"],
+              "description": "Applied patches identified by stable ID, revision, and enabled state.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "revision", "enabled"],
+                "properties": {
+                  "id": {"type": ["string", "null"]},
+                  "revision": {"type": ["string", "null"]},
+                  "enabled": {"type": ["boolean", "null"]}
+                }
+              }
+            },
+            "knob_case": {
+              "type": ["string", "null"],
+              "description": "Stable catalog case ID used to identify this knob configuration."
+            },
+            "knobs": {
+              "type": ["object", "null"],
+              "description": "JSON-compatible settings used for this cell. Values may be nested to preserve structured workload configurations."
+            },
+            "sampling": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "description": "Sampling configuration metadata.",
+              "properties": {
+                "mode": {"type": ["string", "null"]}
+              }
+            },
+            "num_speculative_tokens": {
+              "type": ["integer", "null"],
+              "description": "Number of draft tokens proposed per speculative decoding step.",
+              "minimum": 0
+            },
+            "kv_pool_tokens": {
+              "type": ["integer", "null"],
+              "description": "Configured total token capacity of the serving KV pool.",
+              "minimum": 0
+            },
+            "max_running_requests": {
+              "type": ["integer", "null"],
+              "description": "Maximum requests admitted to run concurrently by the server.",
+              "minimum": 0
+            },
+            "ple_offload_target": {
+              "type": ["string", "null"],
+              "description": "Target used to offload PLE embeddings, such as RAM or an NVMe file."
+            },
+            "load_time_s": {
+              "type": ["number", "null"],
+              "description": "Model and server load time in seconds.",
+              "minimum": 0
             }
           }
         },
@@ -696,6 +798,44 @@
               "description": "Successful requests divided by all attempted requests.",
               "minimum": 0,
               "maximum": 1
+            },
+            "mtp_accept_length": {
+              "type": ["number", "null"],
+              "description": "Mean number of accepted tokens per speculative or MTP step.",
+              "minimum": 0
+            },
+            "kv_cache_usage_peak_pct": {
+              "type": ["number", "null"],
+              "description": "Peak KV-cache occupancy as a percentage of configured capacity.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "prefix_cache_hit_rate": {
+              "type": ["number", "null"],
+              "description": "Prefix-cache hit ratio as a fraction of eligible lookups.",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "queue_time_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median time spent waiting in the server admission queue.",
+              "minimum": 0
+            },
+            "queue_time_p99_ms": {
+              "type": ["number", "null"],
+              "description": "99th percentile time spent waiting in the server admission queue.",
+              "minimum": 0
+            },
+            "goodput_pct": {
+              "type": ["number", "null"],
+              "description": "Percentage of requests meeting the declared latency or throughput SLO.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "c_at_p10_35tps": {
+              "type": ["integer", "null"],
+              "description": "Highest concurrency whose 10th percentile stream rate is at least 35 tokens per second.",
+              "minimum": 0
             }
           }
         },
@@ -717,6 +857,11 @@
             "cpu_offload_layers": {
               "type": ["integer", "null"],
               "description": "Model layers placed on CPU instead of the accelerator.",
+              "minimum": 0
+            },
+            "ple_bytes": {
+              "type": ["integer", "null"],
+              "description": "Bytes occupied by offloaded PLE embedding data.",
               "minimum": 0
             },
             "gpu_utilization_avg_percent": {
@@ -1041,7 +1186,7 @@
       "properties": {
         "stack": {
           "type": "string",
-          "description": "Serving stack name (e.g. 'mlx_lm.server', 'vllm-mlx')"
+          "description": "Serving stack name; direct is valid for an engine without a proxy or separate server stack."
         },
         "endpoint_port": {
           "type": "integer",
@@ -1247,6 +1392,11 @@
               "context_len": {
                 "type": "string",
                 "description": "Context window the server was configured with, in tokens (e.g. vLLM --max-model-len). Capacity, never the actual prompt length — see prompt_tokens and the top-level context object."
+              },
+              "domain": {
+                "type": "string",
+                "enum": ["spl", "tool-queries", "agentic", "triage", "homelab-access"],
+                "description": "Framework-eval domain tag for a scored case."
               }
             },
             "additionalProperties": {

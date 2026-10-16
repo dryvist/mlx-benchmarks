@@ -85,6 +85,63 @@ def test_campaign_dimensions_are_optional_and_accept_explicit_nulls(valid_envelo
     validate_envelope(env)
 
 
+def test_wave_campaign_dimensions_and_direct_serving_validate(valid_envelope: dict) -> None:
+    env = {
+        **valid_envelope,
+        "suite": "throughput-serving",
+        "serving": {"stack": "direct"},
+        "results": [
+            {
+                **valid_envelope["results"][0],
+                "tags": {"domain": "agentic"},
+            }
+        ],
+        "campaign_dimensions": {
+            "environment": {"ambient_temp_f": 72.5, "fan_duty_pct": {"gpu": 100, "mac": None}},
+            "hardware": {"nautobot_device_id": None},
+            "software": {"cuda_toolkit_version": "13.4.3"},
+            "run": {
+                "started_at": "2026-10-16T12:00:00Z",
+                "ended_at": "2026-10-16T12:01:00Z",
+                "patches": [{"id": "mtp", "revision": "abc1234", "enabled": True}],
+                "knob_case": "wave2-mtp-on",
+                "knobs": {
+                    "num_speculative_tokens": 3,
+                    "request_shape": {"prompt_tokens": 1000, "output_tokens": 2048},
+                },
+                "sampling": {"mode": "greedy"},
+                "num_speculative_tokens": 3,
+                "kv_pool_tokens": 32768,
+                "max_running_requests": 8,
+                "ple_offload_target": "ram",
+                "load_time_s": 12.4,
+            },
+            "speed": {
+                "mtp_accept_length": 2.5,
+                "kv_cache_usage_peak_pct": 90,
+                "prefix_cache_hit_rate": 0.4,
+                "queue_time_p50_ms": 3.2,
+                "queue_time_p99_ms": 10.5,
+                "goodput_pct": 99,
+                "c_at_p10_35tps": 8,
+            },
+            "resource": {"ple_bytes": 1024, "power_avg_w": None},
+        },
+        "dimension_null_reasons": {"resource.power_avg_w": "METRICS_URL_UNSET"},
+    }
+
+    validate_envelope(env)
+
+
+def test_framework_eval_domain_rejects_unknown_value(valid_envelope: dict) -> None:
+    env = {
+        **valid_envelope,
+        "results": [{**valid_envelope["results"][0], "tags": {"domain": "other"}}],
+    }
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope(env)
+
+
 def test_stage0_system_load_phase_contract_validates(valid_envelope: dict) -> None:
     env = {
         **valid_envelope,
