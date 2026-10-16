@@ -27,6 +27,7 @@ configs/
 │   └── tool-calling.toml     # in-repo runner: harness/agentic/run.py
 ├── llama-cpp/
 │   ├── throughput.toml       # registry-selected OpenAI-compatible serving campaign
+│   ├── vllm-fixed-length.toml # fixed-output vLLM chat client cells for llama.cpp
 │   ├── manual-throughput.toml # historical serving runbook; draft-model A/B sweep
 │   └── cross-card.toml       # llama-bench and batched-bench diagnostics
 │                             # plus probe envelope

@@ -37,6 +37,8 @@ target's inventory facts so the envelope describes the benchmark target.
 
 - `llama-cpp/throughput` (`llama_cpp`): OpenAI-compatible serving throughput by
   prompt length and concurrency.
+- `llama-cpp/vllm-fixed-length` (`llama_cpp`): fixed-output OpenAI chat cells
+  against llama.cpp using `vllm bench serve --ignore-eos`.
 - `llama-cpp/cross-card` (`llama_cpp`): llama.cpp native diagnostics and serving
   throughput.
 - `vllm/cross-card` (`vllm`): `vllm bench serve` throughput at two output sizes.
