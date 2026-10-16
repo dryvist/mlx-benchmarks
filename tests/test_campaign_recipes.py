@@ -112,7 +112,9 @@ def test_recipe_declares_the_agent_and_long_context_axes(name: str) -> None:
         assert len(set(values)) == len(values)
     if name != "evalscope/mmlu-pro-reasoning-effort":
         assert set(recipe["concurrency_list"]) >= AGENT_COUNTS
-    if name in LONG_CONTEXT_RECIPES:
+    if name == "strata/throughput":
+        assert set(recipe["context_list"]) == {25, 1024, 4096}
+    elif name in LONG_CONTEXT_RECIPES:
         assert max(value for value in recipe["context_list"] if isinstance(value, int)) >= LONG_CONTEXT_TOKENS
 
 
@@ -155,7 +157,7 @@ def test_axis_placeholders_are_declared_dimensions(name: str, run: dict[str, Any
     """A placeholder whose axis is not a dimension would render the unselected value."""
     argv = "\n".join(run["argv"])
     if "{{ context }}" in argv:
-        assert "context_list" in run["dimensions"]
+        assert "context_list" in run["dimensions"] or run.get("prompt_tokens", 0) > 0
     if "{{ concurrency }}" in argv:
         assert "concurrency_list" in run["dimensions"]
 
@@ -276,14 +278,19 @@ def test_llama_cpp_fixed_length_recipe_uses_the_native_vllm_chat_client() -> Non
 
 def test_strata_throughput_recipe_matches_the_batch_campaign_shape() -> None:
     recipe = RECIPES["strata/throughput"]
-    (run,) = recipe["run"]
     assert set(recipe["concurrency_list"]) == {1, 2, 4, 6, 8}
-    assert recipe["context_list"] == [25, 8192, 32768, 65536, 131072]
-    assert run["output_tokens"] == 512
-    assert run["dimensions"] == ["context_list", "concurrency_list"]
-    assert _argument_after(run, "--base-url") == "{{ benchmark_endpoint }}"
-    assert _argument_after(run, "--max-tokens") == "{{ output_tokens }}"
-    assert run["converter"]["kind"] == "throughput-probe"
+    assert recipe["context_list"] == [25, 1024, 4096]
+    assert [(run["prompt_tokens"], run["output_tokens"]) for run in recipe["run"]] == [
+        (25, 512),
+        (1024, 2048),
+        (4096, 1024),
+    ]
+    for run in recipe["run"]:
+        assert run["dimensions"] == ["concurrency_list"]
+        assert _argument_after(run, "--base-url") == "{{ benchmark_endpoint }}"
+        assert _argument_after(run, "--target-prompt-tokens") == "{{ context }}"
+        assert _argument_after(run, "--max-tokens") == "{{ output_tokens }}"
+        assert run["converter"]["kind"] == "throughput-probe"
 
 
 @pytest.mark.parametrize("name", sorted(RECIPES))
