@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.37.0...v0.38.0) (2026-10-16)
+
+
+### Features
+
+* add native MLX serving campaign recipes ([#325](https://github.com/dryvist/mlx-benchmarks/issues/325)) ([82e87ab](https://github.com/dryvist/mlx-benchmarks/commit/82e87ab0afad558716594bd2ba3ea53e51f2bced))
+
 ## [0.37.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.36.0...v0.37.0) (2026-10-16)
 
 
