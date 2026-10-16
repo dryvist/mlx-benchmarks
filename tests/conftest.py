@@ -39,6 +39,11 @@ def promptfoo_sample() -> dict[str, Any]:
 
 
 @pytest.fixture
+def evalscope_sample() -> dict[str, Any]:
+    return json.loads((FIXTURES / "evalscope_report_sample.json").read_text())
+
+
+@pytest.fixture
 def factual_sample() -> dict[str, Any]:
     return json.loads((FIXTURES / "factual_sample.json").read_text())
 

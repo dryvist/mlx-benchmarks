@@ -19,6 +19,7 @@ configs/
 │   ├── gpqa-diamond.toml     # registry-selected gpqa_diamond_cot_zeroshot pass
 │   └── qwen3-tasks/          # optional <think>-stripping overlay (see below)
 ├── evalscope/
+│   ├── hle.toml              # text-only, subject-stratified HLE sample (EvalScope)
 │   └── livecodebench.toml    # registry-selected LiveCodeBench v6 pass (EvalScope)
 ├── vllm/
 │   ├── benchmark_serving.toml # vllm throughput cross-check; no local install
