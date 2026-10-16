@@ -1,4 +1,5 @@
-# SciCode is the Artificial Analysis Intelligence Index v4.3.2 coding task.
+# SciCode is the Artificial Analysis Intelligence Index v4.3.2 coding task:
+# all 288 subproblems across 65 main problems, repeated three times.
 # EvalScope scores its generated implementations by executing benchmark tests
 # in its official Docker sandbox. The default sandbox image comes from metadata.
 
@@ -6,7 +7,8 @@
 command = """
 uvx --from 'evalscope[sandbox]==1.13.0' evalscope eval \\
   --model "$MODEL" --api-url "$API_BASE_URL" --api-key EMPTY --eval-type openai_api \\
-  --datasets scicode --seed 1 --eval-batch-size 8 \\
+  --datasets scicode --seed 1 --repeats 3 --eval-batch-size 8 \\
+  --dataset-args '{"scicode":{"extra_params":{"provide_background":true}}}' \\
   --sandbox '{"enabled":true,"engine":"docker"}' \\
   --work-dir "$OUTPUT_PATH" --no-timestamp
 """
@@ -15,7 +17,8 @@ uvx --from 'evalscope[sandbox]==1.13.0' evalscope eval \\
 command = """
 uvx --from 'evalscope[sandbox]==1.13.0' evalscope eval \\
   --model "$MODEL" --api-url "$API_BASE_URL" --api-key EMPTY --eval-type openai_api \\
-  --datasets scicode --seed 1 --limit 5 --eval-batch-size 8 \\
+  --datasets scicode --seed 1 --limit 5 --repeats 3 --eval-batch-size 8 \\
+  --dataset-args '{"scicode":{"extra_params":{"provide_background":true}}}' \\
   --sandbox '{"enabled":true,"engine":"docker"}' \\
   --work-dir "$OUTPUT_PATH" --no-timestamp
 """

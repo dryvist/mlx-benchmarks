@@ -26,7 +26,8 @@ def test_scicode_runbook_uses_docker_test_scoring_and_no_judge() -> None:
     config = tomllib.loads((CONFIGS / "scicode.toml").read_text())
     command = config["run"]["command"]
 
-    assert "--datasets scicode --seed 1 --eval-batch-size 8" in command
+    assert "--datasets scicode --seed 1 --repeats 3 --eval-batch-size 8" in command
+    assert '"provide_background":true' in command
     assert "evalscope[sandbox]==1.13.0" in command
     assert '--sandbox \'{"enabled":true,"engine":"docker"}\'' in command
     assert "--judge" not in command
