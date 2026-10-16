@@ -4,7 +4,7 @@
 config_name = "mlx/cross-card"
 engines = ["mlx_lm"]
 concurrency_list = [1, 2, 4, 8]
-context_list = [8192, 32768, 65536, 131072]
+context_list = [8192, 32768, 65536, 131072, 262016]
 power_cap_w = "inventory"
 
 [[run]]
