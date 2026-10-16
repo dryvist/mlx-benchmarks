@@ -21,6 +21,14 @@ from mlx_benchmarks.result_contract import (
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _CONTEXT_FIELDS = ("max_position_embeddings", "max_seq_len", "max_sequence_length", "n_ctx")
+DATASET_FIELDS = (
+    "dataset_id",
+    "dataset_task_id",
+    "dataset_revision",
+    "evaluation_framework",
+    "config",
+    "split",
+)
 
 
 def _value(source: Any, key: str, default: Any = None) -> Any:
@@ -146,19 +154,11 @@ def _registered_task(api: HfApi, metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def _dataset_result(metadata: dict[str, Any], api: HfApi) -> dict[str, Any]:
-    dataset_fields = (
-        "dataset_id",
-        "dataset_task_id",
-        "dataset_revision",
-        "evaluation_framework",
-        "config",
-        "split",
-    )
-    if all(metadata.get(field) is None for field in dataset_fields):
+    if all(metadata.get(field) is None for field in DATASET_FIELDS):
         reasons = metadata.get("dimension_null_reasons") or {}
-        if not all(reasons.get(field) == "not_applicable" for field in dataset_fields):
+        if not all(reasons.get(field) == "not_applicable" for field in DATASET_FIELDS):
             raise ValueError("dataset fields may all be null only when each has a not_applicable reason")
-        return dict.fromkeys(dataset_fields)
+        return dict.fromkeys(DATASET_FIELDS)
     return _registered_task(api, metadata)
 
 
