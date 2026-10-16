@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.35.0...v0.36.0) (2026-10-16)
+
+
+### Features
+
+* **campaign:** add llama.cpp serving throughput recipe ([#321](https://github.com/dryvist/mlx-benchmarks/issues/321)) ([9532c4b](https://github.com/dryvist/mlx-benchmarks/commit/9532c4bd5397597d5a5caac59d9c9a3bb987d527))
+
 ## [0.35.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.34.1...v0.35.0) (2026-10-16)
 
 
