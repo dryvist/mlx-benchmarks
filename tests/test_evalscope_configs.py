@@ -27,7 +27,7 @@ def test_aa_lcr_runbook_uses_seeded_long_context_sample_and_variable_judge() -> 
     command = config["run"]["command"]
 
     assert "--datasets aa_lcr" in command
-    assert "--seed 1 --limit 100 --eval-batch-size 8" in command
+    assert "--seed 1 --limit 100 --repeats 3 --eval-batch-size 8" in command
     assert all(f"${name}" in command for name in ("JUDGE_BASE_URL", "JUDGE_API_KEY", "JUDGE_MODEL"))
     assert "uvx --from evalscope==1.13.0" in command
     assert "--limit 5" in config["run"]["smoke"]["command"]
