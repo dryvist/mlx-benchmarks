@@ -23,6 +23,7 @@ TARGET_INPUTS_DOC = REPO_ROOT / "docs" / "benchmark-campaign-target-inputs.md"
 
 EXPECTED = {
     "llama-cpp/throughput",
+    "llama-cpp/vllm-fixed-length",
     "llama-cpp/cross-card",
     "vllm/cross-card",
     "mlx/cross-card",
@@ -224,6 +225,20 @@ def test_llama_cpp_throughput_recipe_matches_the_headline_cell_shape() -> None:
     assert _argument_after(run, "--target-prompt-tokens") == "{{ context }}"
     assert _argument_after(run, "--max-tokens") == "{{ output_tokens }}"
     assert _argument_after(run, "--repeats") == "4"
+
+
+def test_llama_cpp_fixed_length_recipe_uses_the_native_vllm_chat_client() -> None:
+    recipe = RECIPES["llama-cpp/vllm-fixed-length"]
+    reference = RECIPES["vllm/cross-card"]
+
+    assert recipe["context_list"] == reference["context_list"]
+    assert recipe["concurrency_list"] == reference["concurrency_list"]
+    assert {run["output_tokens"] for run in recipe["run"]} == {256, 2048}
+    assert all(run["executable"] == "vllm" for run in recipe["run"])
+    for run in recipe["run"]:
+        assert _argument_after(run, "--backend") == "openai-chat"
+        assert "--ignore-eos" in run["argv"]
+        assert run["converter"]["kind"] == "vllm"
 
 
 @pytest.mark.parametrize("name", sorted(RECIPES))
