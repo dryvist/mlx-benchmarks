@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.36.0...v0.37.0) (2026-10-16)
+
+
+### Features
+
+* add lm-eval RULER and task recipes ([#324](https://github.com/dryvist/mlx-benchmarks/issues/324)) ([2d8952b](https://github.com/dryvist/mlx-benchmarks/commit/2d8952b4717cae23ee5f90badf695862724ddc9b))
+
 ## [0.36.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.35.0...v0.36.0) (2026-10-16)
 
 
