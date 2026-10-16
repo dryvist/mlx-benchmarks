@@ -20,6 +20,7 @@ configs/
 │   └── qwen3-tasks/          # optional <think>-stripping overlay (see below)
 ├── evalscope/
 │   ├── hle.toml       # HLE
+│   ├── aa-lcr.toml    # AA-LCR
 │   └── livecodebench.toml    # registry-selected LiveCodeBench v6 pass (EvalScope)
 ├── vllm/
 │   ├── benchmark_serving.toml # vllm throughput cross-check; no local install

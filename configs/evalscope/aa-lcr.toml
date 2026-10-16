@@ -1,0 +1,26 @@
+# AA-LCR's 100 prompts average about 100k input tokens. EvalScope evaluates
+# them with its built-in LLM equality checker. Set JUDGE_MODEL to a family
+# different from the model under test.
+
+[run]
+command = """
+uvx --from evalscope==1.13.0 evalscope eval \\
+  --model "$MODEL" --api-url "$API_BASE_URL" --api-key EMPTY --eval-type openai_api \\
+  --datasets aa_lcr --seed 1 --limit 100 --eval-batch-size 8 \\
+  --judge "{\"strategy\":\"llm\",\"models\":{\"model_id\":\"$JUDGE_MODEL\",\"api_url\":\"$JUDGE_BASE_URL\",\"api_key\":\"$JUDGE_API_KEY\",\"eval_type\":\"openai_api\",\"generation_config\":{\"temperature\":0.0,\"retries\":3}}}" \\
+  --work-dir "$OUTPUT_PATH" --no-timestamp
+"""
+
+[run.smoke]
+command = """
+uvx --from evalscope==1.13.0 evalscope eval \\
+  --model "$MODEL" --api-url "$API_BASE_URL" --api-key EMPTY --eval-type openai_api \\
+  --datasets aa_lcr --seed 1 --limit 5 --eval-batch-size 8 \\
+  --judge "{\"strategy\":\"llm\",\"models\":{\"model_id\":\"$JUDGE_MODEL\",\"api_url\":\"$JUDGE_BASE_URL\",\"api_key\":\"$JUDGE_API_KEY\",\"eval_type\":\"openai_api\",\"generation_config\":{\"temperature\":0.0,\"retries\":3}}}" \\
+  --work-dir "$OUTPUT_PATH" --no-timestamp
+"""
+
+[publish]
+command = """
+mlx-bench-publish "$OUTPUT_PATH"/reports/*/aa_lcr.json --kind evalscope --suite capability-comparison --model "$MODEL" --dry-run
+"""
