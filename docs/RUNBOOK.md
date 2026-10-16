@@ -214,8 +214,8 @@ Read the **`math_verify`** metric, not `exact_match`
 
 ### 4d. Reasoning (`--kind lm-eval --suite reasoning`) — ~2.5–4 h full
 
-`arc_challenge_chat` (`--limit 15` ≈ 10 min) for a quick pass, `gsm8k` for the
-canonical run. Use `--tasks a,b`
+`leaderboard_mmlu_pro` (`--limit 20`, publish with `--suite knowledge`) for a
+quick intelligence pass, `gsm8k` for the canonical reasoning run. Use `--tasks a,b`
 ([trap 3](benchmark-traps.md#trap-3-lm-eval-tasks-flag)). Excluded-task
 rationale: [`../configs/lm-eval/reasoning.toml`](../configs/lm-eval/reasoning.toml).
 
