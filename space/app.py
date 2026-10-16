@@ -27,7 +27,8 @@ RUN_INDEX_PATH = "metadata/run-index-v1.json"
 CACHE_TTL = 600  # seconds
 EXPECTED_COLUMNS = ["timestamp", "suite", "name", "metric", "model", "value"]
 FILTER_SPECS = {
-    "machine": ("Machine", ("campaign_hardware_machine", "machine", "hostname", "host")),
+    "machine": ("Machine", ("campaign_hardware_machine", "machine")),
+    "host": ("Host", ("campaign_hardware_host", "host", "hostname")),
     "accelerator": (
         "Accelerator model",
         ("campaign_hardware_accelerator_model", "accelerator_model", "chip", "gpu"),
@@ -419,9 +420,10 @@ def add_evidence_metadata(
     variants = df["variant"].map(_clean_value)
     row_ids = df.get("_row_id", pd.Series(None, index=df.index))
     if "source_path" in df:
-        row_ids = row_ids.fillna(df["source_path"].astype(str) + ":" + df.index.astype(str))
+        fallback_ids = pd.Series(df["source_path"].astype(str) + ":" + df.index.astype(str), index=df.index)
     else:
-        row_ids = row_ids.fillna(df.index.astype(str))
+        fallback_ids = pd.Series(df.index.astype(str), index=df.index)
+    row_ids = row_ids.fillna(fallback_ids)
 
     identity_fields = (
         "model",
@@ -451,7 +453,11 @@ def add_evidence_metadata(
 
     def series_label(row: pd.Series) -> str:
         model = _clean_value(row.get("model_short"))
-        machine = _clean_value(row.get("machine")) or _clean_value(row.get("accelerator"))
+        machine = (
+            _clean_value(row.get("machine"))
+            or _clean_value(row.get("host"))
+            or _clean_value(row.get("accelerator"))
+        )
         parts = list(dict.fromkeys(value for value in (model, machine) if value))
         label = " / ".join(parts) or "Benchmark run"
         timestamp = pd.to_datetime(row.get("timestamp"), utc=True, errors="coerce")
@@ -559,8 +565,10 @@ def load_data() -> pd.DataFrame:
         return df
 
 
-def short_model(name: str) -> str:
+def short_model(name: str | None) -> str:
     """Strip common prefixes for axis labels."""
+    if not isinstance(name, str) or not name.strip():
+        return "unknown model"
     name = re.sub(r"^mlx-community/", "", name)
     name = re.sub(r"^openrouter/openai/", "openrouter/", name)
     return name

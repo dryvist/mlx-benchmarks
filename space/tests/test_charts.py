@@ -45,6 +45,46 @@ def _sample_df() -> pd.DataFrame:
     return df
 
 
+def test_host_and_engine_filters_are_derived_from_row_values() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-10-16T12:00:00Z",
+                "suite": "throughput-serving",
+                "model": "m/a",
+                "host": "host-a",
+                "engine": "vLLM",
+                "allocated_context": None,
+                "context_tokens": None,
+                "prompt_tokens": None,
+                "output_budget_tokens": None,
+                "completion_state": None,
+            },
+            {
+                "timestamp": "2026-10-16T12:01:00Z",
+                "suite": "throughput-serving",
+                "model": "m/b",
+                "host": "host-b",
+                "engine": "SGLang",
+                "allocated_context": None,
+                "context_tokens": None,
+                "prompt_tokens": None,
+                "output_budget_tokens": None,
+                "completion_state": None,
+            },
+        ]
+    )
+    rows = app.add_evidence_metadata(rows, {}, None)
+
+    assert app.row_choices(rows, "host") == ["host-a", "host-b"]
+    assert app.row_choices(rows, "engine") == ["SGLang", "vLLM"]
+
+
+def test_short_model_handles_nulls() -> None:
+    assert app.short_model(None) == "unknown model"
+    assert app.short_model("") == "unknown model"
+
+
 def test_canonical_paths_resolve_to_original_run_index_paths() -> None:
     base = f"hf://{app.DATASET}/"
     assert app._dataset_path(f"{base}data/run-canonical-run-2026-07-01.parquet") == (
