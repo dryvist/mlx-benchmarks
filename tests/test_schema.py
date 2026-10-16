@@ -31,6 +31,11 @@ def test_valid_envelope_passes(valid_envelope: dict) -> None:
     validate_envelope(valid_envelope)
 
 
+@pytest.mark.parametrize("suite", ["spl", "tool-queries", "agentic", "triage", "homelab-access"])
+def test_domain_eval_suites_validate(valid_envelope: dict, suite: str) -> None:
+    validate_envelope({**valid_envelope, "suite": suite})
+
+
 def test_unknown_runtime_git_sha_can_be_null(valid_envelope: dict) -> None:
     validate_envelope({**valid_envelope, "git_sha": None})
 
