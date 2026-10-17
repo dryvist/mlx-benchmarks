@@ -11,10 +11,6 @@ wrappers from the serving stack; this document says *which* to run, *in what
 order*, and how to publish (traps + parser map:
 [`benchmark-traps.md`](benchmark-traps.md)).
 
-Follow the shared [benchmark standards](benchmark-standards.md) for engine
-versions, fixed-length cells, concurrency, load shapes, context, and row
-metadata.
-
 ## What "fully benchmarked" means
 
 A model is fully benchmarked only when all five required suites have a published
@@ -269,9 +265,9 @@ Bump **Maturity** only for a validated pair ≥5 days out; keep the verdict
 
 ## See also
 
-- [`benchmark-standards.md`](benchmark-standards.md) — shared measurement and publication rules.
-- [`verdict-policy.md`](verdict-policy.md) — when a model may be called best/worst.
-- [`benchmark-traps.md`](benchmark-traps.md) — traps, parser map, serving flags.
+- [Standards](benchmark-standards.md).
+- [Verdict policy](verdict-policy.md) — compare models and set verdicts.
+- [Traps](benchmark-traps.md) — parser map and serving flags.
 - [`agentic.md`](agentic.md) · [`promptstack.md`](promptstack.md) ·
   [`model-notes.md`](model-notes.md) — suite depth, per-class quirks.
 - [`../configs/LAYOUT.md`](../configs/LAYOUT.md) · [`../RANKINGS.md`](../RANKINGS.md)

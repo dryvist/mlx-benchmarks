@@ -140,8 +140,7 @@ To benchmark **any** model on either Apple Silicon host, follow
 and **agentic** (`tool-calling` via [`harness/agentic/run.py`](harness/agentic/run.py))
 — a model is "fully benchmarked" with a published shard for each.
 
-Use [`docs/benchmark-standards.md`](docs/benchmark-standards.md) for the shared
-measurement and publication rules.
+[Standards](docs/benchmark-standards.md).
 
 Speed and intelligence weigh equally; see
 [`power_limit_w`](docs/nvidia-campaign.md).
