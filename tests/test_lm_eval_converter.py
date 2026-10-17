@@ -99,6 +99,14 @@ def test_lm_eval_populates_tokens_per_second(tmp_path: Path) -> None:
     assert result["prompt_tokens_per_second"] == 15 / 100.0
     assert result["decode_tokens_per_second"] == 12 / 100.0
     assert result["total_tokens_per_second"] == 27 / 100.0
+    assert result["output_tokens_mean"] == 4
+    assert result["output_tokens_median"] == 4
+    assert result["output_tokens_p90"] == 4
+    assert result["tokens_per_correct"] == 6
+    assert result["truncation_rate"] == 0
+    assert result["reasoning_tokens_mean"] is None
+    assert result["tags"]["reasoning_tokens_unavailable_reason"] == "reasoning_usage_missing"
+    assert result["reasoning_arm"] == "unstated"
 
 
 def test_lm_eval_skips_throughput_without_source_path() -> None:
@@ -120,6 +128,60 @@ def test_lm_eval_skips_throughput_without_source_path() -> None:
     [result] = envelope["results"]
     assert "duration_seconds" in result
     assert "decode_tokens_per_second" not in result
+    assert result["output_tokens_mean"] is None
+    assert result["tokens_per_correct"] is None
+    assert result["reasoning_tokens_mean"] is None
+    assert result["tags"]["output_tokens_unavailable_reason"] == "sample_logs_missing"
+    assert result["tags"]["reasoning_tokens_unavailable_reason"] == "sample_logs_missing"
+
+
+def test_lm_eval_derives_usage_fields_from_per_sample_usage(tmp_path: Path) -> None:
+    source = tmp_path / "results_2026-05-13T00-00-00.000000.json"
+    source.write_text(
+        json.dumps(
+            {
+                "results": {"toy": {"acc,none": 0.5}},
+                "config": {"gen_kwargs": {"max_gen_toks": 10}},
+                "model_name": "test-model",
+                "total_evaluation_time_seconds_per_task": {"toy": 1.0},
+            }
+        )
+    )
+    samples = tmp_path / "samples_toy_2026-05-13T00-00-00.000000.jsonl"
+    samples.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "model_output": {
+                        "usage": {
+                            "output_tokens": output_tokens,
+                            "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
+                        },
+                        "choices": [{"finish_reason": finish_reason}],
+                    }
+                }
+            )
+            for output_tokens, reasoning_tokens, finish_reason in (
+                (2, 1, "stop"),
+                (4, 0, "length"),
+                (10, 3, "stop"),
+            )
+        )
+        + "\n"
+    )
+    converter = LmEvalConverter(tokenizer_loader=lambda _model: None)
+    envelope = converter.build_envelope(
+        json.loads(source.read_text()),
+        ConverterContext(suite="reasoning", model="test-model", git_sha="deadbeef", source_path=source),
+    )
+
+    [result] = envelope["results"]
+    assert result["output_tokens_mean"] == 16 / 3
+    assert result["output_tokens_median"] == 4
+    assert result["output_tokens_p90"] == 10
+    assert result["reasoning_tokens_mean"] == 4 / 3
+    assert result["tokens_per_correct"] == 16 / round(0.5 * 3)
+    assert result["truncation_rate"] == 1 / 3
 
 
 def test_lm_eval_tokenizes_samples_once_per_task_across_metrics(tmp_path: Path) -> None:
@@ -140,7 +202,11 @@ def test_lm_eval_tokenizes_samples_once_per_task_across_metrics(tmp_path: Path) 
                         "acc,none": 0.55,
                     }
                 },
-                "config": {"model": "local-chat-completions", "model_args": {"model": "test-model"}},
+                "config": {
+                    "model": "local-chat-completions",
+                    "model_args": {"model": "test-model"},
+                    "gen_kwargs": {"max_gen_toks": 2},
+                },
                 "model_name": "test-model",
                 "date": 1778686200.0,
                 "total_evaluation_time_seconds": "100.0",
@@ -184,6 +250,9 @@ def test_lm_eval_tokenizes_samples_once_per_task_across_metrics(tmp_path: Path) 
     # All three rows must carry the same computed throughput value
     decode_values = {r["decode_tokens_per_second"] for r in results}
     assert len(decode_values) == 1
+    assert {r["output_tokens_mean"] for r in results} == {1}
+    assert {r["tokens_per_correct"] for r in results} == {2}
+    assert {r["truncation_rate"] for r in results} == {0}
 
 
 def test_lm_eval_skips_throughput_when_tokenizer_unavailable() -> None:
@@ -204,3 +273,8 @@ def test_lm_eval_skips_throughput_when_tokenizer_unavailable() -> None:
     [result] = envelope["results"]
     assert result["duration_seconds"] == 100.0
     assert "decode_tokens_per_second" not in result
+    assert result["output_tokens_mean"] is None
+    assert result["output_tokens_median"] is None
+    assert result["output_tokens_p90"] is None
+    assert result["tokens_per_correct"] is None
+    assert result["tags"]["output_tokens_unavailable_reason"] == "sample_token_count_unavailable"

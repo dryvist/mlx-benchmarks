@@ -23,6 +23,7 @@ from mlx_benchmarks.dataset_schema import (
     DERIVED_THROUGHPUT_SPEED_FIELDS,
     JSON_STRING_COLUMNS,
     OPTIONAL_RESULT_COLUMNS,
+    OPTIONAL_RESULT_STRING_COLUMNS,
     PARQUET_ROW_SCHEMA,
     PUBLISHED_JSON_COLUMNS,
     SYSTEM_COLUMNS,
@@ -141,6 +142,8 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
             "unit": r.get("unit"),
         }
         for col in OPTIONAL_RESULT_COLUMNS:
+            row[col] = r.get(col)
+        for col in OPTIONAL_RESULT_STRING_COLUMNS:
             row[col] = r.get(col)
         tags = remove_private_identifiers(r.get("tags") or {})
         for key in TAG_KEYS:

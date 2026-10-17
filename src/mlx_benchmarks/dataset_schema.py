@@ -127,7 +127,15 @@ OPTIONAL_RESULT_COLUMNS = (
     "total_tokens_per_second",
     "first_token_latency_ms",
     "peak_rss_mb",
+    "output_tokens_mean",
+    "output_tokens_median",
+    "output_tokens_p90",
+    "reasoning_tokens_mean",
+    "tokens_per_correct",
+    "truncation_rate",
 )
+
+OPTIONAL_RESULT_STRING_COLUMNS = ("reasoning_arm",)
 
 SYSTEM_COLUMNS = (
     "os",
@@ -444,6 +452,7 @@ PARQUET_ROW_SCHEMA = pa.schema(
         ("value", pa.float64()),
         ("unit", pa.string()),
         *[(column, pa.float64()) for column in OPTIONAL_RESULT_COLUMNS],
+        *[(column, pa.string()) for column in OPTIONAL_RESULT_STRING_COLUMNS],
         *[(f"tag_{key}", pa.string()) for key in TAG_KEYS],
         ("tags_json", pa.string()),
         ("model_id", pa.string()),

@@ -21,6 +21,7 @@ from typing import Any, Literal, cast
 
 from mlx_benchmarks.converters import get_converter
 from mlx_benchmarks.converters.base import ConverterContext
+from mlx_benchmarks.converters.inspect_ai import read_inspect_header
 from mlx_benchmarks.envelope import CampaignDimensions, EnvelopeValidationError, Serving
 from mlx_benchmarks.publish import PublishError, current_git_sha, publish
 from mlx_benchmarks.published_results import DATASET_FIELDS
@@ -37,7 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "results_json",
         type=Path,
-        help="Path to the raw tool output (e.g. lm-eval results_*.json; .jsonl is one record per "
+        help="Path to raw tool output (e.g. lm-eval results_*.json or an Inspect .eval log; .jsonl is per "
         "line; .txt/.log is wrapped as {'output': text} for the mbw and gpu-burn kinds)",
     )
     parser.add_argument(
@@ -52,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
             "factual",
             "fio",
             "gpu-burn",
+            "inspect-ai",
             "llamacpp-server",
             "lm-eval",
             "mbw",
@@ -141,7 +143,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         raw: Any
-        if args.results_json.suffix in (".txt", ".log"):
+        if args.kind == "inspect-ai":
+            raw = read_inspect_header(args.results_json)
+        elif args.results_json.suffix in (".txt", ".log"):
             raw = {"output": args.results_json.read_text(newline="")}  # keep gpu-burn's CRs
         elif args.results_json.suffix == ".jsonl":
             raw = [json.loads(line) for line in args.results_json.read_text().splitlines() if line]
@@ -152,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except json.JSONDecodeError as exc:
         log.error("%s is not valid JSON: %s", args.results_json, exc)
+        return 2
+    except ValueError as exc:
+        log.error("%s is not a valid Inspect .eval log: %s", args.results_json, exc)
         return 2
 
     campaign_dimensions: CampaignDimensions | None = None
@@ -333,7 +340,13 @@ def _extract_model(raw: dict[str, Any] | list[Any]) -> str:
         return "unknown"
     cfg = raw.get("config") or {}
     model_args = cfg.get("model_args") or {}
-    for candidate in (raw.get("model_name"), model_args.get("model"), raw.get("model")):
+    eval_header = raw.get("eval") or {}
+    for candidate in (
+        raw.get("model_name"),
+        model_args.get("model"),
+        raw.get("model"),
+        eval_header.get("model") if isinstance(eval_header, dict) else None,
+    ):
         if isinstance(candidate, str) and candidate:
             return candidate
     return "unknown"

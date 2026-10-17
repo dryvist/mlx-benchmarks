@@ -32,6 +32,13 @@ def test_historical_row_variants_normalize_to_one_schema() -> None:
             {
                 **common,
                 "decode_tokens_per_second": 11.5,
+                "output_tokens_mean": 123.5,
+                "output_tokens_median": 100.0,
+                "output_tokens_p90": 250.0,
+                "reasoning_tokens_mean": 18.5,
+                "tokens_per_correct": 205.8,
+                "truncation_rate": 0.01,
+                "reasoning_arm": "xhigh",
                 "tag_concurrency": "4",
                 "tag_future_dimension": "preserved",
                 "tags_json": '{"future_dimension":"json value","json_only":"preserved"}',
@@ -47,6 +54,11 @@ def test_historical_row_variants_normalize_to_one_schema() -> None:
     assert older_table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
     assert older["decode_tokens_per_second"] is None
     assert newer["decode_tokens_per_second"] == 11.5
+    assert newer["output_tokens_mean"] == 123.5
+    assert newer["reasoning_tokens_mean"] == 18.5
+    assert newer["tokens_per_correct"] == 205.8
+    assert newer["truncation_rate"] == 0.01
+    assert newer["reasoning_arm"] == "xhigh"
     assert older["tag_filter"] == "strict"
     assert newer["tag_concurrency"] == "4"
     assert json.loads(newer["tags_json"]) == {

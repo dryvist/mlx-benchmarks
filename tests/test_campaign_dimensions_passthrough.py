@@ -79,6 +79,21 @@ RAW_BY_KIND: dict[str, tuple[str, Callable[[pytest.FixtureRequest], Any]]] = {
     "factual": ("grounded-summary", lambda r: r.getfixturevalue("factual_sample")),
     "fio": ("fio", lambda r: r.getfixturevalue("fio_sample")),
     "gpu-burn": ("gpu-burn", lambda r: r.getfixturevalue("gpu_burn_sample")),
+    "inspect-ai": (
+        "reasoning",
+        lambda _: {
+            "eval": {"task": "toy", "model": "example/model"},
+            "results": {
+                "scores": [
+                    {
+                        "name": "match",
+                        "scored_samples": 1,
+                        "metrics": {"accuracy": {"value": 1.0}},
+                    }
+                ]
+            },
+        },
+    ),
     "llamacpp-server": ("throughput", lambda _: []),
     "lm-eval": ("reasoning", lambda r: r.getfixturevalue("lm_eval_sample")),
     "mbw": ("mbw", lambda r: r.getfixturevalue("mbw_sample")),

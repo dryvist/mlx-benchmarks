@@ -152,12 +152,8 @@ Parquet shard, `gpu` and `system_engine` are JSON-string columns (like
 | `tags` | object\[string\] | Free-form metadata; numeric values are strings. |
 | `raw` | any | Original untransformed tool output (optional archive). |
 
-Every evaluation row publishes `tokens_per_task` as an additional `results[]`
-metric, using the existing `metric`, `value`, and `unit` fields. Scored rows
-also publish `tokens_per_correct`. Use observed output-token usage per scored
-task; do not substitute the reserved output length. Compare the quality score
-with those token-cost metrics and matching tok/s. This uses the existing v1
-contract and does not require a schema-version change.
+See [evaluation result fields](evaluation-result-fields.md) for per-sample
+metrics, data sources, calculations, and null-reason tags.
 
 ### Derived throughput dimensions
 

@@ -1449,6 +1449,42 @@
             "minimum": 0,
             "description": "Peak resident set size observed during this result, in megabytes. Complements memory_snapshots when per-result granularity is available."
           },
+          "output_tokens_mean": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Mean generated output tokens per evaluation sample, including reasoning tokens when reported by the harness."
+          },
+          "output_tokens_median": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Median generated output tokens per evaluation sample."
+          },
+          "output_tokens_p90": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Nearest-rank p90 generated output tokens per evaluation sample."
+          },
+          "reasoning_tokens_mean": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Mean reasoning tokens per evaluation sample when the harness records reasoning-token usage."
+          },
+          "tokens_per_correct": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Total generated output tokens divided by the estimated number of correct items for this score row."
+          },
+          "truncation_rate": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Fraction of evaluation samples that reached the configured output-token limit."
+          },
+          "reasoning_arm": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Declared reasoning arm for this evaluation row; unstated when no arm was declared."
+          },
           "tags": {
             "type": "object",
             "description": "Arbitrary string key-value metadata (e.g. framework, output_tokens). Every value is a string, numbers included. Conventional sweep-dimension keys: prompt_tokens, concurrency, context_len.",
