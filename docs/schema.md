@@ -44,7 +44,7 @@ means editing `schema.json` and filing a schema update PR.
 | `env_class` | `isolated \| under-load` | Load class (policy gate 3). |
 | `concurrency` | integer (≥1) | In-flight request count. |
 | `reasoning_effort` | string, free-form | Declared level; see below. |
-| `serving` | object | Server identity fields. |
+| `serving` | object | Server identity. New public rows may include `stack` and `served_model`; the publisher rejects legacy `endpoint_port`. |
 | `model_revision` | string | Model provides HF revision or commit SHA. |
 | `model_task` | string | Card `pipeline_tag`, else closest official HF task. |
 | `model_task_source` | `model_card \| inferred` | Source for `model_task`. |

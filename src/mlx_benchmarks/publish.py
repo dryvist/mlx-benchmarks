@@ -216,6 +216,10 @@ def publish(
     A dry run still reads public Hub metadata for the pinned model and benchmark;
     it never writes. Real uploads also require ``HF_TOKEN`` (or ``token=...``).
     """
+    if repo_type == DEFAULT_REPO_TYPE:
+        serving = envelope.get("serving")
+        if isinstance(serving, dict) and "endpoint_port" in serving:
+            raise PublishError("serving.endpoint_port is retained for legacy rows and cannot be published")
     populate_engine_release_metadata(envelope)
     validate_envelope(envelope)
     try:

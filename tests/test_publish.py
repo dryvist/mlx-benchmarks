@@ -324,6 +324,12 @@ def test_publish_refuses_invalid_envelope(invalid_envelope: dict) -> None:
         publish(invalid_envelope, dry_run=True)
 
 
+def test_public_publish_refuses_serving_endpoint_port(valid_envelope: dict, mock_hf_registry: None) -> None:
+    envelope = {**valid_envelope, "serving": {"endpoint_port": "legacy field"}}
+    with pytest.raises(PublishError, match="retained for legacy rows"):
+        publish(envelope, dry_run=True)
+
+
 def test_envelope_requires_model_task_source_with_task(valid_envelope: dict) -> None:
     with pytest.raises(EnvelopeValidationError):
         publish({**valid_envelope, "model_task": "feature-extraction"}, dry_run=True)

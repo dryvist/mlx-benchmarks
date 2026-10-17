@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mlx_benchmarks.cli import main
+from mlx_benchmarks.cli import build_parser, main
 
 
 def _write_sample(tmp_path: Path, sample: dict) -> Path:
@@ -50,6 +50,12 @@ def test_cli_dry_run_happy_path(
     assert exit_code == 0
     captured = capsys.readouterr()
     assert "dry-run" in captured.err.lower() or "planned" in captured.err.lower()
+
+
+def test_cli_rejects_serving_port_flag(capsys: pytest.CaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["results.json", "--suite", "reasoning", "--serving-port"])
+    assert "unrecognized arguments: --serving-port" in capsys.readouterr().err
 
 
 def test_cli_vllm_dry_run(
