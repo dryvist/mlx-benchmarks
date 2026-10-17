@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.46.1...v0.47.0) (2026-10-17)
+
+
+### Features
+
+* add SciCode EvalScope runbook ([#336](https://github.com/dryvist/mlx-benchmarks/issues/336)) ([eaaa39e](https://github.com/dryvist/mlx-benchmarks/commit/eaaa39e0f7b93e2ebada7de2f4e65029d7c17243))
+
 ## [0.46.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.46.0...v0.46.1) (2026-10-17)
 
 
