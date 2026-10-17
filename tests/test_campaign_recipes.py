@@ -36,8 +36,13 @@ EXPECTED = {
     "lm-eval/coding",
     "lm-eval/reasoning",
     "evalscope/livecodebench",
+    "evalscope/mmlu-pro-reasoning-effort",
 }
-LONG_CONTEXT_RECIPES = EXPECTED - {"lm-eval/coding", "lm-eval/reasoning"}
+LONG_CONTEXT_RECIPES = EXPECTED - {
+    "lm-eval/coding",
+    "lm-eval/reasoning",
+    "evalscope/mmlu-pro-reasoning-effort",
+}
 ENGINES = {"llama_cpp", "vllm", "mlx_lm", "mlx_vlm_native", "vllm_mlx"}
 AGENT_COUNTS = {1, 2, 4, 8}
 LONG_CONTEXT_TOKENS = 131072
@@ -104,7 +109,8 @@ def test_recipe_declares_the_agent_and_long_context_axes(name: str) -> None:
             for value in values
         )
         assert len(set(values)) == len(values)
-    assert set(recipe["concurrency_list"]) >= AGENT_COUNTS
+    if name != "evalscope/mmlu-pro-reasoning-effort":
+        assert set(recipe["concurrency_list"]) >= AGENT_COUNTS
     if name in LONG_CONTEXT_RECIPES:
         assert max(value for value in recipe["context_list"] if isinstance(value, int)) >= LONG_CONTEXT_TOKENS
 
@@ -214,6 +220,32 @@ def test_livecodebench_runs_through_evalscope_in_the_sandbox() -> None:
     assert '"v6"' in _argument_after(run, "--dataset-args")
     assert '"enabled": true' in _argument_after(run, "--sandbox")
     assert _argument_after(run, "--eval-batch-size") == "{{ concurrency }}"
+
+
+def test_mmlu_pro_reasoning_effort_recipe_runs_fixed_seeded_generative_arms() -> None:
+    recipe = RECIPES["evalscope/mmlu-pro-reasoning-effort"]
+    assert recipe["engines"] == ["llama_cpp"]
+    assert recipe["context_list"] == [32768]
+    assert recipe["concurrency_list"] == [1]
+    assert {run["name"] for run in recipe["run"]} == {
+        "mmlu-pro-off",
+        "mmlu-pro-low",
+        "mmlu-pro-xhigh",
+    }
+    for run in recipe["run"]:
+        assert run["executable"] == "evalscope"
+        assert run["output_tokens"] == 16384
+        assert run["repetitions"] == 1
+        assert "--collect-perf" in run["argv"]
+        assert _argument_after(run, "--datasets") == "mmlu_pro"
+        assert _argument_after(run, "--seed") == "1"
+        assert _argument_after(run, "--limit") == "4"
+        assert _argument_after(run, "--eval-batch-size") == "1"
+        assert "--judge" not in run["argv"]
+    by_name = {run["name"]: _argument_after(run, "--generation-config") for run in recipe["run"]}
+    assert '"enable_thinking": false' in by_name["mmlu-pro-off"]
+    assert '"reasoning_effort": "low"' in by_name["mmlu-pro-low"]
+    assert '"reasoning_effort": "xhigh"' in by_name["mmlu-pro-xhigh"]
 
 
 def test_llama_cpp_throughput_recipe_matches_the_headline_cell_shape() -> None:

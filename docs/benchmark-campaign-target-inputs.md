@@ -60,6 +60,8 @@ target's inventory facts so the envelope describes the benchmark target.
 - `lm-eval/reasoning` (`llama_cpp`, `vllm`, `mlx_lm`): GSM8K reasoning.
 - `evalscope/livecodebench` (`llama_cpp`, `vllm`): LiveCodeBench v6 through
   EvalScope's Docker sandbox.
+- `evalscope/mmlu-pro-reasoning-effort` (`llama_cpp`): seeded MMLU-Pro generative
+  samples with OFF, LOW, and XHIGH reasoning arms at concurrency one.
 
 Recipes declare concurrency values 1, 2, 4, and 8. MLX serving recipes include
 a 262016-token prompt with 128 output tokens to reach a 262144-token window.
