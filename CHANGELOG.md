@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.46.0...v0.46.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* resolve relative model card license links ([#360](https://github.com/dryvist/mlx-benchmarks/issues/360)) ([4e1f2b6](https://github.com/dryvist/mlx-benchmarks/commit/4e1f2b6160ed206de1a989ac2ea02d5f092fc050))
+
 ## [0.46.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.45.0...v0.46.0) (2026-10-17)
 
 
