@@ -19,6 +19,7 @@ configs/
 │   └── qwen3-tasks/          # optional <think>-stripping overlay (see below)
 ├── evalscope/
 │   ├── hle.toml       # HLE
+│   ├── scicode.toml   # SciCode
 │   ├── aa-lcr.toml    # AA-LCR
 │   └── livecodebench.toml    # registry-selected LiveCodeBench v6 pass (EvalScope)
 ├── vllm/
@@ -148,8 +149,8 @@ consumer captures and fetches them as supplemental files.
 Runbooks for a vLLM serving host with an NVIDIA GPU. They follow the llama-cpp
 pattern: this repo never starts the server, the runbook names the exact upstream
 command, and a converter turns that tool's output into an envelope. Only the four
-hardware baselines needed new converters (each under 50 lines of Python); throughput
-and quality reuse `--kind vllm` and `--kind lm-eval`.
+hardware baselines needed new converters; throughput and quality reuse
+`--kind vllm` and `--kind lm-eval`.
 
 The system block (`system.gpu`, `system.engine`, `system.power_limit_w`,
 `system.container`) is **declared, not probed**: `detect_system()` reads it from
