@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.43.0...v0.44.0) (2026-10-17)
+
+
+### Features
+
+* **publish:** record engine release metadata ([#346](https://github.com/dryvist/mlx-benchmarks/issues/346)) ([3f361da](https://github.com/dryvist/mlx-benchmarks/commit/3f361daf9e90920c4ddb007d619db453ef2b1000))
+
 ## [0.43.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.42.0...v0.43.0) (2026-10-17)
 
 
