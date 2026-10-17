@@ -108,8 +108,16 @@ def test_converter_keeps_declared_campaign_dimensions(kind: str, request: pytest
         _context(suite, campaign_dimensions=DIMENSIONS, dimension_null_reasons=NULL_REASONS),
     )
 
-    assert envelope["campaign_dimensions"] == DIMENSIONS
-    assert envelope["dimension_null_reasons"] == NULL_REASONS
+    if kind == "vllm":
+        actual_dimensions = envelope["campaign_dimensions"]
+        assert {key: actual_dimensions[key] for key in DIMENSIONS} == DIMENSIONS
+        assert "speed" in actual_dimensions
+        actual_reasons = envelope["dimension_null_reasons"]
+        assert {key: actual_reasons[key] for key in NULL_REASONS} == NULL_REASONS
+        assert any(key.startswith("speed.") for key in actual_reasons)
+    else:
+        assert envelope["campaign_dimensions"] == DIMENSIONS
+        assert envelope["dimension_null_reasons"] == NULL_REASONS
     validate_envelope(envelope)
 
 
@@ -120,8 +128,13 @@ def test_converter_leaves_dimensions_absent_when_none_are_declared(
     suite, build_raw = RAW_BY_KIND[kind]
     envelope = get_converter(kind).build_envelope(build_raw(request), _context(suite))
 
-    assert "campaign_dimensions" not in envelope
-    assert "dimension_null_reasons" not in envelope
+    if kind == "vllm":
+        assert "campaign_dimensions" in envelope
+        assert "speed" in envelope["campaign_dimensions"]
+        assert "dimension_null_reasons" in envelope
+    else:
+        assert "campaign_dimensions" not in envelope
+        assert "dimension_null_reasons" not in envelope
 
 
 def test_converter_dimensions_reach_the_published_rows(vllm_sample: dict) -> None:
@@ -138,7 +151,9 @@ def test_converter_dimensions_reach_the_published_rows(vllm_sample: dict) -> Non
         assert row["campaign_hardware_power_cap_w"] == 300.0
         assert row["campaign_run_concurrent_agents"] == 4
         assert row["campaign_hardware_ups_circuit"] is None
-        assert json.loads(row["campaign_dimension_null_reasons_json"]) == NULL_REASONS
+        reasons = json.loads(row["campaign_dimension_null_reasons_json"])
+        assert {key: reasons[key] for key in NULL_REASONS} == NULL_REASONS
+        assert "speed.peak_output_tok_s_1s_max" in reasons
 
 
 def test_throughput_probe_keeps_dimensions_written_into_its_result_file() -> None:

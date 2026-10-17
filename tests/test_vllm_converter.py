@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,13 @@ def test_vllm_round_trip(vllm_sample: dict) -> None:
         assert tags.get("completed_requests") == "100"
         assert tags.get("total_input_tokens") == "25600"
         assert tags.get("total_output_tokens") == "25600"
+
+    speed = envelope["campaign_dimensions"]["speed"]
+    assert speed["potential_output_tok_s_p50"] is None
+    assert envelope["dimension_null_reasons"]["speed.potential_output_tok_s_p50"] == (
+        "max_concurrency_unavailable"
+    )
+    assert speed["peak_output_tok_s_1s_max"] is None
 
 
 def test_vllm_date_defaults_timestamp_and_campaign_run_times(vllm_bench_serve_nvidia_sample: dict) -> None:
@@ -138,6 +146,89 @@ def test_vllm_extra_tags(vllm_sample: dict) -> None:
         tags = result.get("tags", {})
         assert tags.get("input_len") == "256"
         assert tags.get("output_len") == "256"
+
+
+@pytest.mark.parametrize("suite", ["throughput", "throughput-serving"])
+def test_vllm_derived_throughput_dimensions_use_chunk_timings(suite: str) -> None:
+    raw = {
+        "max_concurrency": 4,
+        "completed": 3,
+        "duration": 4.0,
+        "output_throughput": 100.0,
+        "p50_tpot_ms": 20.0,
+        "p90_tpot_ms": 40.0,
+        "p99_tpot_ms": 80.0,
+        "request_rate": 2.0,
+        "start_times": [100.0, 101.0, 103.0],
+        "ttfts": [0.75, 0.25, 0.1],
+        "itls": [[0.5], [0.75], []],
+        "output_lens": [4, 4, 2],
+    }
+    envelope = get_converter("vllm").build_envelope(
+        raw,
+        ConverterContext(
+            suite=suite,
+            model="example/model",
+            git_sha="deadbeef",
+            system=detect_system(),
+        ),
+    )
+    validate_envelope(envelope)
+
+    speed = envelope["campaign_dimensions"]["speed"]
+    assert speed["potential_output_tok_s_p50"] == pytest.approx(200.0)
+    assert speed["potential_output_tok_s_p90"] == pytest.approx(100.0)
+    assert speed["potential_output_tok_s_p99"] == pytest.approx(50.0)
+    assert speed["measured_mean_concurrency"] == pytest.approx(0.5875)
+    assert speed["potential_output_tok_s_p50_at_mean_concurrency"] == pytest.approx(29.375)
+    assert speed["potential_output_tok_s_p90_at_mean_concurrency"] == pytest.approx(14.6875)
+    assert speed["potential_output_tok_s_p99_at_mean_concurrency"] == pytest.approx(7.34375)
+    assert speed["peak_output_tok_s_1s_max"] == 4.0
+    assert speed["peak_output_tok_s_1s_p99"] == 4.0
+    assert speed["potential_efficiency"] == pytest.approx(0.5)
+    metric_values = {result["metric"]: result["value"] for result in envelope["results"]}
+    assert metric_values["tpot_p50_ms"] == 20.0
+    assert metric_values["tpot_p90_ms"] == 40.0
+
+    rows = envelope_to_rows(envelope)
+    assert rows[0]["campaign_speed_peak_output_tok_s_1s_max"] == 4.0
+    assert all(row["campaign_speed_potential_output_tok_s_p50"] == 200.0 for row in rows)
+
+
+def test_vllm_non_detailed_and_generic_rows_keep_reasoned_nulls(
+    vllm_bench_serve_nvidia_sample: dict,
+) -> None:
+    context = ConverterContext(
+        suite="throughput",
+        model="example/model",
+        git_sha="deadbeef",
+        system=detect_system(),
+    )
+    envelope = get_converter("vllm").build_envelope(vllm_bench_serve_nvidia_sample, context)
+    speed = envelope["campaign_dimensions"]["speed"]
+    assert speed["peak_output_tok_s_1s_max"] is None
+    assert envelope["dimension_null_reasons"]["speed.peak_output_tok_s_1s_max"] == (
+        "per_request_timing_arrays_unavailable"
+    )
+    row_reasons = json.loads(envelope_to_rows(envelope)[0]["campaign_dimension_null_reasons_json"])
+    assert row_reasons["speed.peak_output_tok_s_1s_max"] == "per_request_timing_arrays_unavailable"
+
+    generic = dict(envelope)
+    generic.pop("campaign_dimensions")
+    generic.pop("dimension_null_reasons")
+    generic["results"] = [
+        {
+            "name": "llama.cpp",
+            "metric": "throughput_output_toks_per_s",
+            "value": 25.0,
+            "unit": "tok/s",
+            "tags": {},
+        }
+    ]
+    generic_row = envelope_to_rows(generic)[0]
+    assert generic_row["campaign_speed_peak_output_tok_s_1s_max"] is None
+    generic_reasons = json.loads(generic_row["campaign_dimension_null_reasons_json"])
+    assert generic_reasons["speed.peak_output_tok_s_1s_max"] == "derived_input_unavailable"
 
 
 def test_vllm_missing_optional_metrics(vllm_sample: dict) -> None:

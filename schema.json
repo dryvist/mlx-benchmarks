@@ -794,6 +794,56 @@
               "description": "Prompt plus output tokens divided by wall time.",
               "minimum": 0
             },
+            "measured_mean_concurrency": {
+              "type": ["number", "null"],
+              "description": "Mean in-flight requests, calculated as the sum of per-request latency divided by run duration.",
+              "minimum": 0
+            },
+            "potential_output_tok_s_p50": {
+              "type": ["number", "null"],
+              "description": "Configured-concurrency decode ceiling: max_concurrency times 1000 divided by p50 TPOT in milliseconds.",
+              "minimum": 0
+            },
+            "potential_output_tok_s_p90": {
+              "type": ["number", "null"],
+              "description": "Configured-concurrency decode ceiling: max_concurrency times 1000 divided by p90 TPOT in milliseconds.",
+              "minimum": 0
+            },
+            "potential_output_tok_s_p99": {
+              "type": ["number", "null"],
+              "description": "Configured-concurrency decode ceiling: max_concurrency times 1000 divided by p99 TPOT in milliseconds.",
+              "minimum": 0
+            },
+            "potential_output_tok_s_p50_at_mean_concurrency": {
+              "type": ["number", "null"],
+              "description": "Staggered-load decode ceiling: measured mean concurrency times 1000 divided by p50 TPOT in milliseconds.",
+              "minimum": 0
+            },
+            "potential_output_tok_s_p90_at_mean_concurrency": {
+              "type": ["number", "null"],
+              "description": "Staggered-load decode ceiling: measured mean concurrency times 1000 divided by p90 TPOT in milliseconds.",
+              "minimum": 0
+            },
+            "potential_output_tok_s_p99_at_mean_concurrency": {
+              "type": ["number", "null"],
+              "description": "Staggered-load decode ceiling: measured mean concurrency times 1000 divided by p99 TPOT in milliseconds.",
+              "minimum": 0
+            },
+            "peak_output_tok_s_1s_max": {
+              "type": ["number", "null"],
+              "description": "Maximum output tokens in a fixed one-second window reconstructed from per-request token-chunk timings.",
+              "minimum": 0
+            },
+            "peak_output_tok_s_1s_p99": {
+              "type": ["number", "null"],
+              "description": "Nearest-rank p99 output tokens per second across fixed one-second windows reconstructed from per-request token-chunk timings.",
+              "minimum": 0
+            },
+            "potential_efficiency": {
+              "type": ["number", "null"],
+              "description": "Measured output throughput divided by configured-concurrency p50 potential output throughput.",
+              "minimum": 0
+            },
             "tpot_ms": {
               "type": ["number", "null"],
               "description": "Average time per output token in milliseconds.",

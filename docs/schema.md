@@ -15,13 +15,15 @@ enrichment rules, validator, and historical migration procedure.
 | Field | Type | Notes |
 | --- | --- | --- |
 | `schema_version` | `"1"` | Bump only on breaking changes. |
-| `timestamp` | ISO 8601 UTC | `YYYY-MM-DDTHH:MM:SSZ`; use start-of-run, not end. |
-| `git_sha` | 7–64 hex or `null` | SHA of **this repo** at run time, not the model; use `null` only when the runtime code revision was not captured. |
-| `trigger` | `local \| schedule \| pr \| workflow_dispatch` | How the run was kicked off. |
+| `timestamp` | ISO 8601 UTC | Start-of-run time, not end. |
+| `git_sha` | 7–64 hex or `null` | Repo SHA; `null` if not captured. |
+| `trigger` | enum | How the run was kicked off; see the allowed values below. |
 | `suite` | enum | Must be in the closed set below. |
 | `model` | string | HF model ID (e.g. `mlx-community/Qwen3.5-9B-MLX-4bit`). |
-| `system` | object | See below. `os`, `chip`, `memory_gb` keys required; explicit `null` preserves blocked or unmeasured runs. |
-| `results` | array | Per-measurement rows. Empty array is not invalid but `publish()` refuses it at serialization time. |
+| `system` | object | See below; `os`, `chip`, `memory_gb` are required. |
+| `results` | array | Per-measurement rows; empty arrays cannot be published. |
+
+Allowed trigger values: `local`, `schedule`, `pr`, and `workflow_dispatch`.
 
 Closed suite set: `throughput`, `throughput-serving`, `ttft`, `mixed-context`,
 `elastic`, `max-context`, `tool-calling`, `code-accuracy`,
@@ -39,25 +41,25 @@ means editing `schema.json` and filing a schema update PR.
 | Field | Type | Added when |
 | --- | --- | --- |
 | `pr_number` | integer \| null | `trigger == "pr"` |
-| `env_class` | `isolated \| under-load` | Machine load class during the run (verdict-policy gate 3). |
-| `concurrency` | integer (≥1) | The run drove more than a token's worth of parallelism (in-flight request count). |
-| `reasoning_effort` | string, free-form | `--reasoning-effort` declared the thinking level the run asked for. See below. |
-| `serving` | object | Inference-server identity: `stack` / `endpoint_port` / `served_model` (all optional). |
+| `env_class` | `isolated \| under-load` | Load class (policy gate 3). |
+| `concurrency` | integer (≥1) | In-flight request count. |
+| `reasoning_effort` | string, free-form | Declared level; see below. |
+| `serving` | object | Server identity fields. |
 | `model_revision` | string | Model provides HF revision or commit SHA. |
 | `model_task` | string | Card `pipeline_tag`, else closest official HF task. |
-| `model_task_source` | `model_card \| inferred` | Use `inferred` when no card tag exists. |
+| `model_task_source` | `model_card \| inferred` | Source for `model_task`. |
 | `quantization` | string | Runtime reports it (e.g. `mlx-4bit`, `mxfp4`). |
 | `skipped` | boolean | Suite intentionally skipped (CI without hardware). |
 | `seed` | integer | Seeded generation. |
 | `gen_kwargs` | object | `max_gen_toks` / `temperature` / `top_p` / `top_k`. |
 | `memory_snapshots` | array | Future work — RSS / swap per phase. |
 | `errors` | array of string | Non-fatal warnings recorded during the run. |
-| `campaign` | object | Immutable `id`, `cell_id`, and serving `profile` for a coordinated campaign. |
-| `cell_status` | enum | Only `success` rows may be scored; all other listed states preserve a non-scored outcome. |
-| `context` | object | Context dimensions: model/catalog/proxy/worker maxima when known, selected window, requested and actual prompt, and output reservation. |
-| `campaign_dimensions` | object | Optional typed fields in ten campaign groups; each leaf accepts explicit `null`. |
-| `dimension_null_reasons` | object of string | Optional field-path-to-reason-code map for null values in `campaign_dimensions`. |
-| `readiness` | object | First request, excluded from warmed scoring. Stores initial residency and discarded timings. |
+| `campaign` | object | Immutable id, cell id, and serving profile. |
+| `cell_status` | enum | Only `success` rows are scored. |
+| `context` | object | Catalog limits, window, prompt, and output reservation. |
+| `campaign_dimensions` | object | Typed fields; leaves may be `null`. |
+| `dimension_null_reasons` | object of string | `field.path` null reasons. |
+| `readiness` | object | First request, excluded from warmed scoring. |
 
 ### `campaign_dimensions`
 
@@ -112,20 +114,20 @@ NVIDIA / CUDA hosts add four optional fields (absent on Apple Silicon runs):
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `gpu` | object | `model` (driver-reported name), `vram_gb` (GiB, fractional allowed), `driver`, `cuda` (highest driver-supported version). All optional. |
-| `engine` | object | `name` and `version` of the inference engine (e.g. `vllm` / `0.30.0`). Complements `serving.stack`, which names the endpoint. |
-| `power_limit_w` | number (≥0) | Enforced board power limit in watts; two limits are two arms. |
-| `container` | string | Image reference the engine ran in; absent for bare-metal runs. |
+| `gpu` | object | Optional model, VRAM, driver, and CUDA version. |
+| `engine` | object | Engine name and version; complements `serving.stack`. |
+| `power_limit_w` | number (≥0) | Enforced GPU board power limit. |
+| `container` | string | Engine image; absent for bare-metal runs. |
 
 These are **declared, not probed**: `detect_system()` reads them from
 `MLX_BENCH_GPU_MODEL`, `MLX_BENCH_GPU_VRAM_GB`, `MLX_BENCH_GPU_DRIVER`,
 `MLX_BENCH_GPU_CUDA`, `MLX_BENCH_ENGINE_NAME`, `MLX_BENCH_ENGINE_VERSION`,
-`MLX_BENCH_POWER_LIMIT_W` and `MLX_BENCH_CONTAINER`, because the publisher may run on a
-different machine than the GPU. A variable that is unset, blank, or non-numeric where a
-number is required is omitted. The `nvidia-smi` snippet that fills them is in
-[`configs/LAYOUT.md`](../configs/LAYOUT.md#nvidia-hosts-configsnvidia). In the Parquet
-shard `gpu` and `system_engine` ride as JSON-string columns (like `topology`); `power_limit_w`
-and `container` are plain columns.
+`MLX_BENCH_POWER_LIMIT_W` and `MLX_BENCH_CONTAINER`, because the publisher may
+run on a different machine than the GPU. Unset, blank, or invalid numeric
+variables are omitted. The `nvidia-smi` snippet that fills them is in
+[`configs/LAYOUT.md`](../configs/LAYOUT.md#nvidia-hosts-configsnvidia). In the
+Parquet shard, `gpu` and `system_engine` are JSON-string columns (like
+`topology`); `power_limit_w` and `container` are plain columns.
 
 `topology` (object, multi-node runs only): `world_size`, `parallelism`
 (`pipeline` / `tensor` / `none`), `interconnect` (e.g. `tb5-rdma`), and
@@ -137,18 +139,48 @@ and `container` are plain columns.
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `name` | string (required) | Task or measurement ID (`gsm8k_cot_zeroshot`, `tok_per_sec_512`). |
-| `metric` | string (required) | Display metric name (`exact_match_flexible`, `pass_at_1`, `throughput`). |
+| `name` | string (required) | Task or measurement ID. |
+| `metric` | string (required) | Display metric name. |
 | `value` | number (required) | The measurement. |
 | `unit` | string (required) | `ratio`, `tok/s`, `ms`, etc. |
-| `duration_seconds` | number | Wall-clock for this measurement (first-class replacement for `tags.total_eval_time_s`). |
-| `prompt_tokens_per_second` | number | Aggregate prefill throughput (prompt tokens / `duration_seconds`). Supporting detail. |
-| `decode_tokens_per_second` | number | Aggregate decode-only throughput (completion tokens / `duration_seconds`). Supporting detail — see below. |
-| `total_tokens_per_second` | number | **Headline throughput metric.** Cumulative (prompt + completion) tokens / `duration_seconds`. |
-| `first_token_latency_ms` | number | Time to first token, when measurable (streaming-aware harnesses). |
-| `peak_rss_mb` | number | Peak RSS observed during this result, when available at per-result granularity. |
-| `tags` | object\[string\] | Free-form string key-value metadata; numeric values are strings. Sweep keys are listed below. |
+| `duration_seconds` | number | Wall-clock time; replaces the tag. |
+| `prompt_tokens_per_second` | number | Prefill: prompt tokens / time. |
+| `decode_tokens_per_second` | number | Decode: completion tokens / time. |
+| `total_tokens_per_second` | number | **Headline:** total tokens / time. |
+| `first_token_latency_ms` | number | First-token time for streaming runs. |
+| `peak_rss_mb` | number | Peak per-result RSS, when available. |
+| `tags` | object\[string\] | Free-form metadata; numeric values are strings. |
 | `raw` | any | Original untransformed tool output (optional archive). |
+
+### Derived throughput dimensions
+
+The optional `campaign_dimensions.speed` fields below are calculated from
+measured vLLM serving results and are repeated on every published row in that
+run. Missing inputs are stored as `null`; `dimension_null_reasons` records a
+reason at `speed.<field>`.
+
+- `potential_output_tok_s_p50`: `max_concurrency * 1000 / p50_tpot_ms`.
+- `potential_output_tok_s_p90`: `max_concurrency * 1000 / p90_tpot_ms`.
+- `potential_output_tok_s_p99`: `max_concurrency * 1000 / p99_tpot_ms`.
+- `measured_mean_concurrency`: sum of request latencies / run duration.
+  Each request latency is `ttft + sum(itls)`.
+- `potential_output_tok_s_p50_at_mean_concurrency` (also p90/p99): for finite
+  request rates, measured mean concurrency * 1000 / matching TPOT in ms.
+- `peak_output_tok_s_1s_max`: maximum tokens in any fixed one-second window.
+- `peak_output_tok_s_1s_p99`: nearest-rank p99 of one-second window token counts.
+- `potential_efficiency`: `output_throughput / potential_output_tok_s_p50`.
+
+vLLM `start_times`, `ttfts`, and `itls` are seconds; start times are absolute
+monotonic values. For each request, token-chunk arrivals are `start_time +
+ttft + cumulative itls`. If the request has fewer chunks than output tokens,
+each chunk is assigned an equal fractional share of that request's output
+length, so the shares sum exactly to `output_lens`. Times are rebased to the
+earliest request start and bucketed into non-overlapping `[n, n + 1)` second
+windows. The first token's bucket through the last token's bucket are included;
+empty buckets between them count as zero. Buckets before the first token's
+bucket or after the last token's bucket are excluded. Non-detailed and other
+engine rows keep unavailable values null with a reason rather than treating
+missing timing arrays as zero.
 
 Sweep metadata may include:
 
