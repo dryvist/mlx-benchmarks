@@ -23,6 +23,7 @@ from mlx_benchmarks.converters import get_converter
 from mlx_benchmarks.converters.base import ConverterContext
 from mlx_benchmarks.envelope import CampaignDimensions, EnvelopeValidationError, Serving
 from mlx_benchmarks.publish import PublishError, current_git_sha, publish
+from mlx_benchmarks.published_results import DATASET_FIELDS
 from mlx_benchmarks.system import detect_system
 
 log = logging.getLogger("mlx_benchmarks.cli")
@@ -99,6 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="PATH",
         help="JSON metadata for the registered HF Benchmark task and required run variables",
+    )
+    parser.add_argument(
+        "--unregistered-benchmark",
+        action="store_true",
+        help="Null all benchmark dataset fields and mark them not_applicable",
     )
     parser.add_argument("--timestamp", help="Override envelope timestamp (ISO 8601 UTC, rarely needed)")
     parser.add_argument(
@@ -190,6 +196,15 @@ def main(argv: list[str] | None = None) -> int:
             software["engine"] = _normalize_engine_name(software["engine"])
     if published_metadata is not None and isinstance(published_metadata.get("engine"), str):
         published_metadata["engine"] = _normalize_engine_name(published_metadata["engine"])
+
+    if args.unregistered_benchmark and published_metadata is not None:
+        published_metadata.update(dict.fromkeys(DATASET_FIELDS))
+        null_reasons = published_metadata.get("dimension_null_reasons")
+        if null_reasons is None:
+            null_reasons = {}
+        if isinstance(null_reasons, dict):
+            null_reasons.update(dict.fromkeys(DATASET_FIELDS, "not_applicable"))
+            published_metadata["dimension_null_reasons"] = null_reasons
 
     model = args.model or _extract_model(raw)
     git_sha = args.git_sha or current_git_sha()
