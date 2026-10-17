@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.1...v0.44.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* normalize vllm and mlx engine names ([#341](https://github.com/dryvist/mlx-benchmarks/issues/341)) ([5b50788](https://github.com/dryvist/mlx-benchmarks/commit/5b50788171cf0df672c3286c2ad2e8f7dd127376))
+
 ## [0.44.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.0...v0.44.1) (2026-10-17)
 
 
