@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.0...v0.50.1) (2026-10-17)
+
+
+### Documentation
+
+* add RAM and NVMe offload guidance ([#387](https://github.com/dryvist/mlx-benchmarks/issues/387)) ([b5d3bb3](https://github.com/dryvist/mlx-benchmarks/commit/b5d3bb3107cc3a75c9d79eee9072ac9bb642dee4))
+
 ## [0.50.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.49.1...v0.50.0) (2026-10-17)
 
 
