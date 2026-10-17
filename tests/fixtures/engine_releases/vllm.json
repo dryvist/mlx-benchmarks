@@ -1,0 +1,13 @@
+{
+  "info": {"name": "vllm", "version": "0.31.0"},
+  "releases": {
+    "0.30.0": [
+      {"upload_time_iso_8601": "2026-09-25T09:00:00Z", "yanked": false}
+    ],
+    "0.31.0": [
+      {"upload_time_iso_8601": "2026-10-05T07:40:41.009965Z", "yanked": false},
+      {"upload_time_iso_8601": "2026-10-05T07:41:02.369745Z", "yanked": false},
+      {"upload_time_iso_8601": "2026-10-05T07:47:02.078366Z", "yanked": false}
+    ]
+  }
+}
