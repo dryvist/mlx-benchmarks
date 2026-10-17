@@ -68,6 +68,15 @@ docs/                  architecture.md, schema.md, journal/ (session notes)
   re-runs ruff + ruff-format + pyright + pytest. Zero tolerance for `# noqa`
   suppressions — fix the underlying issue.
 
+## Versions
+
+New benchmark batches use the latest stable upstream release published by the
+run timestamp; stable means the upstream release is not marked prerelease.
+Each row records the engine, upstream release name, build or commit when
+available, release date, latest stable release at run time, and whether the row
+used that release. Older-version rows remain valid; the publisher records
+unavailable upstream metadata as null with a reason.
+
 ## Common tasks
 
 ```bash

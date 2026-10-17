@@ -29,6 +29,7 @@ from mlx_benchmarks.dataset_schema import (
     campaign_dimension_column,
     empty_parquet_row,
 )
+from mlx_benchmarks.engine_versions import populate_engine_release_metadata
 from mlx_benchmarks.envelope import Envelope, validate_envelope
 from mlx_benchmarks.power_metrics import PowerMetricsError, enrich_power_metrics
 from mlx_benchmarks.privacy import remove_private_identifiers
@@ -206,6 +207,7 @@ def publish(
     A dry run still reads public Hub metadata for the pinned model and benchmark;
     it never writes. Real uploads also require ``HF_TOKEN`` (or ``token=...``).
     """
+    populate_engine_release_metadata(envelope)
     validate_envelope(envelope)
     try:
         enrich_power_metrics(envelope)
