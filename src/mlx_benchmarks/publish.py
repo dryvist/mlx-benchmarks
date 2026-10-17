@@ -20,12 +20,14 @@ from huggingface_hub.errors import HfHubHTTPError
 from mlx_benchmarks.dataset_schema import (
     CAMPAIGN_DIMENSION_JSON_FIELDS,
     CAMPAIGN_DIMENSION_TYPES,
+    DERIVED_THROUGHPUT_SPEED_FIELDS,
     JSON_STRING_COLUMNS,
     OPTIONAL_RESULT_COLUMNS,
     PARQUET_ROW_SCHEMA,
     PUBLISHED_JSON_COLUMNS,
     SYSTEM_COLUMNS,
     TAG_KEYS,
+    THROUGHPUT_SUITES,
     campaign_dimension_column,
     empty_parquet_row,
 )
@@ -98,6 +100,7 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
     # scalars are copied through verbatim; envelope is a JSON object at runtime.
     env_map = cast("dict[str, Any]", envelope)
     campaign_dimensions = env_map.get("campaign_dimensions") or {}
+    dimension_null_reasons = dict(env_map.get("dimension_null_reasons") or {})
     for category, fields in CAMPAIGN_DIMENSION_TYPES.items():
         values = campaign_dimensions.get(category) or {}
         for field in fields:
@@ -105,9 +108,12 @@ def envelope_to_rows(envelope: Envelope) -> list[dict[str, Any]]:
             if value is not None and (category, field) in CAMPAIGN_DIMENSION_JSON_FIELDS:
                 value = json.dumps(value, sort_keys=True)
             base[campaign_dimension_column(category, field)] = value
-    base["campaign_dimension_null_reasons_json"] = json.dumps(
-        env_map.get("dimension_null_reasons") or {}, sort_keys=True
-    )
+    if envelope.get("suite") in THROUGHPUT_SUITES:
+        speed = campaign_dimensions.get("speed") or {}
+        for field in DERIVED_THROUGHPUT_SPEED_FIELDS:
+            if speed.get(field) is None:
+                dimension_null_reasons.setdefault(f"speed.{field}", "derived_input_unavailable")
+    base["campaign_dimension_null_reasons_json"] = json.dumps(dimension_null_reasons, sort_keys=True)
 
     for key in (
         "model_revision",

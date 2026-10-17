@@ -147,6 +147,20 @@ SYSTEM_COLUMNS = (
     "topology",
 )
 
+DERIVED_THROUGHPUT_SPEED_FIELDS = (
+    "measured_mean_concurrency",
+    "potential_output_tok_s_p50",
+    "potential_output_tok_s_p90",
+    "potential_output_tok_s_p99",
+    "potential_output_tok_s_p50_at_mean_concurrency",
+    "potential_output_tok_s_p90_at_mean_concurrency",
+    "potential_output_tok_s_p99_at_mean_concurrency",
+    "peak_output_tok_s_1s_max",
+    "peak_output_tok_s_1s_p99",
+    "potential_efficiency",
+)
+THROUGHPUT_SUITES = frozenset({"throughput", "throughput-serving"})
+
 CAMPAIGN_DIMENSION_TYPES = {
     "environment": {
         "ambient_temp_f": pa.float64(),
@@ -262,6 +276,16 @@ CAMPAIGN_DIMENSION_TYPES = {
         "decode_tokens_per_second_per_agent": pa.float64(),
         "aggregate_output_tokens_per_second": pa.float64(),
         "total_tokens_per_second": pa.float64(),
+        "measured_mean_concurrency": pa.float64(),
+        "potential_output_tok_s_p50": pa.float64(),
+        "potential_output_tok_s_p90": pa.float64(),
+        "potential_output_tok_s_p99": pa.float64(),
+        "potential_output_tok_s_p50_at_mean_concurrency": pa.float64(),
+        "potential_output_tok_s_p90_at_mean_concurrency": pa.float64(),
+        "potential_output_tok_s_p99_at_mean_concurrency": pa.float64(),
+        "peak_output_tok_s_1s_max": pa.float64(),
+        "peak_output_tok_s_1s_p99": pa.float64(),
+        "potential_efficiency": pa.float64(),
         "tpot_ms": pa.float64(),
         "itl_p50_ms": pa.float64(),
         "itl_p99_ms": pa.float64(),

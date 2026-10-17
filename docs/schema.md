@@ -150,6 +150,36 @@ and `container` are plain columns.
 | `tags` | object\[string\] | Free-form string key-value metadata; numeric values are strings. Sweep keys are listed below. |
 | `raw` | any | Original untransformed tool output (optional archive). |
 
+### Derived throughput dimensions
+
+The optional `campaign_dimensions.speed` fields below are calculated from
+measured vLLM serving results and are repeated on every published row in that
+run. Missing inputs are stored as `null`; `dimension_null_reasons` records a
+reason at `speed.<field>`.
+
+| Field | Formula |
+| --- | --- |
+| `potential_output_tok_s_p50` | `max_concurrency * 1000 / p50_tpot_ms` |
+| `potential_output_tok_s_p90` | `max_concurrency * 1000 / p90_tpot_ms` |
+| `potential_output_tok_s_p99` | `max_concurrency * 1000 / p99_tpot_ms` |
+| `measured_mean_concurrency` | `sum(request latency seconds) / duration seconds`; request latency is `ttft + sum(itls)` for that request. |
+| `potential_output_tok_s_p50_at_mean_concurrency` (and p90/p99) | For finite `request_rate` only: `measured_mean_concurrency * 1000 / the matching TPOT percentile in milliseconds`. |
+| `peak_output_tok_s_1s_max` | Maximum tokens in any fixed one-second window from first to last output token. |
+| `peak_output_tok_s_1s_p99` | Nearest-rank p99 of those one-second window token counts. |
+| `potential_efficiency` | `output_throughput / potential_output_tok_s_p50`. |
+
+vLLM `start_times`, `ttfts`, and `itls` are seconds; start times are absolute
+monotonic values. For each request, token-chunk arrivals are `start_time +
+ttft + cumulative itls`. If the request has fewer chunks than output tokens,
+each chunk is assigned an equal fractional share of that request's output
+length, so the shares sum exactly to `output_lens`. Times are rebased to the
+earliest request start and bucketed into non-overlapping `[n, n + 1)` second
+windows. The first token's bucket through the last token's bucket are included;
+empty buckets between them count as zero. Buckets before the first token's
+bucket or after the last token's bucket are excluded. Non-detailed and other
+engine rows keep unavailable values null with a reason rather than treating
+missing timing arrays as zero.
+
 Sweep metadata may include:
 
 - `prompt_tokens`: tokens in each request prompt.
