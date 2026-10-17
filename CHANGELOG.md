@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.49.0...v0.49.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* reject legacy serving metadata in dataset publishes ([#377](https://github.com/dryvist/mlx-benchmarks/issues/377)) ([305195b](https://github.com/dryvist/mlx-benchmarks/commit/305195b0af777b5e2390ab2d06be8bbb29cf5f8c))
+
 ## [0.49.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.48.1...v0.49.0) (2026-10-17)
 
 
