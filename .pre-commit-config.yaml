@@ -20,7 +20,7 @@ repos:
         args: [--fix=lf]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.18
+    rev: v0.17.0
     hooks:
       # `ruff-check` is the current lint hook id; bare `ruff` is a legacy alias.
       - id: ruff-check
@@ -28,7 +28,7 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.4
+    rev: v1.7.12
     hooks:
       - id: actionlint
 

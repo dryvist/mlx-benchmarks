@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.45.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.2...v0.45.0) (2026-10-17)
+
+
+### Features
+
+* add Strata throughput campaign recipe ([#323](https://github.com/dryvist/mlx-benchmarks/issues/323)) ([6f5fec7](https://github.com/dryvist/mlx-benchmarks/commit/6f5fec7696d6c4eba21d1b8cb0990635a5eb9b73))
+
+## [0.44.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.1...v0.44.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* normalize vllm and mlx engine names ([#341](https://github.com/dryvist/mlx-benchmarks/issues/341)) ([5b50788](https://github.com/dryvist/mlx-benchmarks/commit/5b50788171cf0df672c3286c2ad2e8f7dd127376))
+
 ## [0.44.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.0...v0.44.1) (2026-10-17)
 
 
