@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.43.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.42.0...v0.43.0) (2026-10-17)
+
+
+### Features
+
+* add EvalScope MMLU-Pro reasoning effort recipe ([a939fb8](https://github.com/dryvist/mlx-benchmarks/commit/a939fb8a4056ce3a69112811e6ac67461eaebfb2))
+* **eval:** EvalScope MMLU-Pro reasoning effort recipe ([#344](https://github.com/dryvist/mlx-benchmarks/issues/344)) ([2199c87](https://github.com/dryvist/mlx-benchmarks/commit/2199c872aaf8154e1ad873ce7e7f6a2389da053b))
+
 ## [0.42.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.41.1...v0.42.0) (2026-10-17)
 
 
