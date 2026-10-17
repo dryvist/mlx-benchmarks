@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.2...v0.50.3) (2026-10-17)
+
+
+### Documentation
+
+* describe official BigCodeBench scoring ([#393](https://github.com/dryvist/mlx-benchmarks/issues/393)) ([5209411](https://github.com/dryvist/mlx-benchmarks/commit/52094111c337ca8979eaed5637a33799804785aa))
+
 ## [0.50.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.1...v0.50.2) (2026-10-17)
 
 
