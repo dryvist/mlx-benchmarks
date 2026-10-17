@@ -48,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
             "agentic-partial",
             "bench-serve",
             "coding-replay",
+            "evalscope",
             "factual",
             "fio",
             "gpu-burn",

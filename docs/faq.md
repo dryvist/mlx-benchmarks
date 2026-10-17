@@ -70,7 +70,7 @@ Confirm the shard landed by checking the HF dataset repo directly.
 
 **A:** Prefer fixing it — bump the dependency so the advisory clears. If it
 genuinely can't be fixed yet, this repo inherits the org-wide ignore policy from
-`dryvist/.github/osv-scanner.toml`. For a repo-specific suppression, create a
+`JacobPEvans/.github/osv-scanner.toml`. For a repo-specific suppression, create a
 local `osv-scanner.toml` at the repo root (it takes precedence over the org
 default):
 

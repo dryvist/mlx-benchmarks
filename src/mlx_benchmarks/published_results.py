@@ -194,12 +194,12 @@ def build_published_results(
 
     timestamps = envelope.get("timestamp")
     base_reasons = dict(metadata.get("dimension_null_reasons") or {})
-    if model["base_model"] is None and model["base_model_relation"] is None:
-        base_reasons.setdefault("base_model", "not_applicable")
-        base_reasons.setdefault("base_model_relation", "not_applicable")
     if model["license"] != "other":
         model["license_name"] = None
         model["license_link"] = None
+    for field, value in model.items():
+        if value is None:
+            base_reasons[field] = "not_applicable"
     hardware = metadata.get("hardware")
     if contains_private_identifier_keys(hardware):
         raise ValueError("hardware metadata must not include host or network identifiers")
