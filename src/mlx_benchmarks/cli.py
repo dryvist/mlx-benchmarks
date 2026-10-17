@@ -88,7 +88,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Thinking effort the run asked for, verbatim (low/high/xhigh/max/off/unstated)",
     )
     parser.add_argument("--serving-stack", help="Serving stack, e.g. 'mlx_lm.server' or 'vllm-mlx'")
-    parser.add_argument("--serving-port", type=int, help="Serving endpoint TCP port")
     parser.add_argument("--serving-model", help="Model id as advertised by the serving endpoint")
     parser.add_argument(
         "--campaign-dimensions",
@@ -224,8 +223,6 @@ def main(argv: list[str] | None = None) -> int:
     serving: Serving = {}
     if args.serving_stack is not None:
         serving["stack"] = _normalize_engine_name(args.serving_stack)
-    if args.serving_port is not None:
-        serving["endpoint_port"] = args.serving_port
     if args.serving_model is not None:
         serving["served_model"] = args.serving_model
 

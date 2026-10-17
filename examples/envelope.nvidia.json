@@ -7,7 +7,6 @@
   "concurrency": 4,
   "serving": {
     "stack": "vllm",
-    "endpoint_port": 8000,
     "served_model": "example-org/example-32b"
   },
   "suite": "throughput",

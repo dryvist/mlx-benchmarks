@@ -1262,7 +1262,7 @@
         },
         "endpoint_port": {
           "type": "integer",
-          "description": "TCP port the OpenAI-compatible endpoint listened on"
+          "description": "Legacy field retained for compatibility with existing rows; public publisher rejects it"
         },
         "served_model": {
           "type": "string",
