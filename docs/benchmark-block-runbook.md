@@ -47,7 +47,8 @@ sem.sh 4 "<ai-benchmark-run-id>" "benchmark cell <run-id> <cell-id>" \
 # Repeat the benchmark-run job once for every planned cell.
 # Collect baseline and final telemetry with the same template.
 sem.sh 4 85 "final telemetry <run-id>" '[]'
-# Collect the reported raw artifact and publish it with the workstation command below.
+# Collect the reported raw artifact and publish it with the workstation
+# command below.
 sem.sh 2 "<proxmox-benchmark-client-id>" "client absent" \
   '[
     "--extra-vars", "node=<NODE>",
@@ -78,17 +79,21 @@ immutable source commit in the path.
    benchmark cell for final telemetry.
 3. **Run suite cells.** Dispatch `ai-benchmark-run` once per cell, with a
    unique `run_id` per cell and a shared block prefix. Use
-   `suite=bigcodebench-hard` for the pinned 30-item EvalScope 1.13.0
-   configuration, `suite=promptfoo-<suite>` with an immutable raw GitHub
-   `items_file`, or `suite=vllm-sweep` for one fixed-length serving cell.
-   EvalScope records `reasoning_arm` explicitly: `off` maps to
-   `enable_thinking=false`; `low` and `xhigh` map to their matching
-   `reasoning_effort` values. Promptfoo and EvalScope run inside the client.
+   `suite=bigcodebench-hard` with `item_limit` from 1 through 148 (default 30),
+   `suite=promptfoo-<suite>` with an immutable raw GitHub `items_file`, or
+   `suite=vllm-sweep` for one fixed-length serving cell. EvalScope records
+   `reasoning_arm` explicitly: `off` maps to `enable_thinking=false`; `low` and
+   `xhigh` map to their matching `reasoning_effort` values. Promptfoo and
+   EvalScope run inside the client.
 
-   BigCodeBench uses the approved working settings: the pinned dataset and
-   sandbox image, `entrypoint=["sleep"]`, `command=["infinity"]`, and
-   `pool_size` equal to concurrency (maximum 8). The persistent worker process
-   keeps pooled containers alive across items.
+   BigCodeBench first checks three negative controls and three canonical
+   ground-truth controls with the official pinned `bigcodebench.evaluate`
+   image. The job stops unless all wrong controls fail and all canonical
+   controls pass. EvalScope 1.13.0 streams generation with a configurable
+   `evalscope_timeout_seconds` (default 3600); its score is not authoritative.
+   The runner sanitizes the generated samples and records the final score with
+   `bigcodebench.evaluate --execution local` from the same digest-pinned image.
+   The official evaluator uses its published entrypoint directly.
 
    For throughput cells, use `concurrency` values 1, 4, 8, 12, and 16 wherever
    each request fits. Also run the capacity ceiling and ceiling + 1 from the
