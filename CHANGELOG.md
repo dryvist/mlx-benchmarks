@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.0...v0.44.1) (2026-10-17)
+
+
+### Refactoring
+
+* **ci:** call the central workflow homes at v1 ([#348](https://github.com/dryvist/mlx-benchmarks/issues/348)) ([bf979c1](https://github.com/dryvist/mlx-benchmarks/commit/bf979c18d0df85a7ab1e69ea5dee364729abcf3f))
+
 ## [0.44.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.43.0...v0.44.0) (2026-10-17)
 
 
