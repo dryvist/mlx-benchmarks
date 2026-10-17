@@ -244,8 +244,12 @@ Validate with `schema.json`; dry-run first. Use `HF_WRITE_TOKEN`, not read-only
 dataset fields use `not_applicable`.
 
 ```sh
-.venv/bin/mlx-bench-publish run-output/<...>.json --kind vllm --suite throughput --campaign-dimensions run-output/<...>/campaign-dimensions.json --published-metadata run-output/<...>/published-metadata.json --dry-run
-HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish run-output/<...>.json --kind lm-eval --suite reasoning --campaign-dimensions run-output/<...>/campaign-dimensions.json --published-metadata run-output/<...>/published-metadata.json --unregistered-benchmark
+.venv/bin/mlx-bench-publish run-output/<...>.json --kind vllm --suite throughput \
+  --campaign-dimensions run-output/<...>/campaign-dimensions.json \
+  --published-metadata run-output/<...>/published-metadata.json --dry-run
+HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish run-output/<...>.json --kind lm-eval --suite reasoning \
+  --campaign-dimensions run-output/<...>/campaign-dimensions.json \
+  --published-metadata run-output/<...>/published-metadata.json --unregistered-benchmark
 ```
 
 See the [published-result contract](published-results.md). Retain completed
