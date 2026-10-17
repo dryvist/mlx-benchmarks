@@ -59,8 +59,20 @@ all four probe classes, then gets retired in a follow-up.
 `promptfoo eval -o results.json` output into one score row per test, one
 pass/score row per assertion, and an arithmetic mean score row for the suite.
 Use `--tag domain=<value>` for a declared domain from the envelope schema. The
-converter records indexes and scores only; prompts, variables, configuration,
-assertion reasons, and model outputs stay out of the published envelope.
+converter records indexes, scores, and aggregate token statistics while keeping
+prompts, variables, configuration, assertion reasons, and model outputs out of
+the published envelope. It derives output token mean, median, p90, reasoning
+token mean, tokens per fully successful case, and truncation rate from
+per-result usage.
+
+### Publishing Inspect logs
+
+Use the optional `inspect` dependency when reading Zstandard-compressed
+`.eval` files:
+
+~~~sh
+uv run --extra inspect mlx-bench-publish run.eval --kind inspect-ai --suite reasoning
+~~~
 
 ## CI and security model
 

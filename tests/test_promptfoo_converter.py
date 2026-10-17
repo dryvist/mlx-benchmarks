@@ -14,6 +14,12 @@ from mlx_benchmarks.system import detect_system
 def test_promptfoo_json_emits_test_assertion_and_suite_summaries() -> None:
     fixture = Path(__file__).parent / "fixtures" / "promptfoo_sample.json"
     raw = json.loads(fixture.read_text())
+    outputs = raw["results"]["results"]
+    for output, completion, reasoning, finish in zip(
+        outputs, (2, 4), (1, 0), ("stop", "length"), strict=True
+    ):
+        output["tokenUsage"] = {"completion": completion, "completionDetails": {"reasoning": reasoning}}
+        output["response"] = {"finishReason": finish}
     context = ConverterContext(
         suite="framework-eval",
         model="example/model",
@@ -34,3 +40,10 @@ def test_promptfoo_json_emits_test_assertion_and_suite_summaries() -> None:
         ("promptfoo_aggregate", "score", 0.5),
     ]
     assert all("domain" in row["tags"] for row in envelope["results"])
+    aggregate = envelope["results"][-1]
+    assert aggregate["output_tokens_mean"] == 3
+    assert aggregate["output_tokens_median"] == 3
+    assert aggregate["output_tokens_p90"] == 4
+    assert aggregate["reasoning_tokens_mean"] == 0.5
+    assert aggregate["tokens_per_correct"] == 6
+    assert aggregate["truncation_rate"] == 0.5

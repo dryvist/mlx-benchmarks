@@ -28,6 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+inspect = ["inspect-ai>=0.3.281"]
 # Note: the standalone agent-eval scripts under harness/framework-eval/ declare
 # their own deps via PEP 723 inline metadata (run with `uv run`), and the HF
 # Space (space/app.py) installs from space/requirements.txt — so neither needs
@@ -39,6 +40,7 @@ dependencies = [
 dev = [
     # harness/agentic/run.py imports httpx; the PEP 723 header covers script runs, this covers pytest.
     "httpx>=0.28.1",
+    "inspect-ai>=0.3.281",
     "pyright>=1.1.411",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
