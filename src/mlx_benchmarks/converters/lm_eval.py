@@ -6,11 +6,22 @@ import datetime
 import json
 import logging
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any
 
 from mlx_benchmarks.converters.base import ConverterContext, apply_optional_fields
+from mlx_benchmarks.converters.token_stats import (
+    TokenizerLike,
+    TokenizerLoader,
+    api_output_tokens,
+    api_reasoning_tokens,
+    count_tokens,
+    default_tokenizer_loader,
+    finish_reason,
+    summarize_token_counts,
+)
 from mlx_benchmarks.envelope import Envelope, GenKwargs, Result, System
 
 log = logging.getLogger(__name__)
@@ -26,47 +37,25 @@ _METRIC_MAP = {
 }
 
 
-class _TokenizerLike(Protocol):
-    """Minimal duck-type for the bits of a tokenizer the converter needs.
-
-    ``encode(text)`` must return an object with ``.ids`` (matches
-    ``tokenizers.Tokenizer`` and ``transformers.PreTrainedTokenizerFast``).
-    """
-
-    def encode(self, text: str) -> Any:  # pragma: no cover - protocol
-        ...
-
-
-TokenizerLoader = Callable[[str], _TokenizerLike | None]
-
-
-def _default_tokenizer_loader(model: str) -> _TokenizerLike | None:
-    """Load a HF tokenizer for ``model`` via the ``tokenizers`` library.
-
-    Returns ``None`` on any failure (missing dep, unknown repo, offline). The
-    converter degrades gracefully — tok/s fields stay unset for that result
-    rather than failing the whole publish.
-    """
-    try:
-        from tokenizers import Tokenizer
-    except ImportError:
-        log.debug("tokenizers package not available; tok/s fields will be unset")
-        return None
-    try:
-        # tokenizers.Tokenizer.encode has a wider signature than the converter
-        # needs; at runtime it satisfies _TokenizerLike (encode(text).ids).
-        return cast(_TokenizerLike, Tokenizer.from_pretrained(model))
-    except Exception as exc:
-        log.warning("could not load tokenizer for %s: %s — tok/s fields will be unset", model, exc)
-        return None
+@dataclass(slots=True)
+class _SampleMetrics:
+    prompt_tokens: int | None
+    output_tokens: tuple[int, ...] | None
+    sample_count: int
+    output_method: str | None
+    output_unavailable_reason: str | None
+    truncation_rate: float | None
+    truncation_unavailable_reason: str | None
+    reasoning_tokens_mean: float | None = None
+    reasoning_unavailable_reason: str | None = "sample_logs_missing"
 
 
 class LmEvalConverter:
     kind = "lm-eval"
 
     def __init__(self, tokenizer_loader: TokenizerLoader | None = None) -> None:
-        self._tokenizer_loader: TokenizerLoader = tokenizer_loader or _default_tokenizer_loader
-        self._tokenizer_cache: dict[str, _TokenizerLike | None] = {}
+        self._tokenizer_loader = tokenizer_loader or default_tokenizer_loader
+        self._tokenizer_cache: dict[str, TokenizerLike | None] = {}
 
     def build_envelope(self, raw: dict[str, Any], ctx: ConverterContext) -> Envelope:
         timestamp = ctx.timestamp_override or _extract_timestamp(raw)
@@ -105,13 +94,15 @@ class LmEvalConverter:
         task_durations = raw.get("total_evaluation_time_seconds_per_task") or {}
         cfg = raw.get("config") or {}
         cfg_gen_kwargs = cfg.get("gen_kwargs") or {}
-        # lm-eval tasks emit several metrics each (acc / acc_norm / exact_match /
-        # stderr-pairs / etc.). All of them share the same duration and would
-        # produce identical tok/s, so we tokenize each samples file at most once
-        # per task and reuse the result across this task's metric rows.
-        task_throughput_cache: dict[str, dict[str, float] | None] = {}
+        task_sample_cache: dict[str, _SampleMetrics] = {}
 
         for task_name, task_metrics in raw_results.items():
+            duration = task_durations.get(task_name)
+            duration_s = float(duration) if isinstance(duration, int | float) else None
+            max_gen_toks = cfg_gen_kwargs.get("max_gen_toks")
+            sample_metrics = self._sample_metrics_for_task(
+                task_name, max_gen_toks, duration_s, ctx, task_sample_cache
+            )
             for metric_key, metric_val in task_metrics.items():
                 if "stderr" in metric_key or metric_key == "alias":
                     continue
@@ -125,6 +116,13 @@ class LmEvalConverter:
                     "metric": display_metric,
                     "value": float(metric_val),
                     "unit": _guess_unit(display_metric),
+                    "reasoning_arm": ctx.reasoning_effort or "unstated",
+                    "output_tokens_mean": None,
+                    "output_tokens_median": None,
+                    "output_tokens_p90": None,
+                    "tokens_per_correct": None,
+                    "truncation_rate": sample_metrics.truncation_rate,
+                    "reasoning_tokens_mean": sample_metrics.reasoning_tokens_mean,
                 }
 
                 tags: dict[str, str] = {
@@ -140,66 +138,171 @@ class LmEvalConverter:
                 max_gen_toks = cfg_gen_kwargs.get("max_gen_toks")
                 if max_gen_toks is not None:
                     tags["max_gen_toks"] = str(max_gen_toks)
-                result["tags"] = tags
-
-                # Use an explicit None check so genuinely-zero durations are preserved.
-                # (``group_subtasks`` was previously checked here but it maps
-                # group -> list of subtask names, never durations — removed.)
-                duration = task_durations.get(task_name)
-                if isinstance(duration, int | float):
-                    result["duration_seconds"] = float(duration)
-                    throughput = self._throughput_for_task(
-                        task_name, float(duration), ctx, task_throughput_cache
+                if sample_metrics.output_tokens is None:
+                    tags["output_tokens_unavailable_reason"] = (
+                        sample_metrics.output_unavailable_reason or "sample_token_count_unavailable"
                     )
-                    if throughput is not None:
-                        for key, value in throughput.items():
-                            result[key] = value  # type: ignore[literal-required]
+                    tags["tokens_per_correct_unavailable_reason"] = "output_tokens_unavailable"
+                else:
+                    counts = sample_metrics.output_tokens
+                    mean, median, p90 = summarize_token_counts(counts)
+                    result["output_tokens_mean"] = mean
+                    result["output_tokens_median"] = median
+                    result["output_tokens_p90"] = float(p90)
+                    tags["output_tokens_method"] = sample_metrics.output_method or "unknown"
+                    if result["unit"] == "ratio" and 0 <= float(metric_val) <= 1:
+                        correct_count = round(float(metric_val) * sample_metrics.sample_count)
+                        if correct_count > 0:
+                            result["tokens_per_correct"] = sum(counts) / correct_count
+                        else:
+                            tags["tokens_per_correct_unavailable_reason"] = "zero_correct_items"
+                    else:
+                        tags["tokens_per_correct_unavailable_reason"] = "score_not_accuracy_ratio"
+                if sample_metrics.truncation_rate is None:
+                    tags["truncation_rate_unavailable_reason"] = (
+                        sample_metrics.truncation_unavailable_reason
+                        or "max_gen_toks_and_finish_reason_missing"
+                    )
+                if sample_metrics.reasoning_tokens_mean is None:
+                    tags["reasoning_tokens_unavailable_reason"] = (
+                        sample_metrics.reasoning_unavailable_reason or "reasoning_usage_missing"
+                    )
+                if duration_s is not None:
+                    result["duration_seconds"] = duration_s
+                    if (
+                        duration_s > 0
+                        and sample_metrics.prompt_tokens is not None
+                        and sample_metrics.output_tokens is not None
+                    ):
+                        prompt_total = sample_metrics.prompt_tokens
+                        output_total = sum(sample_metrics.output_tokens)
+                        result["prompt_tokens_per_second"] = prompt_total / duration_s
+                        result["decode_tokens_per_second"] = output_total / duration_s
+                        result["total_tokens_per_second"] = (prompt_total + output_total) / duration_s
+                result["tags"] = tags
 
                 yield result
 
-    def _throughput_for_task(
+    def _sample_metrics_for_task(
         self,
         task_name: str,
-        duration_s: float,
+        max_gen_toks: Any,
+        duration_s: float | None,
         ctx: ConverterContext,
-        cache: dict[str, dict[str, float] | None],
-    ) -> dict[str, float] | None:
-        """Compute the aggregate tok/s dict for ``task_name`` once and cache it.
-
-        Returns a dict keyed by the optional Result field name (``prompt_tokens_per_second``,
-        ``decode_tokens_per_second``, ``total_tokens_per_second``) or ``None`` when
-        the throughput cannot be computed. A cached ``None`` is a real negative
-        answer — do not retry.
-        """
+        cache: dict[str, _SampleMetrics],
+    ) -> _SampleMetrics:
         if task_name in cache:
             return cache[task_name]
-        cache[task_name] = None  # negative cache; overwritten if compute succeeds
-        if duration_s <= 0 or ctx.source_path is None:
-            return None
+        unavailable = _SampleMetrics(None, None, 0, None, "sample_logs_missing", None, "sample_logs_missing")
+        if ctx.source_path is None:
+            cache[task_name] = unavailable
+            return unavailable
         samples_file = _find_samples_file(ctx.source_path, task_name)
         if samples_file is None:
-            return None
-        tokenizer = self._get_tokenizer(ctx.model)
-        if tokenizer is None:
-            return None
+            cache[task_name] = unavailable
+            return unavailable
 
+        tokenizer = self._get_tokenizer(ctx.model) if duration_s is not None and duration_s > 0 else None
+        prompt_total = 0 if tokenizer is not None else None
+        output_counts: list[int] = []
+        methods: set[str] = set()
+        truncations: list[bool | None] = []
+        reasoning_counts: list[int] = []
+        reasoning_count_missing = False
+        sample_count = 0
+        output_count_missing = False
+        valid_max = (
+            max_gen_toks
+            if isinstance(max_gen_toks, int) and not isinstance(max_gen_toks, bool) and max_gen_toks > 0
+            else None
+        )
         try:
-            prompt_total, response_total, sample_count = _sum_tokens(samples_file, tokenizer)
+            with samples_file.open() as handle:
+                for line in handle:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        sample = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(sample, dict):
+                        continue
+                    sample_count += 1
+                    output_count = api_output_tokens(sample)
+                    if output_count is not None:
+                        methods.add("usage")
+                    else:
+                        if tokenizer is None:
+                            tokenizer = self._get_tokenizer(ctx.model)
+                        response = _extract_response(sample)
+                        if tokenizer is None:
+                            output_count_missing = True
+                        else:
+                            output_count = count_tokens(tokenizer, response)
+                            methods.add("hf_tokenizer")
+                    reasoning_count = api_reasoning_tokens(sample)
+                    if reasoning_count is None:
+                        reasoning_count_missing = True
+                    else:
+                        reasoning_counts.append(reasoning_count)
+                    if output_count is not None:
+                        output_counts.append(output_count)
+                    if tokenizer is not None and prompt_total is not None:
+                        prompt_total += count_tokens(tokenizer, _extract_prompt(sample))
+
+                    reason = finish_reason(sample)
+                    if reason in {"length", "max_tokens", "model_length"}:
+                        truncations.append(True)
+                    elif reason is not None:
+                        truncations.append(False)
+                    elif valid_max is not None and output_count is not None:
+                        truncations.append(output_count >= valid_max)
+                    else:
+                        truncations.append(None)
         except OSError as exc:
-            log.warning("could not read %s: %s — tok/s fields unset", samples_file, exc)
-            return None
+            log.warning("could not read %s: %s", samples_file, exc)
+            unavailable.output_unavailable_reason = "sample_log_unreadable"
+            unavailable.truncation_unavailable_reason = "sample_log_unreadable"
+            unavailable.reasoning_unavailable_reason = "sample_log_unreadable"
+            cache[task_name] = unavailable
+            return unavailable
         if sample_count == 0:
-            return None
+            unavailable.output_unavailable_reason = "sample_logs_empty"
+            unavailable.truncation_unavailable_reason = "sample_logs_empty"
+            unavailable.reasoning_unavailable_reason = "sample_logs_empty"
+            cache[task_name] = unavailable
+            return unavailable
 
-        throughput = {
-            "prompt_tokens_per_second": prompt_total / duration_s,
-            "decode_tokens_per_second": response_total / duration_s,
-            "total_tokens_per_second": (prompt_total + response_total) / duration_s,
-        }
-        cache[task_name] = throughput
-        return throughput
+        complete_counts = (
+            tuple(output_counts) if len(output_counts) == sample_count and not output_count_missing else None
+        )
+        if truncations and all(value is not None for value in truncations):
+            truncation_rate: float | None = sum(value is True for value in truncations) / len(truncations)
+            truncation_reason = None
+        else:
+            truncation_rate = None
+            truncation_reason = "max_gen_toks_and_finish_reason_missing"
+        reasoning_tokens_mean = (
+            sum(reasoning_counts) / sample_count
+            if len(reasoning_counts) == sample_count and not reasoning_count_missing
+            else None
+        )
+        result = _SampleMetrics(
+            prompt_total,
+            complete_counts,
+            sample_count,
+            next(iter(methods)) if len(methods) == 1 else "mixed" if methods else None,
+            None if complete_counts is not None else "sample_token_count_unavailable",
+            truncation_rate,
+            truncation_reason,
+            reasoning_tokens_mean,
+            None if reasoning_tokens_mean is not None else "reasoning_usage_missing",
+        )
+        cache[task_name] = result
+        return result
 
-    def _get_tokenizer(self, model: str) -> _TokenizerLike | None:
+    def _get_tokenizer(self, model: str) -> TokenizerLike | None:
         if model not in self._tokenizer_cache:
             self._tokenizer_cache[model] = self._tokenizer_loader(model)
         return self._tokenizer_cache[model]
@@ -225,39 +328,6 @@ def _find_samples_file(source_path: Path, task_name: str) -> Path | None:
         if candidate.is_file():
             return candidate
     return matches[-1]
-
-
-def _sum_tokens(samples_path: Path, tokenizer: _TokenizerLike) -> tuple[int, int, int]:
-    """Walk a samples JSONL, return (prompt_tokens, response_tokens, sample_count)."""
-    prompt_total = 0
-    response_total = 0
-    sample_count = 0
-    with samples_path.open() as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            try:
-                sample = json.loads(stripped)
-            except json.JSONDecodeError:
-                continue
-            prompt_total += _count(tokenizer, _extract_prompt(sample))
-            response_total += _count(tokenizer, _extract_response(sample))
-            sample_count += 1
-    return prompt_total, response_total, sample_count
-
-
-def _count(tokenizer: _TokenizerLike, text: str) -> int:
-    if not text:
-        return 0
-    encoded = tokenizer.encode(text)
-    ids = getattr(encoded, "ids", None)
-    if ids is not None:
-        return len(ids)
-    # ``transformers``-style tokenizers return a plain list of ints from encode().
-    if isinstance(encoded, list):
-        return len(encoded)
-    return 0
 
 
 def _extract_prompt(sample: dict[str, Any]) -> str:

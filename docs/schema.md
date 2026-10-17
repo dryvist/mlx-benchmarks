@@ -149,6 +149,13 @@ Parquet shard, `gpu` and `system_engine` are JSON-string columns (like
 | `total_tokens_per_second` | number | **Headline:** total tokens / time. |
 | `first_token_latency_ms` | number | First-token time for streaming runs. |
 | `peak_rss_mb` | number | Peak per-result RSS, when available. |
+| `output_tokens_mean` | number \| null | Mean output tokens per sample, including reasoning when reported. |
+| `output_tokens_median` | number \| null | Median output tokens per sample. |
+| `output_tokens_p90` | number \| null | Nearest-rank p90 output tokens per sample. |
+| `reasoning_tokens_mean` | number \| null | Mean reasoning tokens per sample when the harness reports them. |
+| `tokens_per_correct` | number \| null | Total output tokens divided by the estimated correct-item count for this score row. |
+| `truncation_rate` | number \| null | Fraction of samples that reached the configured output-token limit. |
+| `reasoning_arm` | string | Declared arm, or `unstated` when the run did not declare one. |
 | `tags` | object\[string\] | Free-form metadata; numeric values are strings. |
 | `raw` | any | Original untransformed tool output (optional archive). |
 
@@ -158,6 +165,17 @@ also publish `tokens_per_correct`. Use observed output-token usage per scored
 task; do not substitute the reserved output length. Compare the quality score
 with those token-cost metrics and matching tok/s. This uses the existing v1
 contract and does not require a schema-version change.
+
+Evaluation converters read sibling sample records when available. EvalScope and
+lm-eval read their sample logs; Inspect logs use
+`mlx-bench-publish <run>.eval --kind inspect-ai` and per-sample `model_usage`.
+Converters prefer API usage counts and fall back to the model tokenizer for
+saved response text when needed. The p90 uses the nearest-rank method;
+`tokens_per_correct` divides total output tokens by the rounded estimate from
+the score ratio times its sample count. Missing usage data is stored as `null` with an
+`output_tokens_unavailable_reason`, `reasoning_tokens_unavailable_reason`,
+`tokens_per_correct_unavailable_reason`, or `truncation_rate_unavailable_reason`
+tag.
 
 ### Derived throughput dimensions
 

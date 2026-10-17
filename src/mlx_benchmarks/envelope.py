@@ -89,6 +89,13 @@ class Result(TypedDict, total=False):
     total_tokens_per_second: float
     first_token_latency_ms: float
     peak_rss_mb: float
+    output_tokens_mean: float | None
+    output_tokens_median: float | None
+    output_tokens_p90: float | None
+    reasoning_tokens_mean: float | None
+    tokens_per_correct: float | None
+    truncation_rate: float | None
+    reasoning_arm: str
 
 
 class GenKwargs(TypedDict, total=False):
