@@ -54,6 +54,13 @@ def _revision(revision: object, label: str) -> str:
     return revision
 
 
+def _license_link(link: object, model_id: str, revision: str) -> object:
+    # Model cards may link a repo file ("LICENSE"); resolve it to the pinned Hub blob URL.
+    if isinstance(link, str) and link and "://" not in link:
+        return f"https://huggingface.co/{model_id}/blob/{revision}/{link.lstrip('./')}"
+    return link
+
+
 def _model_fields(api: HfApi, model_id: str, revision: str) -> dict[str, Any]:
     info = api.model_info(repo_id=model_id, revision=_revision(revision, "model_revision"))
     card = _mapping(_value(info, "card_data"))
@@ -84,7 +91,7 @@ def _model_fields(api: HfApi, model_id: str, revision: str) -> dict[str, Any]:
         "library_name": _value(info, "library_name"),
         "license": card.get("license"),
         "license_name": card.get("license_name"),
-        "license_link": card.get("license_link"),
+        "license_link": _license_link(card.get("license_link"), model_id, model_sha),
         "base_model": card.get("base_model"),
         "base_model_relation": card.get("base_model_relation"),
         "tags": list(_value(info, "tags", []) or []),
