@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.50.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.1...v0.50.2) (2026-10-17)
+
+
+### Documentation
+
+* describe Semaphore benchmark blocks ([e523e7f](https://github.com/dryvist/mlx-benchmarks/commit/e523e7f750e8ba3e5b1245c31130d2448bb528e9))
+* describe Semaphore benchmark blocks ([#390](https://github.com/dryvist/mlx-benchmarks/issues/390)) ([d103831](https://github.com/dryvist/mlx-benchmarks/commit/d103831ee3e836c154218eaaf2e653061abb005b))
+* document reusable benchmark blocks ([264b572](https://github.com/dryvist/mlx-benchmarks/commit/264b572089ec69e18c4c5736ec4e1adb630144a5))
+
 ## [0.50.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.0...v0.50.1) (2026-10-17)
 
 
