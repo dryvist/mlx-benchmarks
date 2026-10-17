@@ -64,25 +64,26 @@ thinking_kwarg = "enable_thinking"
 role = "retired"
 why = "Historical Qwen3 candidate; Qwen3.8-Flash-Next runs with the Qwen4 architecture through SSD-streamed MLX-OptiQ."
 
-[[candidate]]
-id = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"
-status = "OLD"
-released = "2025-07-22"
-superseded_by = "Qwen3.8-Flash-Next (Qwen4 architecture)"
-supersession_evidence = "The Qwen4-generation Qwen3.8-Flash-Next has a documented MLX-OptiQ run on M3 Max at 80.8 GB on disk: https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit"
-quant = "4-bit"
-weight_gb = 17.2
-catalogued = true
-arch = "qwen3_moe MoE, A3B, standard attention"
-architecture_generation = "Qwen3"
-open_weights = true
-weight_license = "apache-2.0"
-parameters = "30.5B total / 3.3B active"
-runnable_quant_sizes = ["MLX 4-bit: 17.2 GB (candidate artifact)"]
-facts_source = ["https://qwen.ai/blog?id=qwen3-coder", "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct", "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"]
-thinking_kwarg = "enable_thinking"
-role = "retired"
-why = "Historical Qwen3 coder candidate; the Qwen4-generation Qwen3.8-Flash-Next now runs through SSD-streamed MLX-OptiQ."
+# OLD — DONT BOTHER WITH THIS MODEL ANYMORE; SSOT: ansible-proxmox-ai llm-models.d/10-large.yml
+# [[candidate]]
+# id = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"
+# status = "OLD"
+# released = "2025-07-22"
+# superseded_by = "Qwen3.8-Flash-Next (Qwen4 architecture)"
+# supersession_evidence = "The Qwen4-generation Qwen3.8-Flash-Next has a documented MLX-OptiQ run on M3 Max at 80.8 GB on disk: https://huggingface.co/mlx-community/Qwen3.8-Flash-Next-OptiQ-2bit"
+# quant = "4-bit"
+# weight_gb = 17.2
+# catalogued = true
+# arch = "qwen3_moe MoE, A3B, standard attention"
+# architecture_generation = "Qwen3"
+# open_weights = true
+# weight_license = "apache-2.0"
+# parameters = "30.5B total / 3.3B active"
+# runnable_quant_sizes = ["MLX 4-bit: 17.2 GB (candidate artifact)"]
+# facts_source = ["https://qwen.ai/blog?id=qwen3-coder", "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct", "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"]
+# thinking_kwarg = "enable_thinking"
+# role = "retired"
+# why = "Historical Qwen3 coder candidate; the Qwen4-generation Qwen3.8-Flash-Next now runs through SSD-streamed MLX-OptiQ."
 
 [[candidate]]
 id = "mlx-community/MiniMax-M2-REAP-139B-A10B-mxfp4"

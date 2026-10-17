@@ -23,6 +23,7 @@ from mlx_benchmarks.converters import get_converter
 from mlx_benchmarks.converters.base import ConverterContext
 from mlx_benchmarks.envelope import CampaignDimensions, EnvelopeValidationError, Serving
 from mlx_benchmarks.publish import PublishError, current_git_sha, publish
+from mlx_benchmarks.published_results import DATASET_FIELDS
 from mlx_benchmarks.system import detect_system
 
 log = logging.getLogger("mlx_benchmarks.cli")
@@ -99,6 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="PATH",
         help="JSON metadata for the registered HF Benchmark task and required run variables",
+    )
+    parser.add_argument(
+        "--unregistered-benchmark",
+        action="store_true",
+        help="Null all benchmark dataset fields and mark them not_applicable",
     )
     parser.add_argument("--timestamp", help="Override envelope timestamp (ISO 8601 UTC, rarely needed)")
     parser.add_argument(
@@ -184,14 +190,33 @@ def main(argv: list[str] | None = None) -> int:
             log.error("%s is not published metadata: %s", args.published_metadata, exc)
             return 2
 
+    if campaign_dimensions is not None:
+        software = campaign_dimensions.get("software")
+        if isinstance(software, dict) and isinstance(software.get("engine"), str):
+            software["engine"] = _normalize_engine_name(software["engine"])
+    if published_metadata is not None and isinstance(published_metadata.get("engine"), str):
+        published_metadata["engine"] = _normalize_engine_name(published_metadata["engine"])
+
+    if args.unregistered_benchmark and published_metadata is not None:
+        published_metadata.update(dict.fromkeys(DATASET_FIELDS))
+        null_reasons = published_metadata.get("dimension_null_reasons")
+        if null_reasons is None:
+            null_reasons = {}
+        if isinstance(null_reasons, dict):
+            null_reasons.update(dict.fromkeys(DATASET_FIELDS, "not_applicable"))
+            published_metadata["dimension_null_reasons"] = null_reasons
+
     model = args.model or _extract_model(raw)
     git_sha = args.git_sha or current_git_sha()
     extra_tags = dict(_parse_kv_pairs(args.tag))
     system = detect_system()
+    system_engine = system.get("engine")
+    if isinstance(system_engine, dict) and isinstance(system_engine.get("name"), str):
+        system_engine["name"] = _normalize_engine_name(system_engine["name"])
 
     serving: Serving = {}
     if args.serving_stack is not None:
-        serving["stack"] = args.serving_stack
+        serving["stack"] = _normalize_engine_name(args.serving_stack)
     if args.serving_port is not None:
         serving["endpoint_port"] = args.serving_port
     if args.serving_model is not None:
@@ -335,6 +360,10 @@ def _parse_kv_pairs(raw_pairs: list[str]) -> Iterator[tuple[str, str]]:
         if not key:
             raise SystemExit(f"invalid --tag {pair!r}; empty key")
         yield key, value
+
+
+def _normalize_engine_name(value: str) -> str:
+    return {"vllm": "vLLM", "mlx": "MLX"}.get(value.casefold(), value)
 
 
 if __name__ == "__main__":  # pragma: no cover

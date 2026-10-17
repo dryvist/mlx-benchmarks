@@ -238,26 +238,22 @@ track's serving config. Full grid + pass gate: [`agentic.md`](agentic.md).
 
 ## Step 5 — Publish each shard
 
-The publisher validates against `schema.json` and uploads a content-addressed
-parquet shard. **Dry-run first.** The ambient `HF_TOKEN` is **read-only**;
-publishing needs the write token (`HF_WRITE_TOKEN`)
-([trap 9](benchmark-traps.md#trap-9-publish-token)):
+Validate with `schema.json`; dry-run first. Use `HF_WRITE_TOKEN`, not read-only
+`HF_TOKEN` ([trap 9](benchmark-traps.md#trap-9-publish-token)). vLLM reads
+`date`/`duration`; `vllm`/`mlx` map to `vLLM`/`MLX`. Null model/unregistered
+dataset fields use `not_applicable`.
 
 ```sh
-# Dry-run: validates + reads pinned Hub metadata, but never uploads
-.venv/bin/mlx-bench-publish run-output/<...>.json \
-  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> \
+.venv/bin/mlx-bench-publish run-output/<...>.json --kind vllm --suite throughput \
+  --campaign-dimensions run-output/<...>/campaign-dimensions.json \
   --published-metadata run-output/<...>/published-metadata.json --dry-run
-
-# Publish with the write token
-HF_TOKEN="$HF_WRITE_TOKEN" \
-  .venv/bin/mlx-bench-publish run-output/<...>.json \
-  --kind <lm-eval|agentic|throughput-probe|vllm> --suite <suite> \
-  --published-metadata run-output/<...>/published-metadata.json
+HF_TOKEN="$HF_WRITE_TOKEN" .venv/bin/mlx-bench-publish run-output/<...>.json --kind lm-eval --suite reasoning \
+  --campaign-dimensions run-output/<...>/campaign-dimensions.json \
+  --published-metadata run-output/<...>/published-metadata.json --unregistered-benchmark
 ```
 
-See the [published-result contract](published-results.md) before publishing.
-Retain every completed run; publish caveats with `--tag caveat=<reason>`.
+See the [published-result contract](published-results.md). Retain completed
+runs and publish caveats with `--tag caveat=<reason>`.
 
 ## Step 6 — Update RANKINGS.md
 

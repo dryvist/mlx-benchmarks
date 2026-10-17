@@ -65,7 +65,7 @@ other required field.
 
 The same JSON Schema drives the publisher, `mlx-bench-validate-results`, and
 the exported pre-commit hook. The repository's `Merge Gate` includes publisher
-validation, and the reusable workflow is available from `dryvist/.github` for
+validation, and the reusable workflow is available from `JacobPEvans/.github` for
 consumer repositories to add as a required status check.
 
 `mlx-bench-publish-backfill` is the one-time migration. It reads every

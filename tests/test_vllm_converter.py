@@ -53,6 +53,36 @@ def test_vllm_round_trip(vllm_sample: dict) -> None:
         assert tags.get("total_output_tokens") == "25600"
 
 
+def test_vllm_date_defaults_timestamp_and_campaign_run_times(vllm_bench_serve_nvidia_sample: dict) -> None:
+    ctx = ConverterContext(
+        suite="throughput",
+        model="example/model",
+        git_sha="deadbeef",
+        system=detect_system(),
+        campaign_dimensions={"run": {"parallel_slots": 4}},
+    )
+    converter = get_converter("vllm")
+
+    envelope = converter.build_envelope(vllm_bench_serve_nvidia_sample, ctx)
+    validate_envelope(envelope)
+
+    assert envelope["timestamp"] == "2026-10-04T12:00:00Z"
+    run = envelope["campaign_dimensions"]["run"]
+    assert run["started_at"] == "2026-10-04T12:00:00Z"
+    assert run["ended_at"] == "2026-10-04T12:00:41.300000Z"
+    assert run["parallel_slots"] == 4
+
+    override_ctx = ConverterContext(
+        suite="throughput",
+        model="example/model",
+        git_sha="deadbeef",
+        system=detect_system(),
+        timestamp_override="2026-10-04T13:00:00Z",
+    )
+    override_envelope = converter.build_envelope(vllm_bench_serve_nvidia_sample, override_ctx)
+    assert override_envelope["timestamp"] == "2026-10-04T13:00:00Z"
+
+
 def test_vllm_published_rows_include_the_live_enforced_power_limit(vllm_sample: dict, monkeypatch) -> None:
     fields = [value.strip() for value in POWER_LIMIT_FIXTURE.read_text(encoding="utf-8").strip().split(",")]
     monkeypatch.setenv("MLX_BENCH_GPU_MODEL", fields[0])

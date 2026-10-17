@@ -24,6 +24,7 @@ TARGET_INPUTS_DOC = REPO_ROOT / "docs" / "benchmark-campaign-target-inputs.md"
 EXPECTED = {
     "llama-cpp/throughput",
     "llama-cpp/vllm-fixed-length",
+    "strata/throughput",
     "llama-cpp/cross-card",
     "vllm/cross-card",
     "mlx/cross-card",
@@ -36,12 +37,17 @@ EXPECTED = {
     "lm-eval/coding",
     "lm-eval/reasoning",
     "evalscope/livecodebench",
+    "evalscope/mmlu-pro-reasoning-effort",
 }
-LONG_CONTEXT_RECIPES = EXPECTED - {"lm-eval/coding", "lm-eval/reasoning"}
-ENGINES = {"llama_cpp", "vllm", "mlx_lm", "mlx_vlm_native", "vllm_mlx"}
+LONG_CONTEXT_RECIPES = EXPECTED - {
+    "lm-eval/coding",
+    "lm-eval/reasoning",
+    "evalscope/mmlu-pro-reasoning-effort",
+}
+ENGINES = {"llama_cpp", "vllm", "mlx_lm", "mlx_vlm_native", "vllm_mlx", "strata"}
 AGENT_COUNTS = {1, 2, 4, 8}
 LONG_CONTEXT_TOKENS = 131072
-CONFIG_NAME = re.compile(r"^(llama-cpp|vllm|mlx|lm-eval|evalscope)/[a-z0-9-]+$")
+CONFIG_NAME = re.compile(r"^(llama-cpp|strata|vllm|mlx|lm-eval|evalscope)/[a-z0-9-]+$")
 # The only tokens the consumer's argv template substitutes.
 PLACEHOLDERS = {
     "artifact_path",
@@ -104,8 +110,11 @@ def test_recipe_declares_the_agent_and_long_context_axes(name: str) -> None:
             for value in values
         )
         assert len(set(values)) == len(values)
-    assert set(recipe["concurrency_list"]) >= AGENT_COUNTS
-    if name in LONG_CONTEXT_RECIPES:
+    if name != "evalscope/mmlu-pro-reasoning-effort":
+        assert set(recipe["concurrency_list"]) >= AGENT_COUNTS
+    if name == "strata/throughput":
+        assert set(recipe["context_list"]) == {25, 1024, 4096}
+    elif name in LONG_CONTEXT_RECIPES:
         assert max(value for value in recipe["context_list"] if isinstance(value, int)) >= LONG_CONTEXT_TOKENS
 
 
@@ -148,7 +157,7 @@ def test_axis_placeholders_are_declared_dimensions(name: str, run: dict[str, Any
     """A placeholder whose axis is not a dimension would render the unselected value."""
     argv = "\n".join(run["argv"])
     if "{{ context }}" in argv:
-        assert "context_list" in run["dimensions"]
+        assert "context_list" in run["dimensions"] or run.get("prompt_tokens", 0) > 0
     if "{{ concurrency }}" in argv:
         assert "concurrency_list" in run["dimensions"]
 
@@ -216,6 +225,32 @@ def test_livecodebench_runs_through_evalscope_in_the_sandbox() -> None:
     assert _argument_after(run, "--eval-batch-size") == "{{ concurrency }}"
 
 
+def test_mmlu_pro_reasoning_effort_recipe_runs_fixed_seeded_generative_arms() -> None:
+    recipe = RECIPES["evalscope/mmlu-pro-reasoning-effort"]
+    assert recipe["engines"] == ["llama_cpp"]
+    assert recipe["context_list"] == [32768]
+    assert recipe["concurrency_list"] == [1]
+    assert {run["name"] for run in recipe["run"]} == {
+        "mmlu-pro-off",
+        "mmlu-pro-low",
+        "mmlu-pro-xhigh",
+    }
+    for run in recipe["run"]:
+        assert run["executable"] == "evalscope"
+        assert run["output_tokens"] == 16384
+        assert run["repetitions"] == 1
+        assert "--collect-perf" in run["argv"]
+        assert _argument_after(run, "--datasets") == "mmlu_pro"
+        assert _argument_after(run, "--seed") == "1"
+        assert _argument_after(run, "--limit") == "4"
+        assert _argument_after(run, "--eval-batch-size") == "1"
+        assert "--judge" not in run["argv"]
+    by_name = {run["name"]: _argument_after(run, "--generation-config") for run in recipe["run"]}
+    assert '"enable_thinking": false' in by_name["mmlu-pro-off"]
+    assert '"reasoning_effort": "low"' in by_name["mmlu-pro-low"]
+    assert '"reasoning_effort": "xhigh"' in by_name["mmlu-pro-xhigh"]
+
+
 def test_llama_cpp_throughput_recipe_matches_the_headline_cell_shape() -> None:
     (run,) = RECIPES["llama-cpp/throughput"]["run"]
     assert run["output_tokens"] == 512
@@ -239,6 +274,23 @@ def test_llama_cpp_fixed_length_recipe_uses_the_native_vllm_chat_client() -> Non
         assert _argument_after(run, "--backend") == "openai-chat"
         assert "--ignore-eos" in run["argv"]
         assert run["converter"]["kind"] == "vllm"
+
+
+def test_strata_throughput_recipe_matches_the_batch_campaign_shape() -> None:
+    recipe = RECIPES["strata/throughput"]
+    assert set(recipe["concurrency_list"]) == {1, 2, 4, 6, 8}
+    assert recipe["context_list"] == [25, 1024, 4096]
+    assert [(run["prompt_tokens"], run["output_tokens"]) for run in recipe["run"]] == [
+        (25, 512),
+        (1024, 2048),
+        (4096, 1024),
+    ]
+    for run in recipe["run"]:
+        assert run["dimensions"] == ["concurrency_list"]
+        assert _argument_after(run, "--base-url") == "{{ benchmark_endpoint }}"
+        assert _argument_after(run, "--target-prompt-tokens") == "{{ context }}"
+        assert _argument_after(run, "--max-tokens") == "{{ output_tokens }}"
+        assert run["converter"]["kind"] == "throughput-probe"
 
 
 @pytest.mark.parametrize("name", sorted(RECIPES))

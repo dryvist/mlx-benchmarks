@@ -176,7 +176,7 @@ def mock_hf_registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         )
 
     def dataset_info(self: Any, repo_id: str, revision: str | None = None, **kwargs: Any) -> Any:
-        return SimpleNamespace(sha=revision, tags=["benchmark"])
+        return SimpleNamespace(sha=revision, tags=["benchmark:official", "benchmark:eval-yaml"])
 
     monkeypatch.setattr("huggingface_hub.HfApi.model_info", model_info)
     monkeypatch.setattr("huggingface_hub.HfApi.dataset_info", dataset_info)

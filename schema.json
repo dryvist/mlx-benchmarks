@@ -381,6 +381,23 @@
               "description": "Inference engine name.",
               "enum": ["llama.cpp", "vLLM", "MLX", "SGLang", "Strata", null]
             },
+            "engine_build": {
+              "type": ["string", "null"],
+              "description": "Engine build identifier, such as a tagged build or source commit SHA."
+            },
+            "engine_is_latest_stable": {
+              "type": ["boolean", "null"],
+              "description": "Whether this row used the latest stable engine release published by the run timestamp."
+            },
+            "engine_latest_stable_at_run": {
+              "type": ["string", "null"],
+              "description": "Latest stable upstream engine release published at the benchmark run timestamp."
+            },
+            "engine_release_date": {
+              "type": ["string", "null"],
+              "format": "date",
+              "description": "Upstream release date for the engine version recorded on this row."
+            },
             "engine_version": {
               "type": ["string", "null"],
               "description": "Inference engine version."

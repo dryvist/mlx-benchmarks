@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import Any
+from typing import Any, cast
 
 from mlx_benchmarks.converters.base import (
     ConverterContext,
     apply_optional_fields,
     require_gpu_power_limit,
 )
-from mlx_benchmarks.envelope import Envelope, Result, System
+from mlx_benchmarks.envelope import CampaignDimensions, Envelope, Result, System
 
 log = logging.getLogger(__name__)
 
@@ -42,8 +42,11 @@ class VllmConverter:
     kind = "vllm"
 
     def build_envelope(self, raw: dict[str, Any], ctx: ConverterContext) -> Envelope:
-        timestamp = ctx.timestamp_override or datetime.datetime.now(datetime.UTC).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
+        started_at = _bench_serve_started_at(raw)
+        timestamp = ctx.timestamp_override or (
+            started_at.isoformat().replace("+00:00", "Z")
+            if started_at is not None
+            else datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         )
         system: System = ctx.system or {}  # type: ignore[assignment]
         require_gpu_power_limit(system)
@@ -60,7 +63,22 @@ class VllmConverter:
             "errors": [],
         }
 
-        return apply_optional_fields(envelope, ctx)
+        apply_optional_fields(envelope, ctx)
+        duration = raw.get("duration")
+        if started_at is not None and isinstance(duration, int | float) and not isinstance(duration, bool):
+            dimensions = cast("CampaignDimensions", dict(envelope.get("campaign_dimensions") or {}))
+            run_dimensions = dimensions.get("run")
+            if run_dimensions is None:
+                run_dimensions = {}
+            if isinstance(run_dimensions, dict):
+                run_dimensions = dict(run_dimensions)
+                run_dimensions.setdefault("started_at", started_at.isoformat().replace("+00:00", "Z"))
+                ended_at = started_at + datetime.timedelta(seconds=float(duration))
+                run_dimensions.setdefault("ended_at", ended_at.isoformat().replace("+00:00", "Z"))
+                dimensions["run"] = run_dimensions
+                envelope["campaign_dimensions"] = dimensions
+
+        return envelope
 
     def _iter_results(self, raw: dict[str, Any], ctx: ConverterContext) -> list[Result]:
         results: list[Result] = []
@@ -97,3 +115,14 @@ class VllmConverter:
             log.warning("vllm sample produced no results; raw keys: %s", list(raw))
 
         return results
+
+
+def _bench_serve_started_at(raw: dict[str, Any]) -> datetime.datetime | None:
+    raw_date = raw.get("date")
+    if not isinstance(raw_date, str):
+        return None
+    try:
+        return datetime.datetime.strptime(raw_date, "%Y%m%d-%H%M%S").replace(tzinfo=datetime.UTC)
+    except ValueError:
+        log.warning("ignoring non-vLLM bench serve raw['date']=%r", raw_date)
+        return None

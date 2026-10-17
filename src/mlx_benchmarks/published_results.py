@@ -21,6 +21,14 @@ from mlx_benchmarks.result_contract import (
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _CONTEXT_FIELDS = ("max_position_embeddings", "max_seq_len", "max_sequence_length", "n_ctx")
+DATASET_FIELDS = (
+    "dataset_id",
+    "dataset_task_id",
+    "dataset_revision",
+    "evaluation_framework",
+    "config",
+    "split",
+)
 
 
 def _value(source: Any, key: str, default: Any = None) -> Any:
@@ -44,6 +52,13 @@ def _revision(revision: object, label: str) -> str:
     if not isinstance(revision, str) or not _SHA_RE.fullmatch(revision):
         raise ValueError(f"{label} must be the recorded 40-character Hub commit SHA")
     return revision
+
+
+def _license_link(link: object, model_id: str, revision: str) -> object:
+    # Model cards may link a repo file ("LICENSE"); resolve it to the pinned Hub blob URL.
+    if isinstance(link, str) and link and "://" not in link:
+        return f"https://huggingface.co/{model_id}/blob/{revision}/{link.lstrip('./')}"
+    return link
 
 
 def _model_fields(api: HfApi, model_id: str, revision: str) -> dict[str, Any]:
@@ -76,7 +91,7 @@ def _model_fields(api: HfApi, model_id: str, revision: str) -> dict[str, Any]:
         "library_name": _value(info, "library_name"),
         "license": card.get("license"),
         "license_name": card.get("license_name"),
-        "license_link": card.get("license_link"),
+        "license_link": _license_link(card.get("license_link"), model_id, model_sha),
         "base_model": card.get("base_model"),
         "base_model_relation": card.get("base_model_relation"),
         "tags": list(_value(info, "tags", []) or []),
@@ -106,7 +121,8 @@ def _registered_task(api: HfApi, metadata: dict[str, Any]) -> dict[str, Any]:
             f"Hub API returned a different dataset SHA than the recorded revision for {dataset_id}"
         )
     tags = set(_value(info, "tags", []) or [])
-    if "benchmark" not in tags:
+    # The Hub tags HF Benchmarks as benchmark:official / benchmark:eval-yaml.
+    if not any(tag == "benchmark" or str(tag).startswith("benchmark:") for tag in tags):
         raise ValueError(f"{dataset_id} at the requested revision is not tagged as an HF Benchmark")
 
     files = api.list_repo_files(repo_id=dataset_id, repo_type="dataset", revision=dataset_revision)
@@ -145,19 +161,11 @@ def _registered_task(api: HfApi, metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def _dataset_result(metadata: dict[str, Any], api: HfApi) -> dict[str, Any]:
-    dataset_fields = (
-        "dataset_id",
-        "dataset_task_id",
-        "dataset_revision",
-        "evaluation_framework",
-        "config",
-        "split",
-    )
-    if all(metadata.get(field) is None for field in dataset_fields):
+    if all(metadata.get(field) is None for field in DATASET_FIELDS):
         reasons = metadata.get("dimension_null_reasons") or {}
-        if not all(reasons.get(field) == "not_applicable" for field in dataset_fields):
+        if not all(reasons.get(field) == "not_applicable" for field in DATASET_FIELDS):
             raise ValueError("dataset fields may all be null only when each has a not_applicable reason")
-        return dict.fromkeys(dataset_fields)
+        return dict.fromkeys(DATASET_FIELDS)
     return _registered_task(api, metadata)
 
 
@@ -193,12 +201,12 @@ def build_published_results(
 
     timestamps = envelope.get("timestamp")
     base_reasons = dict(metadata.get("dimension_null_reasons") or {})
-    if model["base_model"] is None and model["base_model_relation"] is None:
-        base_reasons.setdefault("base_model", "not_applicable")
-        base_reasons.setdefault("base_model_relation", "not_applicable")
     if model["license"] != "other":
         model["license_name"] = None
         model["license_link"] = None
+    for field, value in model.items():
+        if value is None:
+            base_reasons[field] = "not_applicable"
     hardware = metadata.get("hardware")
     if contains_private_identifier_keys(hardware):
         raise ValueError("hardware metadata must not include host or network identifiers")

@@ -1,5 +1,86 @@
 # Changelog
 
+## [0.46.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.46.0...v0.46.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* resolve relative model card license links ([#360](https://github.com/dryvist/mlx-benchmarks/issues/360)) ([4e1f2b6](https://github.com/dryvist/mlx-benchmarks/commit/4e1f2b6160ed206de1a989ac2ea02d5f092fc050))
+
+## [0.46.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.45.0...v0.46.0) (2026-10-17)
+
+
+### Features
+
+* support unregistered benchmark publishing ([#342](https://github.com/dryvist/mlx-benchmarks/issues/342)) ([4077ee5](https://github.com/dryvist/mlx-benchmarks/commit/4077ee5bdf14acec176dee685385debe5f208629))
+
+## [0.45.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.2...v0.45.0) (2026-10-17)
+
+
+### Features
+
+* add Strata throughput campaign recipe ([#323](https://github.com/dryvist/mlx-benchmarks/issues/323)) ([6f5fec7](https://github.com/dryvist/mlx-benchmarks/commit/6f5fec7696d6c4eba21d1b8cb0990635a5eb9b73))
+
+## [0.44.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.1...v0.44.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* normalize vllm and mlx engine names ([#341](https://github.com/dryvist/mlx-benchmarks/issues/341)) ([5b50788](https://github.com/dryvist/mlx-benchmarks/commit/5b50788171cf0df672c3286c2ad2e8f7dd127376))
+
+## [0.44.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.0...v0.44.1) (2026-10-17)
+
+
+### Refactoring
+
+* **ci:** call the central workflow homes at v1 ([#348](https://github.com/dryvist/mlx-benchmarks/issues/348)) ([bf979c1](https://github.com/dryvist/mlx-benchmarks/commit/bf979c18d0df85a7ab1e69ea5dee364729abcf3f))
+
+## [0.44.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.43.0...v0.44.0) (2026-10-17)
+
+
+### Features
+
+* **publish:** record engine release metadata ([#346](https://github.com/dryvist/mlx-benchmarks/issues/346)) ([3f361da](https://github.com/dryvist/mlx-benchmarks/commit/3f361daf9e90920c4ddb007d619db453ef2b1000))
+
+## [0.43.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.42.0...v0.43.0) (2026-10-17)
+
+
+### Features
+
+* add EvalScope MMLU-Pro reasoning effort recipe ([a939fb8](https://github.com/dryvist/mlx-benchmarks/commit/a939fb8a4056ce3a69112811e6ac67461eaebfb2))
+* **eval:** EvalScope MMLU-Pro reasoning effort recipe ([#344](https://github.com/dryvist/mlx-benchmarks/issues/344)) ([2199c87](https://github.com/dryvist/mlx-benchmarks/commit/2199c872aaf8154e1ad873ce7e7f6a2389da053b))
+
+## [0.42.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.41.1...v0.42.0) (2026-10-17)
+
+
+### Features
+
+* add AA-LCR EvalScope runbook ([#335](https://github.com/dryvist/mlx-benchmarks/issues/335)) ([5d5a9aa](https://github.com/dryvist/mlx-benchmarks/commit/5d5a9aa846b70221ee589ef33421db3b13a22143))
+* add EvalScope HLE score publishing ([#333](https://github.com/dryvist/mlx-benchmarks/issues/333)) ([383bbfd](https://github.com/dryvist/mlx-benchmarks/commit/383bbfdc64f75ade5d918ba2a751bac65b114349))
+* derive vLLM run timing from bench serve date ([5849ef3](https://github.com/dryvist/mlx-benchmarks/commit/5849ef31188204e1601cac6ae94bdd740c176279))
+* derive vLLM timestamps from raw date ([#340](https://github.com/dryvist/mlx-benchmarks/issues/340)) ([8266ff2](https://github.com/dryvist/mlx-benchmarks/commit/8266ff28cd4f1269469732a871225ca4ccf7eb81))
+
+
+### Bug Fixes
+
+* annotate optional model metadata ([#339](https://github.com/dryvist/mlx-benchmarks/issues/339)) ([7aeccae](https://github.com/dryvist/mlx-benchmarks/commit/7aeccae040727cd6d7e9b171ea3f2c82536a8e78))
+* mark null model card fields not applicable ([8e00c13](https://github.com/dryvist/mlx-benchmarks/commit/8e00c13ea05b59f6f8e8a0674bd58c2dd16a7a65))
+
+## [0.41.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.41.0...v0.41.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **publish:** accept the Hub benchmark:* dataset tags ([#337](https://github.com/dryvist/mlx-benchmarks/issues/337)) ([8e4f778](https://github.com/dryvist/mlx-benchmarks/commit/8e4f778a6cfb380cd6a35665062225808261508a))
+* **publish:** accept the Hub's benchmark:* dataset tags ([8e4f778](https://github.com/dryvist/mlx-benchmarks/commit/8e4f778a6cfb380cd6a35665062225808261508a))
+
+## [0.41.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.40.0...v0.41.0) (2026-10-16)
+
+
+### Features
+
+* **lm-eval:** use MMLU-Pro for quick intelligence runs ([#332](https://github.com/dryvist/mlx-benchmarks/issues/332)) ([c896d98](https://github.com/dryvist/mlx-benchmarks/commit/c896d980ecf92a04997a07022ebea89f49a31849))
+
 ## [0.40.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.39.0...v0.40.0) (2026-10-16)
 
 

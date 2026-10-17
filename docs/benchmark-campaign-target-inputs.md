@@ -39,6 +39,8 @@ target's inventory facts so the envelope describes the benchmark target.
   prompt length and concurrency.
 - `llama-cpp/vllm-fixed-length` (`llama_cpp`): fixed-output OpenAI chat cells
   against llama.cpp using `vllm bench serve --ignore-eos`.
+- `strata/throughput` (`strata`): OpenAI-compatible serving throughput by
+  prompt length and concurrency.
 - `llama-cpp/cross-card` (`llama_cpp`): llama.cpp native diagnostics and serving
   throughput.
 - `vllm/cross-card` (`vllm`): `vllm bench serve` throughput at two output sizes.
@@ -60,14 +62,22 @@ target's inventory facts so the envelope describes the benchmark target.
 - `lm-eval/reasoning` (`llama_cpp`, `vllm`, `mlx_lm`): GSM8K reasoning.
 - `evalscope/livecodebench` (`llama_cpp`, `vllm`): LiveCodeBench v6 through
   EvalScope's Docker sandbox.
+- `evalscope/mmlu-pro-reasoning-effort` (`llama_cpp`): seeded MMLU-Pro generative
+  samples with OFF, LOW, and XHIGH reasoning arms at concurrency one.
 
-Recipes declare concurrency values 1, 2, 4, and 8. MLX serving recipes include
-a 262016-token prompt with 128 output tokens to reach a 262144-token window.
-The RULER recipe sweeps 64k, 128k, 256k, and the selected model-card maximum;
-other context ranges are listed in each recipe. The target, model class
-(`small`, `medium`, or `large`), and engine are survey values resolved against the
+Recipes declare concurrency and context axes in TOML. Most recipes use concurrency
+values 1, 2, 4, and 8; Strata also tests 6. MLX serving recipes include a
+262016-token prompt with 128 output tokens to reach a 262144-token window. The
+RULER recipe sweeps 64k, 128k, 256k, and the selected model-card maximum; other
+context ranges are listed in each recipe. The target, model class (`small`,
+`medium`, or `large`), and the engine are survey values resolved against the
 inventory and the model registry, so one recipe covers every class on every target
 that serves one of its engines.
+
+For Strata, each row fixes a prompt/output pair: 25/512, 1024/2048, or 4096/1024
+tokens. The recipe sweeps concurrency at 1, 2, 4, 6, and 8. Configure batch slots
+to 1, 4, or 8 on the target before dispatching each campaign; the recipe does not
+change the running engine configuration between cells.
 
 Short intelligence screens use two repetitions to check score stability. Choose
 the remaining suites for measurable headroom at current scores, and weigh their
