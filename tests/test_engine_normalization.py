@@ -31,24 +31,27 @@ def test_cli_normalizes_engine_aliases(
         "detect_system",
         lambda: {"os": "test", "chip": "test", "memory_gb": 1, "engine": {"name": "mlx"}},
     )
-    assert cli.main(
-        [
-            str(raw_path),
-            "--kind",
-            "vllm",
-            "--suite",
-            "throughput",
-            "--model",
-            "example/model",
-            "--serving-stack",
-            "vllm",
-            "--campaign-dimensions",
-            str(dimensions_path),
-            "--published-metadata",
-            str(metadata_path),
-            "--dry-run",
-        ]
-    ) == 0
+    assert (
+        cli.main(
+            [
+                str(raw_path),
+                "--kind",
+                "vllm",
+                "--suite",
+                "throughput",
+                "--model",
+                "example/model",
+                "--serving-stack",
+                "vllm",
+                "--campaign-dimensions",
+                str(dimensions_path),
+                "--published-metadata",
+                str(metadata_path),
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
 
     envelope = captured["envelope"]
     assert envelope["campaign_dimensions"]["software"]["engine"] == "vLLM"
