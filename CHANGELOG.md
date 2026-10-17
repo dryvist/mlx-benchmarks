@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.48.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.47.0...v0.48.0) (2026-10-17)
+
+
+### Features
+
+* derive throughput metrics from vLLM timings ([#366](https://github.com/dryvist/mlx-benchmarks/issues/366)) ([12a1278](https://github.com/dryvist/mlx-benchmarks/commit/12a1278748f11fcbea93668e543b26a2f732acbb))
+
+
+### Documentation
+
+* **benchmarks:** add shared benchmark standards ([#367](https://github.com/dryvist/mlx-benchmarks/issues/367)) ([d35e857](https://github.com/dryvist/mlx-benchmarks/commit/d35e857d5b3c9e8efb3bd9cdd9ef08307d460b85))
+
 ## [0.47.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.46.1...v0.47.0) (2026-10-17)
 
 
