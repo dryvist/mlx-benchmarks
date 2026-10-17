@@ -265,8 +265,9 @@ Bump **Maturity** only for a validated pair ≥5 days out; keep the verdict
 
 ## See also
 
-- [`verdict-policy.md`](verdict-policy.md) — when a model may be called best/worst.
-- [`benchmark-traps.md`](benchmark-traps.md) — traps, parser map, serving flags.
+- [Standards](benchmark-standards.md).
+- [Verdict policy](verdict-policy.md) — compare models and set verdicts.
+- [Traps](benchmark-traps.md) — parser map and serving flags.
 - [`agentic.md`](agentic.md) · [`promptstack.md`](promptstack.md) ·
   [`model-notes.md`](model-notes.md) — suite depth, per-class quirks.
 - [`../configs/LAYOUT.md`](../configs/LAYOUT.md) · [`../RANKINGS.md`](../RANKINGS.md)
