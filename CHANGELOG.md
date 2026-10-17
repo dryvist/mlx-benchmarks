@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.48.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.48.0...v0.48.1) (2026-10-17)
+
+
+### Documentation
+
+* sync benchmark standards and findings ([#370](https://github.com/dryvist/mlx-benchmarks/issues/370)) ([d2834b5](https://github.com/dryvist/mlx-benchmarks/commit/d2834b5ae4c567c3998496e8ad20cdd2996cfc3d))
+* update benchmark standards and findings ([d2834b5](https://github.com/dryvist/mlx-benchmarks/commit/d2834b5ae4c567c3998496e8ad20cdd2996cfc3d))
+
 ## [0.48.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.47.0...v0.48.0) (2026-10-17)
 
 
