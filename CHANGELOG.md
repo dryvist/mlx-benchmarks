@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.48.1...v0.49.0) (2026-10-17)
+
+
+### Features
+
+* publish per-task token metrics ([#374](https://github.com/dryvist/mlx-benchmarks/issues/374)) ([e526b92](https://github.com/dryvist/mlx-benchmarks/commit/e526b92b83d012a6ecc158df1ba7fab3cae39b82))
+
 ## [0.48.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.48.0...v0.48.1) (2026-10-17)
 
 
