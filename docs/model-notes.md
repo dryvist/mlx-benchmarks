@@ -183,3 +183,20 @@ Sources: [vllm-mlx releases](https://github.com/waybarrios/vllm-mlx/releases),
 [Rapid-MLX](https://github.com/raullenchai/Rapid-MLX). vllm-mlx 0.4.0 also
 adds `MLX_BUFFER_CACHE_LIMIT` (configurable Metal buffer cache) and a
 multi-slot system-KV cache with hit-ratio counters.
+
+## Offloading to RAM and NVMe
+
+Offloading can extend usable model capacity on small-VRAM GPUs. A runtime can
+keep active MoE experts in a GPU cache while storing the wider expert set in
+system RAM. For PLE or embedding tables, llama.cpp supports CPU tensor
+overrides and lazy mmap-backed row reads; Strata accepts a separate PLE GGUF
+and can read it directly from SSD or through mmap. The `--moe-cache-mib`,
+`--override-tensor`, and `--lazy-mode` options are documented in the
+[llama.cpp server options](https://github.com/ggml-org/llama.cpp/blob/v0.7.0/tools/server/README.md);
+Strata documents its [PLE input and I/O options](https://github.com/Niko1221/Strata/issues/112).
+
+These placements can clearly help a model run on a smaller GPU, but their
+speed depends on cache hits, page faults, storage latency, and headroom for
+runtime buffers and the KV cache. In one measured configuration, a 51.2 GB
+PLE table competing for a 48 GiB RAM budget stalled inference. A mapped file
+does not make storage latency equivalent to RAM.
