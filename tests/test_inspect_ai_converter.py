@@ -127,3 +127,26 @@ def test_inspect_cli_reads_eval_header_and_sample_usage(tmp_path: Path, monkeypa
         == 0
     )
     assert published["model"] == "test-model"
+
+
+def test_inspect_reader_uses_inspect_library_for_unsupported_compression(tmp_path: Path, monkeypatch) -> None:
+    from mlx_benchmarks.converters import inspect_ai
+
+    class UnsupportedArchive:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def read(self, _name: str) -> bytes:
+            raise NotImplementedError("unsupported ZIP compression")
+
+    header = _header()
+    monkeypatch.setattr(inspect_ai, "ZipFile", UnsupportedArchive)
+    monkeypatch.setattr(inspect_ai, "_read_eval_with_inspect", lambda _path: header)
+
+    assert read_inspect_header(tmp_path / "compressed.eval") == header

@@ -106,10 +106,12 @@ class _SampleMetrics:
 
 
 def read_inspect_header(path: Path) -> dict[str, Any]:
-    """Read the header member of a local Inspect ``.eval`` zip log."""
+    """Read an Inspect evaluation archive, using Inspect for unsupported ZIP compression."""
     try:
         with ZipFile(path) as archive:
             header = json.loads(archive.read("header.json"))
+    except NotImplementedError:
+        header = _read_eval_with_inspect(path)
     except (OSError, BadZipFile, KeyError, json.JSONDecodeError) as exc:
         raise ValueError("invalid Inspect .eval log or missing header.json") from exc
     if not isinstance(header, dict):
@@ -117,37 +119,50 @@ def read_inspect_header(path: Path) -> dict[str, Any]:
     return header
 
 
+def _read_eval_with_inspect(path: Path) -> dict[str, Any]:
+    try:
+        from inspect_ai.log import read_eval_log
+    except ImportError as exc:
+        raise ValueError("install the 'inspect' extra to read this Inspect archive") from exc
+    return read_eval_log(str(path)).model_dump(mode="json")
+
+
 def _read_sample_metrics(path: Path | None, header: Mapping[str, Any]) -> _SampleMetrics:
     metrics = _SampleMetrics()
-    if path is None:
-        return metrics
     try:
-        with ZipFile(path) as archive:
-            sample_names = sorted(
-                name for name in archive.namelist() if name.startswith("samples/") and name.endswith(".json")
-            )
-            if not sample_names:
+        samples = header.get("samples")
+        if not isinstance(samples, list):
+            if path is None:
                 return metrics
-            output_counts: list[int] = []
-            reasoning_counts: list[int] = []
-            truncations: list[bool | None] = []
-            output_missing = False
-            reasoning_missing = False
-            max_tokens = _max_tokens(header)
-            for name in sample_names:
-                sample = json.loads(archive.read(name))
-                if not isinstance(sample, Mapping):
-                    raise ValueError("sample entry must be a JSON object")
-                output_count, reasoning_count = _model_usage_counts(sample)
-                if output_count is None:
-                    output_missing = True
-                else:
-                    output_counts.append(output_count)
-                if reasoning_count is None:
-                    reasoning_missing = True
-                else:
-                    reasoning_counts.append(reasoning_count)
-                truncations.append(_truncated(sample, output_count, max_tokens))
+            with ZipFile(path) as archive:
+                sample_names = sorted(
+                    name
+                    for name in archive.namelist()
+                    if name.startswith("samples/") and name.endswith(".json")
+                )
+                samples = [json.loads(archive.read(name)) for name in sample_names]
+        if not samples:
+            return metrics
+
+        output_counts: list[int] = []
+        reasoning_counts: list[int] = []
+        truncations: list[bool | None] = []
+        output_missing = False
+        reasoning_missing = False
+        max_tokens = _max_tokens(header)
+        for sample in samples:
+            if not isinstance(sample, Mapping):
+                raise ValueError("sample entry must be an object")
+            output_count, reasoning_count = _model_usage_counts(sample)
+            if output_count is None:
+                output_missing = True
+            else:
+                output_counts.append(output_count)
+            if reasoning_count is None:
+                reasoning_missing = True
+            else:
+                reasoning_counts.append(reasoning_count)
+            truncations.append(_truncated(sample, output_count, max_tokens))
     except (OSError, BadZipFile, KeyError, json.JSONDecodeError, ValueError) as exc:
         log.warning("could not read Inspect sample usage: %s", exc)
         metrics.output_reason = "sample_log_unreadable"
@@ -155,7 +170,7 @@ def _read_sample_metrics(path: Path | None, header: Mapping[str, Any]) -> _Sampl
         metrics.truncation_reason = "sample_log_unreadable"
         return metrics
 
-    metrics.sample_count = len(sample_names)
+    metrics.sample_count = len(samples)
     if not output_missing and len(output_counts) == metrics.sample_count:
         metrics.output_counts = output_counts
         metrics.output_reason = ""
