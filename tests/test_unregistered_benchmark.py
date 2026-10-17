@@ -28,19 +28,22 @@ def test_cli_unregistered_flag_nulls_dataset_fields(
         return "planned.parquet"
 
     monkeypatch.setattr(cli, "publish", capture_publish)
-    assert cli.main(
-        [
-            str(results_path),
-            "--kind",
-            "lm-eval",
-            "--suite",
-            "reasoning",
-            "--published-metadata",
-            str(metadata_path),
-            "--unregistered-benchmark",
-            "--dry-run",
-        ]
-    ) == 0
+    assert (
+        cli.main(
+            [
+                str(results_path),
+                "--kind",
+                "lm-eval",
+                "--suite",
+                "reasoning",
+                "--published-metadata",
+                str(metadata_path),
+                "--unregistered-benchmark",
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
 
     metadata = captured["metadata"]
     assert all(metadata[field] is None for field in DATASET_FIELDS)
@@ -54,9 +57,7 @@ def test_registered_dataset_still_requires_hf_benchmark_tags(
     mock_hf_registry: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def unregistered_dataset_info(
-        self: Any, repo_id: str, revision: str | None = None, **kwargs: Any
-    ) -> Any:
+    def unregistered_dataset_info(self: Any, repo_id: str, revision: str | None = None, **kwargs: Any) -> Any:
         return SimpleNamespace(sha=revision, tags=[])
 
     monkeypatch.setattr(HfApi, "dataset_info", unregistered_dataset_info)
