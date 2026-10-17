@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "dataset_name": "scicode",
+  "model_name": "example-model",
+  "metrics": [
+    {
+      "identity": {"key": "main_problem_pass_rate"},
+      "num": 4,
+      "score": 0.25
+    },
+    {
+      "identity": {"key": "subproblem_pass_rate"},
+      "num": 24,
+      "score": 0.3333
+    }
+  ]
+}

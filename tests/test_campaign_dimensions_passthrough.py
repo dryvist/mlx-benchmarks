@@ -75,6 +75,7 @@ RAW_BY_KIND: dict[str, tuple[str, Callable[[pytest.FixtureRequest], Any]]] = {
     ),
     "bench-serve": ("throughput", lambda _: _bench_serve()),
     "coding-replay": ("coding", lambda r: r.getfixturevalue("coding_replay_sample")),
+    "evalscope": ("coding", lambda r: r.getfixturevalue("evalscope_sample")),
     "factual": ("grounded-summary", lambda r: r.getfixturevalue("factual_sample")),
     "fio": ("fio", lambda r: r.getfixturevalue("fio_sample")),
     "gpu-burn": ("gpu-burn", lambda r: r.getfixturevalue("gpu_burn_sample")),
