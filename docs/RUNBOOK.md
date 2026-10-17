@@ -1,15 +1,12 @@
 # RUNBOOK — benchmark any model on any host
 
-The end-to-end procedure for benchmarking **any** model on **either** Apple
-Silicon host, publishing to the
-[HF dataset](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks) and
-updating [`../RANKINGS.md`](../RANKINGS.md).
+Benchmark on Apple Silicon hosts, publish to the
+[HF dataset](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks), and
+update [`../RANKINGS.md`](../RANKINGS.md).
 
-This repo owns the **result contract and the publisher** — it does not run
-models. The run commands (`mlx-eval`, `mlx-bench`, `vllm-mlx serve`) are thin
-wrappers from the serving stack; this document says *which* to run, *in what
-order*, and how to publish (traps + parser map:
-[`benchmark-traps.md`](benchmark-traps.md)).
+This repo defines the result contract and publisher. Serving tools are thin
+wrappers; this runbook gives their order and publishing rules
+([traps + parser map](benchmark-traps.md)).
 
 ## What "fully benchmarked" means
 
@@ -69,6 +66,10 @@ Two host rules that silently ruin a run if missed:
   (**4** since nix-ai#1190); higher values cause 429/lm-eval crashes (trap 11).
 - **Studio: use `curl -s4 127.0.0.1`, never a hostname.** Caddy owns IPv6/TLS;
   vllm-mlx is IPv4 plain HTTP.
+
+## Run a benchmark block end to end
+
+See the [complete benchmark block procedure](benchmark-block-runbook.md).
 
 **One actor at a time.** Never edit the `llama-swap` config, restart serving, or
 start a second `vllm-mlx serve` while a bench is in flight — the second loader
