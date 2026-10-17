@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.50.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.49.1...v0.50.0) (2026-10-17)
+
+
+### Features
+
+* add Inspect compressed-log and Promptfoo token support ([#381](https://github.com/dryvist/mlx-benchmarks/issues/381)) ([4cbbef3](https://github.com/dryvist/mlx-benchmarks/commit/4cbbef31eed3acd15c80e3ff4d2580d3a268038b))
+
+
+### Documentation
+
+* record late benchmark findings ([#383](https://github.com/dryvist/mlx-benchmarks/issues/383)) ([312093d](https://github.com/dryvist/mlx-benchmarks/commit/312093d18af3f9b372dbc9b9ab63a2f571da8f33))
+
 ## [0.49.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.49.0...v0.49.1) (2026-10-17)
 
 
