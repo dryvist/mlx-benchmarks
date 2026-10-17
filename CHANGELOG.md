@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.45.0...v0.46.0) (2026-10-17)
+
+
+### Features
+
+* support unregistered benchmark publishing ([#342](https://github.com/dryvist/mlx-benchmarks/issues/342)) ([4077ee5](https://github.com/dryvist/mlx-benchmarks/commit/4077ee5bdf14acec176dee685385debe5f208629))
+
 ## [0.45.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.44.2...v0.45.0) (2026-10-17)
 
 
