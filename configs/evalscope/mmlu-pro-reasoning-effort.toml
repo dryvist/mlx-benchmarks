@@ -1,0 +1,86 @@
+# Seeded MMLU-Pro generative CoT evaluation with explicit Qwen3.8 reasoning arms.
+# Four shuffled test questions per subject across 14 subjects (56 total).
+# No judge model is configured; MMLU-Pro extracts the final answer letter.
+config_name = "evalscope/mmlu-pro-reasoning-effort"
+engines = ["llama_cpp"]
+concurrency_list = [1]
+context_list = [32768]
+power_cap_w = "inventory"
+
+[[run]]
+name = "mmlu-pro-off"
+executable = "evalscope"
+argv = [
+  "eval",
+  "--model", "{{ model_id }}",
+  "--api-url", "{{ benchmark_endpoint }}",
+  "--api-key", "EMPTY",
+  "--eval-type", "openai_api",
+  "--datasets", "mmlu_pro",
+  "--dataset-args", "{\"mmlu_pro\": {\"subset_list\": [\"biology\", \"business\", \"chemistry\", \"computer science\", \"economics\", \"engineering\", \"health\", \"history\", \"law\", \"math\", \"other\", \"philosophy\", \"physics\", \"psychology\"], \"shuffle\": true, \"few_shot_num\": 5, \"few_shot_random\": false}}",
+  "--limit", "4",
+  "--seed", "1",
+  "--eval-batch-size", "1",
+  "--generation-config", "{\"max_tokens\": {{ output_tokens }}, \"temperature\": 0, \"extra_body\": {\"chat_template_kwargs\": {\"enable_thinking\": false}}}",
+  "--work-dir", "{{ output_path }}",
+  "--no-timestamp",
+  "--collect-perf",
+]
+dimensions = []
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 16384
+
+[[run]]
+name = "mmlu-pro-low"
+executable = "evalscope"
+argv = [
+  "eval",
+  "--model", "{{ model_id }}",
+  "--api-url", "{{ benchmark_endpoint }}",
+  "--api-key", "EMPTY",
+  "--eval-type", "openai_api",
+  "--datasets", "mmlu_pro",
+  "--dataset-args", "{\"mmlu_pro\": {\"subset_list\": [\"biology\", \"business\", \"chemistry\", \"computer science\", \"economics\", \"engineering\", \"health\", \"history\", \"law\", \"math\", \"other\", \"philosophy\", \"physics\", \"psychology\"], \"shuffle\": true, \"few_shot_num\": 5, \"few_shot_random\": false}}",
+  "--limit", "4",
+  "--seed", "1",
+  "--eval-batch-size", "1",
+  "--generation-config", "{\"max_tokens\": {{ output_tokens }}, \"temperature\": 0, \"extra_body\": {\"chat_template_kwargs\": {\"reasoning_effort\": \"low\"}}}",
+  "--work-dir", "{{ output_path }}",
+  "--no-timestamp",
+  "--collect-perf",
+]
+dimensions = []
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 16384
+
+[[run]]
+name = "mmlu-pro-xhigh"
+executable = "evalscope"
+argv = [
+  "eval",
+  "--model", "{{ model_id }}",
+  "--api-url", "{{ benchmark_endpoint }}",
+  "--api-key", "EMPTY",
+  "--eval-type", "openai_api",
+  "--datasets", "mmlu_pro",
+  "--dataset-args", "{\"mmlu_pro\": {\"subset_list\": [\"biology\", \"business\", \"chemistry\", \"computer science\", \"economics\", \"engineering\", \"health\", \"history\", \"law\", \"math\", \"other\", \"philosophy\", \"physics\", \"psychology\"], \"shuffle\": true, \"few_shot_num\": 5, \"few_shot_random\": false}}",
+  "--limit", "4",
+  "--seed", "1",
+  "--eval-batch-size", "1",
+  "--generation-config", "{\"max_tokens\": {{ output_tokens }}, \"temperature\": 0, \"extra_body\": {\"chat_template_kwargs\": {\"reasoning_effort\": \"xhigh\"}}}",
+  "--work-dir", "{{ output_path }}",
+  "--no-timestamp",
+  "--collect-perf",
+]
+dimensions = []
+repetitions = 1
+artifact_id = "selected_model"
+run_on = "benchmark_target"
+capture_stdout = true
+output_tokens = 16384
