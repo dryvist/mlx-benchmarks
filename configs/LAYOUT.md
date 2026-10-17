@@ -1,9 +1,8 @@
 # configs/ layout
 
-TOML files define upstream-tool suites. Some are runbooks; campaign recipes
-are consumed by the external Ansible dispatcher. It reads the allow-list with
-`community.general.from_toml` and validates survey inputs against inventory
-and the model registry before dispatch.
+TOML files define upstream suites and runbooks. The external Ansible dispatcher
+consumes campaign recipes, reads the allow-list with `community.general.from_toml`,
+and validates survey inputs against inventory and the model registry.
 
 ## Layout (as shipped)
 
@@ -31,13 +30,11 @@ configs/
 │   ├── throughput.toml       # registry-selected OpenAI-compatible serving campaign
 │   ├── vllm-fixed-length.toml # fixed-output vLLM chat client cells for llama.cpp
 │   ├── manual-throughput.toml # historical serving runbook; draft-model A/B sweep
-│   └── cross-card.toml       # llama-bench and batched-bench diagnostics
-│                             # plus probe envelope
+│   └── cross-card.toml       # llama-bench/batched-bench diagnostics + probe envelope
 ├── strata/
-│   └── throughput.toml       # registry-selected OpenAI-compatible serving throughput
+│   └── throughput.toml       # registry-selected OpenAI-compatible throughput
 ├── mlx/
-│   └── cross-card.toml       # mlx_lm.benchmark diagnostics
-│                             # plus throughput-probe envelope
+│   └── cross-card.toml       # mlx_lm.benchmark diagnostics + throughput-probe envelope
 ├── nvidia/                   # NVIDIA/CUDA campaign; see "NVIDIA hosts" below
 │   ├── throughput.toml       # closed/open-loop serving runs; see
 │   │                         # docs/nvidia-campaign.md
