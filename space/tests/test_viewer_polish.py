@@ -315,6 +315,39 @@ def test_equal_knobs_use_run_date_to_keep_bar_labels_unique() -> None:
     assert all("run 2026-10-0" in label for label in labels.values())
 
 
+def test_equal_knobs_with_distinct_variants_use_the_variant_difference() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": f"2026-10-17T12:{minute}:00Z",
+                "series_key": f"arrival-{minute}",
+                "model": "nvidia/Qwen3.8-27B-NVFP4",
+                "machine": "RTX PRO 6000 Max-Q 96GB",
+                "engine": "vLLM",
+                "engine_version": "0.31.0",
+                "agents": 4,
+                "variant": f"vLLM 0.31.0 128kx11 MTP-on {arrival}",
+            }
+            for minute, arrival in ((26, "batched"), (34, "Poisson 0.02 rps"))
+        ]
+    )
+
+    labels = app.series_labels(rows)
+
+    assert labels["arrival-26"].endswith("· batched")
+    assert labels["arrival-34"].endswith("· Poisson 0.02 rps")
+    assert not any("run " in label for label in labels.values())
+
+
+def test_arrival_pattern_falls_back_to_the_run_index_variant() -> None:
+    assert app._arrival_pattern(pd.Series({"variant": "llama.cpp b11459 32k-context batched"})) == "Batched"
+    assert (
+        app._arrival_pattern(pd.Series({"variant": "llama.cpp b11459 32k-context Poisson 1 rps"}))
+        == "Staggered"
+    )
+    assert app._arrival_pattern(pd.Series({"variant": "MTP exploration"})) is None
+
+
 def test_diagnostic_bar_chart_keeps_latest_workload_group() -> None:
     rows = pd.DataFrame(
         [

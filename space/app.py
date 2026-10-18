@@ -603,6 +603,12 @@ def _arrival_pattern(row: pd.Series) -> str | None:
         return "Staggered"
     request_rate = _row_value(row, FILTER_SPECS["request_rate"][1])
     if request_rate is None:
+        # Older rows record the arrival only in the run-index variant ("... batched", "... Poisson 0.5 rps").
+        variant = (_clean_value(row.get("variant")) or "").casefold()
+        if "batched" in variant:
+            return "Batched"
+        if "poisson" in variant or "stagger" in variant:
+            return "Staggered"
         return None
     return "Batched" if request_rate.casefold() in {"inf", "infinite"} else "Staggered"
 
@@ -1413,6 +1419,17 @@ def workload_details(row: pd.Series) -> str:
     return "; ".join(details) or "Workload details were not recorded"
 
 
+def _distinct_variant_tails(variants: Mapping[str, str]) -> dict[str, str]:
+    """Drop the words every variant shares at the start, e.g. "vLLM 0.31.0 128kx11 MTP-on batched" -> "batched"."""
+    words = {key: value.split() for key, value in variants.items()}
+    shared = 0
+    for column in zip(*words.values(), strict=False):
+        if len(set(column)) > 1:
+            break
+        shared += 1
+    return {key: " ".join(parts[shared:]) or variants[key] for key, parts in words.items()}
+
+
 def series_labels(df: pd.DataFrame) -> dict[str, str]:
     if df.empty:
         return {}
@@ -1475,7 +1492,10 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
         knobs_equal = all(
             len({_clean_value(entry.row.get(field)) for entry in group}) == 1 for field, _ in LABEL_KNOBS
         )
-        if knobs_equal:
+        variants = {entry.key: _clean_value(entry.row.get("variant")) for entry in group}
+        if all(variants.values()) and len(set(variants.values())) == len(group):
+            suffixes = _distinct_variant_tails({key: str(value) for key, value in variants.items()})
+        elif knobs_equal:
             dates = {entry.key: _run_timestamp(entry.row, "%Y-%m-%d") for entry in group}
             date_counts = pd.Series(list(dates.values())).value_counts()
             suffixes = {
