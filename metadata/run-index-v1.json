@@ -1,7 +1,7 @@
 {
   "schema_version": "run-index-v1",
-  "historical_scored_before": "2026-08-25T00:00:00Z",
-  "policy": "Unindexed shards at or after the cutoff are experimental. Explicit entries override the historical default.",
+  "historical_scored_before": "2026-01-01T00:00:00Z",
+  "policy": "Unindexed shards at or after the cutoff are experimental. Explicit entries override the historical default. Only indexed shards are scored.",
   "runs": [
     {"path":"data/run-2026-08-24T04-19-37-7ef5a4d-throughput-mlx-community-qwen3-8-27b-4bit-dd4201dc.parquet","status":"experimental","variant":"MTP exploration","comparison_group":"qwen3.8-mtp-2026-08","context_band":"short-prompt","max_output_tokens":256,"completion_state":"capped","caveat":"Capped microbenchmark; excluded from rankings."},
     {"path":"data/run-2026-08-24T04-30-11-7ef5a4d-throughput-mlx-community-qwen3-8-27b-4bit-a9be338b.parquet","status":"experimental","variant":"MTP exploration","comparison_group":"qwen3.8-mtp-2026-08","context_band":"short-prompt","max_output_tokens":256,"completion_state":"capped","caveat":"Capped microbenchmark; excluded from rankings."},
