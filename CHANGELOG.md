@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.56.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.2...v0.56.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* show default context band in viewer filter ([#437](https://github.com/dryvist/mlx-benchmarks/issues/437)) ([af3b134](https://github.com/dryvist/mlx-benchmarks/commit/af3b134c334b67f0c16bfe79d9c8c286a88c9592))
+* **space:** show the default context filter selection ([af3b134](https://github.com/dryvist/mlx-benchmarks/commit/af3b134c334b67f0c16bfe79d9c8c286a88c9592))
+
 ## [0.56.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.1...v0.56.2) (2026-10-18)
 
 
