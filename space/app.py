@@ -351,6 +351,15 @@ def default_context_band(df: pd.DataFrame) -> str | None:
     return min(candidates, key=lambda item: (abs(item[0] - 65536), item[0]))[1]
 
 
+def default_filter_selections(df: pd.DataFrame, mode: str) -> dict[str, str | None]:
+    selections: dict[str, str | None] = dict.fromkeys(FILTER_SPECS)
+    if mode == AGENTIC_MODE:
+        context_band = default_context_band(df)
+        if context_band in row_choices(df, "context_band"):
+            selections["context_band"] = context_band
+    return selections
+
+
 def _metric_unit(metric: str, unit: object = None) -> str:
     """Normalize known units and infer only units encoded by the metric contract."""
     explicit = _clean_value(unit)
@@ -1565,11 +1574,8 @@ def build_ui():
     initial_evidence = "all"
     initial_mode_rows = mode_rows(all_rows, initial_mode)
     initial_rows = evidence_view(initial_mode_rows, initial_evidence)
-    preferred_context_band = default_context_band(initial_rows)
+    initial_filter_values = default_filter_selections(initial_rows, initial_mode)
     default_suite, default_task, default_metric = best_default(initial_rows)
-    initial_filter_values: dict[str, str | None] = dict.fromkeys(FILTER_SPECS)
-    if preferred_context_band in row_choices(initial_rows, "context_band"):
-        initial_filter_values["context_band"] = preferred_context_band
     filtered_rows = filter_viewer_rows(initial_rows, initial_filter_values, initial_mode)
     suites = suite_choices(filtered_rows)
     if default_suite not in suites:
@@ -1872,6 +1878,7 @@ def build_ui():
                             dropdown(
                                 choices,
                                 label,
+                                initial_filter_values[name],
                                 elem_id=f"filter-{name}",
                                 filter_name=name,
                                 visible=bool(choices),

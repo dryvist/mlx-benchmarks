@@ -120,7 +120,7 @@ def test_agentic_default_context_keeps_long_throughput_and_all_evaluation_suites
 
     agentic = app.mode_rows(rows, app.AGENTIC_MODE)
     visible = app.evidence_view(agentic, "all")
-    context_band = app.default_context_band(visible)
+    context_band = app.default_filter_selections(visible, app.AGENTIC_MODE)["context_band"]
     filtered = app.filter_viewer_rows(visible, {"context_band": context_band}, app.AGENTIC_MODE)
 
     assert context_band == "64k"
