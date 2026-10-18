@@ -94,6 +94,29 @@ for result rows.
 15. **Dates.** Write evaluation deadlines as full ISO dates, such as
     `2026-10-17`.
 
+## KV-cache and host-memory standards
+
+Rows use the [HF
+dataset](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks) and
+record schema cache, workload, and measurement fields. Use `null` plus a
+reason when inapplicable.
+
+- **Limits/vLLM.** Set `host_ram_limit_gib=64` with process headroom; keep
+  `weight_cpu_offload_gib=0`, `power_limit_w=300`, and `fan_duty_pct=100`.
+  Enable prefix caching; record `max_model_len`/`max_num_seqs`. Long/short
+  requests share paged KV; freed blocks use LRU, with no TTL.
+- **Offload.** Compare off, native 24 GiB, largest safe native, and LMCache at
+  the same size. Pin engine/model/connector versions.
+- **Workloads.** `fits_gpu`≈0.6×GPU KV; `spills_to_ram`=1.5–2×GPU but below
+  GPU+host; `exceeds_all`≈1.5×combined. Use 2,048 shared prompt tokens, ≥32,768
+  history, ≥6 rounds, 512 answer tokens. Sample 15 seconds; cap 20 minutes.
+- **Prompt stability.** No timestamps/random IDs; fix tool order/template. Qwen
+  omits prior reasoning; cache hits stop at the assistant boundary.
+- **LMCache.** `multi-round-qa` is unverified; [current
+  docs](https://docs.lmcache.ai/cli/bench.html) use `multi-round-chat`. Record
+  mapping; cross-check `spills_to_ram` with [vLLM
+  `benchmarks/multi_turn`](https://github.com/vllm-project/vllm/tree/main/benchmarks/multi_turn).
+
 ## 2026-10-17 suite decisions
 
 ### Saturated or rejected
