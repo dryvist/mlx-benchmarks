@@ -175,6 +175,8 @@ def test_knob_aliases_and_summary_details_use_published_columns() -> None:
                 "campaign_run_concurrent_agents": 8,
                 "campaign_run_prompt_tokens": 4096,
                 "campaign_run_output_tokens": 1024,
+                "campaign_speed_prefix_cache_hit_rate": 0.75,
+                "campaign_speed_external_prefix_cache_hit_rate": 0.5,
                 "tags_json": json.dumps(
                     {"arrival": "staggered; request_rate=0.12", "request_rate": "0.12", "burstiness": 1}
                 ),
@@ -215,6 +217,11 @@ def test_knob_aliases_and_summary_details_use_published_columns() -> None:
     assert "Dedicated" in summary and summary.loc[0, "Dedicated"] == "true"
     assert "Variant" in summary and summary.loc[0, "Variant"] == "MTP default"
     assert "Caveat" in summary and summary.loc[0, "Caveat"] == "single run"
+    assert "Prefix cache hit rate" in summary and summary.loc[0, "Prefix cache hit rate"] == "75.0%"
+    assert (
+        "External prefix cache hit rate" in summary
+        and summary.loc[0, "External prefix cache hit rate"] == "50.0%"
+    )
 
 
 def test_local_data_dir_keeps_loading_parquets_and_neighboring_index(tmp_path, monkeypatch) -> None:
@@ -325,7 +332,46 @@ def test_filter_catalog_includes_all_requested_tuning_dimensions() -> None:
         "request_rate",
         "burstiness",
         "quant_format",
+        "kv_offload_backend",
+        "kv_offload_cpu_gib",
+        "host_ram_limit_gib",
+        "prefix_caching",
+        "cache_workload",
     } <= set(app.FILTER_SPECS)
+
+
+def test_cache_filters_use_published_columns_and_keep_none_as_an_enum_value() -> None:
+    rows = _annotated(
+        [
+            {
+                "timestamp": "2026-10-01T00:00:00Z",
+                "suite": "throughput-serving",
+                "name": "fixed-length",
+                "metric": "output_tokens_per_second",
+                "value": 10.0,
+                "model": "m/model",
+                "campaign_hardware_host_ram_limit_gib": host_ram,
+                "campaign_run_prefix_cache": prefix,
+                "campaign_run_kv_offload_backend": backend,
+                "campaign_run_kv_offload_cpu_gib": offload,
+                "campaign_run_cache_workload": workload,
+            }
+            for host_ram, prefix, backend, offload, workload in (
+                (48.0, True, "none", 0.0, "none"),
+                (48.0, False, "native", 24.0, "spills_to_ram"),
+                (128.0, True, "none", 0.0, "none"),
+            )
+        ]
+    )
+
+    assert app.row_choices(rows, "kv_offload_backend") == ["native", "none"]
+    assert app.row_choices(rows, "kv_offload_cpu_gib") == ["0", "24"]
+    assert app.row_choices(rows, "host_ram_limit_gib") == ["128", "48"]
+    assert app.row_choices(rows, "prefix_caching") == ["false", "true"]
+    assert app.row_choices(rows, "cache_workload") == ["none", "spills_to_ram"]
+    assert len(app.filter_rows(rows, {"kv_offload_backend": "none"})) == 2
+    assert len(app.filter_rows(rows, {"kv_offload_cpu_gib": "0"})) == 2
+    assert len(app.filter_rows(rows, {"prefix_caching": "true"})) == 2
 
 
 def test_empty_filter_selection_does_not_hide_available_rows() -> None:

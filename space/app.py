@@ -76,6 +76,26 @@ FILTER_SPECS = {
         "KV cache dtype",
         ("campaign_run_kv_cache_dtype", "kv_cache_dtype", "tag_kv_cache_dtype"),
     ),
+    "kv_offload_backend": (
+        "KV offload backend",
+        ("campaign_run_kv_offload_backend", "kv_offload_backend"),
+    ),
+    "kv_offload_cpu_gib": (
+        "KV offload CPU (GiB)",
+        ("campaign_run_kv_offload_cpu_gib", "kv_offload_cpu_gib"),
+    ),
+    "host_ram_limit_gib": (
+        "Host RAM limit (GiB)",
+        ("campaign_hardware_host_ram_limit_gib", "host_ram_limit_gib"),
+    ),
+    "prefix_caching": (
+        "Prefix caching",
+        ("campaign_run_prefix_cache", "prefix_cache", "prefix_caching"),
+    ),
+    "cache_workload": (
+        "Cache workload",
+        ("campaign_run_cache_workload", "cache_workload"),
+    ),
     "power_limit_w": (
         "Power limit (W)",
         ("power_limit_w", "campaign_hardware_power_cap_w", "tag_power_limit_w"),
@@ -298,6 +318,15 @@ def _row_value(row: pd.Series, aliases: tuple[str, ...], preferred: tuple[str, .
             if value is not None:
                 return value
     return None
+
+
+FILTER_ENUM_NONE_FIELDS = frozenset({"kv_offload_backend", "cache_workload"})
+
+
+def _filter_value(value: object, field: str) -> str | None:
+    if field in FILTER_ENUM_NONE_FIELDS and isinstance(value, str) and value.strip().casefold() == "none":
+        return "none"
+    return _clean_value(value)
 
 
 def _token_count(value: object) -> float | None:
@@ -617,6 +646,10 @@ def add_evidence_metadata(
     }
 
     def dimension_value(row: pd.Series, name: str, aliases: tuple[str, ...]) -> str | None:
+        if name in FILTER_ENUM_NONE_FIELDS:
+            for alias in aliases:
+                if alias in row.index and (value := _filter_value(row[alias], name)) is not None:
+                    return value
         value = _row_value(row, aliases, preferred.get(name, ()))
         if value is not None or name not in {"engine", "backend"}:
             return value
@@ -1066,7 +1099,7 @@ def row_choices(df: pd.DataFrame, column: str) -> list[str]:
     if df.empty or column not in df:
         return []
     return sorted(
-        {value for item in df[column] if (value := _clean_value(item)) is not None},
+        {value for item in df[column] if (value := _filter_value(item, column)) is not None},
         key=str.casefold,
     )
 
@@ -1074,9 +1107,11 @@ def row_choices(df: pd.DataFrame, column: str) -> list[str]:
 def filter_rows(df: pd.DataFrame, selections: dict[str, str | None]) -> pd.DataFrame:
     filtered = df
     for column, selection in selections.items():
-        selected = _clean_value(selection)
+        selected = _filter_value(selection, column)
         if selected is not None and column in filtered:
-            filtered = filtered[filtered[column].astype("string") == selected]
+            filtered = filtered[
+                filtered[column].map(lambda value, field=column: _filter_value(value, field)) == selected
+            ]
     return filtered
 
 
@@ -1581,6 +1616,15 @@ def summary_table(
             )
             columns.append(label)
 
+    for field, aliases in (
+        ("prefix_cache_hit_rate", ("campaign_speed_prefix_cache_hit_rate", "prefix_cache_hit_rate")),
+        (
+            "external_prefix_cache_hit_rate",
+            ("campaign_speed_external_prefix_cache_hit_rate", "external_prefix_cache_hit_rate"),
+        ),
+    ):
+        latest[field] = latest.apply(lambda row, keys=aliases: _row_value(row, keys), axis="columns")
+
     row_backed_fields = (
         ("machine", "Machine"),
         ("accelerator", "Accelerator model"),
@@ -1593,6 +1637,8 @@ def summary_table(
         ("mtp", "MTP"),
         ("speculative_tokens", "Speculative tokens"),
         ("kv_cache_dtype", "KV cache dtype"),
+        ("prefix_cache_hit_rate", "Prefix cache hit rate"),
+        ("external_prefix_cache_hit_rate", "External prefix cache hit rate"),
         ("power_limit_w", "Power limit (W)"),
         ("agents", "Agents (count)"),
         ("context_band", "Context band"),
@@ -1628,6 +1674,8 @@ def summary_table(
         }:
             suffix = "agent" if field == "agents" else "tokens"
             return f"{format_tokens(value)} {suffix}"
+        if field in {"prefix_cache_hit_rate", "external_prefix_cache_hit_rate"}:
+            return format_value(value, "%")
         suffix = {
             "power_limit_w": " W",
             "ambient_temp_f": " °F",
