@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.0...v0.58.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* speed up viewer filter choices ([#453](https://github.com/dryvist/mlx-benchmarks/issues/453)) ([f1a1aba](https://github.com/dryvist/mlx-benchmarks/commit/f1a1aba9e80403d279f85e91c3cf20bb5a9c44fc))
+
 ## [0.58.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.3...v0.58.0) (2026-10-18)
 
 
