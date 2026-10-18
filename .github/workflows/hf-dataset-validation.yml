@@ -9,6 +9,11 @@ on:
       - metadata/run-index-v1.json
       - scripts/validate_run_index.py
       - .github/workflows/hf-dataset-validation.yml
+  pull_request:
+    paths:
+      - metadata/run-index-v1.json
+      - scripts/validate_run_index.py
+      - .github/workflows/hf-dataset-validation.yml
 
 permissions:
   contents: read

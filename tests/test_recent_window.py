@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import importlib.util
 import io
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -88,6 +89,13 @@ def test_window_leaves_out_shards_without_a_run_timestamp_and_nested_paths() -> 
 
     assert recent_shard_paths([*ignored, kept]) == [kept]
     assert recent_shard_paths(ignored) == []
+
+
+def test_window_excludes_invalid_shards() -> None:
+    invalid = _shard_path("2026-09-08T10-00-00")
+    valid = _shard_path("2026-09-09T10-00-00")
+
+    assert recent_shard_paths([invalid, valid], excluded_paths={invalid}) == [valid]
 
 
 def test_recent_table_orders_runs_newest_first_and_keeps_published_order_within_a_run() -> None:
@@ -174,6 +182,9 @@ def publish_step(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Modul
     hub = FakeHub({"README.md": b"previous card"}, tmp_path)
     monkeypatch.setattr(script, "HfApi", hub)
     monkeypatch.setattr(script, "DATASET_CARD_PATH", CARD_PATH)
+    index_path = tmp_path / "run-index.json"
+    index_path.write_text('{"runs": []}')
+    monkeypatch.setattr(script, "RUN_INDEX_PATH", index_path)
     monkeypatch.setenv("HF_TOKEN", "unused")
     monkeypatch.delenv("MACHINE_LABELS_JSON", raising=False)
     return script, hub
@@ -232,3 +243,55 @@ def test_publish_step_does_not_write_a_card_that_names_a_missing_window(
         script.normalize_dataset("example/dataset", apply=True)
 
     assert hub.commits == []
+
+
+def test_publish_step_keeps_invalid_shards_out_of_latest_but_in_history(
+    publish_step: tuple[ModuleType, FakeHub],
+) -> None:
+    script, hub = publish_step
+    invalid_source = "data/run-2026-09-08T10-00-00-abc1234-throughput-example-model-0a1b2c3d.parquet"
+    invalid_canonical = _shard_path("2026-09-08T10-00-00")
+    valid_canonical = _shard_path("2026-09-09T10-00-00")
+    hub.files[invalid_source] = _parquet(_table(("2026-09-08T10:00:00Z", 1.0)))
+    hub.files[valid_canonical] = _parquet(_table(("2026-09-09T10:00:00Z", 2.0)))
+    script.RUN_INDEX_PATH.write_text(json.dumps({"runs": [{"path": invalid_source, "status": "invalid"}]}))
+
+    script.normalize_dataset("example/dataset", apply=True)
+
+    assert invalid_canonical in hub.files
+    assert hub.recent_values() == [2.0]
+
+
+def test_publish_step_applies_run_index_overrides_to_canonical_only_shards(
+    publish_step: tuple[ModuleType, FakeHub],
+) -> None:
+    script, hub = publish_step
+    source_path = "data/run-2026-09-08T10-00-00-abc1234-throughput-example-model-0a1b2c3d.parquet"
+    canonical_path = _shard_path("2026-09-08T10-00-00")
+    hub.files[canonical_path] = _parquet(_table(("2026-09-08T10:00:00Z", 1.0)))
+    script.RUN_INDEX_PATH.write_text(
+        json.dumps(
+            {
+                "runs": [
+                    {
+                        "path": source_path,
+                        "status": "scored",
+                        "machine": "Mac Studio M4 Max 128GB",
+                        "engine": "llama.cpp",
+                        "engine_version": "b11669",
+                        "engine_build": "b11669",
+                        "engine_commit": "620d2225c",
+                    }
+                ]
+            }
+        )
+    )
+
+    script.normalize_dataset("example/dataset", apply=True)
+
+    normalized = pq.read_table(io.BytesIO(hub.files[canonical_path]))
+    assert normalized.column("hostname").to_pylist() == ["Mac Studio M4 Max 128GB"]
+    assert normalized.column("engine").to_pylist() == ["llama.cpp"]
+    assert normalized.column("engine_version").to_pylist() == ["b11669"]
+    assert normalized.column("campaign_software_engine_commit").to_pylist() == ["620d2225c"]
+    assert source_path not in hub.files

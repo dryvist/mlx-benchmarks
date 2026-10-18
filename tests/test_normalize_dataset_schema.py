@@ -110,3 +110,23 @@ def test_canonical_projection_prefers_specific_tag_label_over_generic_hostname()
         schema=PARQUET_ROW_SCHEMA,
     )
     assert refreshed.to_pylist() == expected.to_pylist()
+
+
+def test_run_index_overrides_project_machine_and_normalized_engine_fields() -> None:
+    [row] = normalize_legacy_rows(
+        [{"chip": "NVIDIA RTX PRO 6000 Blackwell", "gpu": "RTX PRO 6000 Blackwell"}],
+        run_overrides={
+            "machine": "RTX PRO 6000 Max-Q 96GB",
+            "engine": "llama.cpp",
+            "engine_version": "b11669",
+            "engine_build": "b11669",
+            "engine_commit": "620d2225c",
+        },
+    )
+
+    assert row["hostname"] == "RTX PRO 6000 Max-Q 96GB"
+    assert row["campaign_hardware_machine"] == "RTX PRO 6000 Max-Q 96GB"
+    assert row["engine"] == row["campaign_software_engine"] == "llama.cpp"
+    assert row["engine_version"] == row["campaign_software_engine_version"] == "b11669"
+    assert row["campaign_software_engine_build"] == "b11669"
+    assert row["campaign_software_engine_commit"] == "620d2225c"
