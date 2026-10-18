@@ -1606,13 +1606,17 @@ def summary_table(
             columns.append("Largest input measured")
 
     if not latest.empty and _is_throughput_row(latest.iloc[0]):
-        for label, aliases in (
+        metric_details = (
             ("Output tok/s", ("throughput_output_toks_per_s", "output_tokens_per_second")),
             ("TTFT p50 (ms)", ("ttft_p50_ms",)),
             ("TTFT p99 (ms)", ("ttft_p99_ms",)),
-        ):
+        )
+        metrics = tuple(alias for _, aliases in metric_details for alias in aliases)
+        metric_lookup = _run_metric_lookup(df, metrics)
+        for label, aliases in metric_details:
             latest[label] = latest.apply(
-                lambda row, metrics=aliases: _run_metric_value(df, row, metrics), axis="columns"
+                lambda row, metrics=aliases: _run_metric_value(df, row, metrics, metric_lookup),
+                axis="columns",
             )
             columns.append(label)
 
@@ -1720,9 +1724,58 @@ def _context_machine(row: pd.Series) -> str | None:
     )
 
 
-def _run_metric_value(df: pd.DataFrame, row: pd.Series, aliases: tuple[str, ...]) -> str:
+def _run_metric_lookup(df: pd.DataFrame, aliases: tuple[str, ...]):
+    """Index latest companion metrics once instead of filtering the full frame per row."""
+    if not {"metric", "value", "timestamp"} <= set(df.columns):
+        return None
+
+    key_fields = tuple(
+        field for field in ("suite", "name", "model", "machine", "source_path") if field in df.columns
+    )
+    candidates = df[df["metric"].isin(aliases)]
+    columns = [*key_fields, "metric", "value"]
+    for field in ("display_unit", "unit"):
+        if field in candidates.columns:
+            columns.append(field)
+        else:
+            candidates = candidates.assign(**{field: pd.NA})
+            columns.append(field)
+    columns.append("timestamp")
+    candidates = candidates[columns].copy()
+    for field in key_fields:
+        candidates[field] = candidates[field].map(_clean_value)
+    candidates = candidates.sort_values("timestamp", kind="stable").drop_duplicates(
+        [*key_fields, "metric"], keep="last"
+    )
+
+    key_width = len(key_fields) + 1
+    lookup = {
+        record[:key_width]: record[key_width : key_width + 3]
+        for record in candidates.itertuples(index=False, name=None)
+    }
+    return key_fields, lookup
+
+
+def _run_metric_value(
+    df: pd.DataFrame,
+    row: pd.Series,
+    aliases: tuple[str, ...],
+    lookup=None,
+) -> str:
     if not {"metric", "value"} <= set(df.columns):
         return ""
+    if lookup is not None:
+        key_fields, values = lookup
+        key = tuple(_clean_value(row.get(field)) for field in key_fields)
+        if all(value is not None for value in key):
+            for alias in aliases:
+                result = values.get((*key, alias))
+                if result is not None:
+                    value, display_unit, unit = result
+                    unit = _clean_value(display_unit) or _metric_unit(alias, unit)
+                    return format_value(value, unit)
+            return ""
+
     matches = df[df["metric"].isin(aliases)]
     for field in ("suite", "name", "model", "machine", "source_path"):
         value = _clean_value(row.get(field))
