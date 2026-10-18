@@ -94,6 +94,63 @@ for result rows.
 15. **Dates.** Write evaluation deadlines as full ISO dates, such as
     `2026-10-17`.
 
+## KV-cache and host-memory standards
+
+Store raw rows in the
+[Hugging Face dataset](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks).
+Record the full serving configuration and measurements for every cache row.
+
+- **Fixed limits.** Set the host RAM limit to `64 GiB` for KV offload, preserve
+  process headroom inside that cap, keep weight CPU offload at `0 GiB`, set the
+  GPU power limit to `300 W`, and set GPU fan duty to `100%` where supported.
+- **vLLM context and cache.** Enable prefix caching. Record KV dtype, GPU memory
+  utilization, `max_model_len`, `max_num_seqs`, `max_num_batched_tokens`, and
+  measured `gpu_kv_capacity_tokens`. `max_model_len` limits one request;
+  requests of different lengths use the same paged KV pool. Observe block
+  pressure and preemptions rather than treating every sequence as a private
+  full-context allocation. Freed prefix blocks follow LRU eviction; do not
+  assume a TTL.
+- **Offload arms.** Compare no offload, native KV offload at `24 GiB`, native
+  offload at the largest safe size below the `64 GiB` limit, and LMCache at
+  that same safe size. Keep weight offload disabled. Run LMCache only after
+  confirming the exact engine, model, quantization, and connector versions.
+- **Workload shapes.** Use `cache_workload` values `fits_gpu`, `spills_to_ram`,
+  `exceeds_all`, or `none`. Target working sets near `0.6 ×` GPU KV capacity,
+  `1.5–2 ×` GPU capacity while remaining within GPU plus host KV capacity, and
+  about `1.5 ×` combined GPU plus host capacity. Keep the shared prompt and
+  multi-round history fixed across the three workloads.
+- **Multi-round settings.** Record `num_users`, `num_rounds`,
+  `shared_prompt_tokens`, `user_history_tokens`, `answer_tokens`, and
+  `request_rate`. The contract uses 2,048 shared prompt tokens, at least 32,768
+  history tokens, at least 6 rounds, and 512 answer tokens. Cross-check
+  `spills_to_ram` with the official
+  [vLLM `benchmarks/multi_turn` harness](https://github.com/vllm-project/vllm/tree/main/benchmarks/multi_turn).
+- **Measurements.** Record prefix and external-prefix hit rates, peak KV use,
+  p50 idle time before eviction, host RAM peak, preemptions, first- and
+  later-round TTFT, TPOT, and throughput. Capture the starting and ending
+  metrics plus 15-second samples during each cell; cap cells at 20 minutes.
+- **Required fields.** Every result row records configuration fields
+  `host_ram_limit_gib`, `prefix_caching`, `kv_offload_backend`,
+  `kv_offload_cpu_gib`, `kv_offload_disk_gib`, `weight_cpu_offload_gib`,
+  `llamacpp_cache_ram_mib`, `gpu_memory_utilization`,
+  `max_num_batched_tokens`, `gpu_kv_capacity_tokens`, and `power_limit_w`.
+  It records workload fields `cache_workload`, `num_users`, `num_rounds`,
+  `shared_prompt_tokens`, `user_history_tokens`, `answer_tokens`, and
+  `request_rate`; and measured fields `prefix_cache_hit_rate`,
+  `external_prefix_cache_hit_rate`, `kv_cache_usage_peak`,
+  `kv_block_idle_before_evict_p50_s`, `host_ram_peak_gib`, `preemptions`,
+  `ttft_first_round_p50_ms`, `ttft_later_rounds_p50_ms`, and
+  `ttft_later_rounds_p99_ms`. Include normal TTFT, TPOT, and throughput too.
+- **Prompt stability.** Keep system prompts and tool order fixed. Remove
+  timestamps and random identifiers from the cacheable prefix. For the Qwen
+  template, prior assistant reasoning is omitted from later turns, so count
+  prefix hits only up to the last assistant-turn boundary.
+
+The contract calls the LMCache workload `multi-round-qa`. The current official
+[LMCache CLI](https://docs.lmcache.ai/cli/bench.html) documents
+`multi-round-chat`; `multi-round-qa` remains unverified until the pinned CLI
+exposes it. Record the workload mapping with the result.
+
 ## 2026-10-17 suite decisions
 
 ### Saturated or rejected
