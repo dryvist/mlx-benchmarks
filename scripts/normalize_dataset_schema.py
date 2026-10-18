@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import os
 from pathlib import Path
 
@@ -24,15 +25,20 @@ from mlx_benchmarks.publish import canonical_shard_path
 
 DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
 DATASET_CARD_PATH = Path("dataset-card/README.md")
+RUN_INDEX_PATH = Path("metadata/run-index-v1.json")
+RUN_OVERRIDE_FIELDS = ("machine", "engine", "engine_version", "engine_build", "engine_commit")
 
 
 def normalize_legacy_table(
     table: pa.Table,
     *,
     machine_labels: dict[str, str] | None = None,
+    run_overrides: dict[str, object] | None = None,
 ) -> pa.Table:
     """Pad one historical table and replace machine identifiers in its projection."""
-    rows = normalize_legacy_rows(table.to_pylist(), machine_labels=machine_labels)
+    rows = normalize_legacy_rows(
+        table.to_pylist(), machine_labels=machine_labels, run_overrides=run_overrides
+    )
     return pa.Table.from_pylist(rows, schema=PARQUET_ROW_SCHEMA)
 
 
@@ -47,6 +53,23 @@ def _read_table(api: HfApi, repo_id: str, path: str) -> pa.Table:
     return pq.read_table(local_path)
 
 
+def _run_index_entries() -> dict[str, dict[str, object]]:
+    payload = json.loads(RUN_INDEX_PATH.read_text())
+    runs = payload.get("runs") if isinstance(payload, dict) else None
+    if not isinstance(runs, list) or not all(isinstance(run, dict) for run in runs):
+        raise ValueError("run index must contain a list of run objects")
+    entries = {str(run["path"]): run for run in runs if isinstance(run.get("path"), str)}
+    if len(entries) != len(runs):
+        raise ValueError("run index paths must be strings and unique")
+    return entries
+
+
+def _overrides_for_run(entry: dict[str, object] | None) -> dict[str, object] | None:
+    if entry is None:
+        return None
+    return {field: entry[field] for field in RUN_OVERRIDE_FIELDS if field in entry}
+
+
 def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     """Add or refresh canonical copies, the recent window and the dataset card in one Hub commit.
 
@@ -57,6 +80,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     """
     token = os.environ.get("HF_TOKEN")
     machine_labels = parse_machine_labels(os.environ.get("MACHINE_LABELS_JSON"))
+    run_index = _run_index_entries()
     if apply and not token:
         raise RuntimeError("HF_TOKEN must be set for the write operation")
     api = HfApi(token=token)
@@ -78,19 +102,25 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     for source_path in originals:
         source = _read_table(api, repo_id, source_path)
         target_path = canonical_shard_path(source_path)
+        run_overrides = _overrides_for_run(run_index.get(source_path))
         source_rows += source.num_rows
-        normalized = normalize_legacy_table(source, machine_labels=machine_labels)
+        normalized = normalize_legacy_table(
+            source, machine_labels=machine_labels, run_overrides=run_overrides
+        )
         if normalized.num_rows != source.num_rows:
             raise RuntimeError(f"normalization changed the row count for {source_path}")
         if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
             raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
         if target_path in repo_paths:
             existing = _read_table(api, repo_id, target_path)
-            prior_projection = normalize_legacy_table(source, machine_labels={}) if machine_labels else None
+            prior_projection = (
+                normalize_legacy_table(source, machine_labels={}) if machine_labels or run_overrides else None
+            )
             needs_refresh = canonical_shard_needs_refresh(
                 existing,
                 normalized,
                 machine_labels=machine_labels,
+                run_overrides=run_overrides,
                 prior_projection=prior_projection,
             )
             if needs_refresh:
@@ -114,8 +144,40 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         canonical_tables[target_path] = normalized
         canonical_to_add += 1
 
+    for source_path, entry in run_index.items():
+        if source_path in originals:
+            continue
+        target_path = canonical_shard_path(source_path)
+        run_overrides = _overrides_for_run(entry)
+        if target_path not in repo_paths or not run_overrides:
+            continue
+        existing = _read_table(api, repo_id, target_path)
+        normalized = normalize_legacy_table(
+            existing, machine_labels=machine_labels, run_overrides=run_overrides
+        )
+        if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
+            raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
+        prior_projection = normalize_legacy_table(existing, machine_labels={})
+        if canonical_shard_needs_refresh(
+            existing,
+            normalized,
+            machine_labels=machine_labels,
+            run_overrides=run_overrides,
+            prior_projection=prior_projection,
+        ):
+            operations.append(
+                CommitOperationAdd(path_in_repo=target_path, path_or_fileobj=_parquet_bytes(normalized))
+            )
+            canonical_tables[target_path] = normalized
+            canonical_to_refresh += 1
+        else:
+            existing_copies += 1
+
     canonical_paths = {path for path in repo_paths if path.startswith("data/run-canonical-")}
-    recent_paths = recent_shard_paths(canonical_paths | canonical_tables.keys())
+    invalid_paths = {
+        canonical_shard_path(path) for path, entry in run_index.items() if entry.get("status") == "invalid"
+    }
+    recent_paths = recent_shard_paths(canonical_paths | canonical_tables.keys(), excluded_paths=invalid_paths)
     recent = recent_shard_table(
         canonical_tables[path] if path in canonical_tables else _read_table(api, repo_id, path)
         for path in recent_paths

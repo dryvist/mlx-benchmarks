@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
+import re
 from pathlib import Path
 
 from huggingface_hub import HfApi
@@ -19,6 +21,14 @@ REQUIRED_FIELDS = {
     "caveat",
 }
 VALID_STATUSES = {"scored", "experimental", "invalid", "recovered"}
+CANONICAL_MACHINES = {
+    "Mac Studio M4 Max 128GB",
+    "RTX PRO 6000 Max-Q 96GB",
+    "RTX 4080 SUPER 16GB",
+}
+RUN_DATE = re.compile(r"^data/run-(\d{4}-\d{2}-\d{2})")
+LLAMA_CPP_VERSION = re.compile(r"b\d+\Z")
+ENGINE_COMMIT = re.compile(r"[0-9a-f]{7,40}\Z")
 
 
 def load_index(path: Path) -> list[dict[str, object]]:
@@ -45,6 +55,35 @@ def validate_entries(entries: list[dict[str, object]]) -> None:
         paths.add(path)
         if entry["status"] not in VALID_STATUSES:
             raise ValueError(f"invalid status for {path}: {entry['status']!r}")
+        date_match = RUN_DATE.match(path)
+        if (
+            date_match
+            and datetime.date.fromisoformat(date_match.group(1)) >= datetime.date(2026, 9, 1)
+            and entry.get("machine") not in CANONICAL_MACHINES
+        ):
+            raise ValueError(f"missing or invalid machine label for {path}")
+        if entry["status"] != "scored":
+            continue
+        engine = entry.get("engine")
+        version = entry.get("engine_version")
+        if engine not in {"vLLM", "llama.cpp"} or not isinstance(version, str) or not version:
+            raise ValueError(f"scored run is missing a normalized engine or version: {path}")
+        if engine == "vLLM" and version not in {"0.31.0", "0.32.0"}:
+            raise ValueError(f"unsupported vLLM version for {path}: {version!r}")
+        if engine == "llama.cpp":
+            if not LLAMA_CPP_VERSION.fullmatch(version):
+                raise ValueError(f"llama.cpp version must use its release tag for {path}: {version!r}")
+            build = entry.get("engine_build")
+            commit = entry.get("engine_commit")
+            if build != version or not isinstance(commit, str) or not ENGINE_COMMIT.fullmatch(commit):
+                raise ValueError(f"llama.cpp build and commit must be recorded separately for {path}")
+    for entry in entries:
+        if entry.get("engine") == "llama.cpp" and entry.get("engine_version") is None:
+            caveat = entry.get("caveat")
+            if entry.get("status") != "experimental" or not isinstance(caveat, str):
+                raise ValueError("uncaptured llama.cpp builds must be experimental with a caveat")
+            if "engine build not captured" not in caveat:
+                raise ValueError("uncaptured llama.cpp build caveat is missing")
 
 
 def validate_remote(entries: list[dict[str, object]], repo_id: str) -> None:
