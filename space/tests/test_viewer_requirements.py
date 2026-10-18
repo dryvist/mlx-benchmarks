@@ -120,6 +120,28 @@ def test_default_uses_newest_scored_non_saturated_two_machine_triple() -> None:
     assert app.normalize_machine("Apple M4 Max") == "Mac Studio M4 Max 128GB"
 
 
+def test_cluster_machine_filter_keeps_canonical_name_and_chart_uses_short_label() -> None:
+    label = "2x Apple M4 Max 128GB (Thunderbolt RDMA)"
+    raw = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-10-18T00:00:00Z",
+                "suite": "throughput",
+                "name": "benchmark_serving",
+                "metric": "throughput_output_toks_per_s",
+                "value": 1.0,
+                "model": "mlx-community/example-model",
+                "machine": label,
+                "series_key": "cluster-series",
+            }
+        ]
+    )
+    rows = app.add_evidence_metadata(raw, {}, None)
+
+    assert app.row_choices(rows, "machine") == [label]
+    assert list(app.series_labels(rows).values()) == ["example-model · 2x Apple M4 Max 128GB · TB5 RDMA"]
+
+
 def test_latest_collapses_repeats_but_preserves_knob_series_and_trend() -> None:
     records = []
     for index, (day, value, mtp) in enumerate(((1, 10.0, False), (2, 12.0, False), (2, 9.0, True))):

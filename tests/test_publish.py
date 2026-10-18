@@ -107,7 +107,12 @@ def test_campaign_dimensions_keep_a_fixed_nullable_parquet_schema(valid_envelope
     enriched = {
         **valid_envelope,
         "campaign_dimensions": {
-            "hardware": {"machine": "Mac Studio", "pcie_generation": None},
+            "hardware": {
+                "machine": "2x Apple M4 Max 128GB (Thunderbolt RDMA)",
+                "interconnect": "Thunderbolt 5 RDMA",
+                "world_size": 2,
+                "pcie_generation": None,
+            },
             "software": {
                 "gpu_architectures": ["sm_120"],
                 "build_flags": {"GGML_CUDA": True, "CMAKE_BUILD_TYPE": "Release"},
@@ -136,7 +141,11 @@ def test_campaign_dimensions_keep_a_fixed_nullable_parquet_schema(valid_envelope
     assert dimension_columns <= set(legacy)
     assert dimension_columns <= set(row)
     assert all(legacy[column] is None for column in dimension_columns)
-    assert row["campaign_hardware_machine"] == "Mac Studio"
+    assert row["campaign_hardware_machine"] == "2x Apple M4 Max 128GB (Thunderbolt RDMA)"
+    assert row["campaign_hardware_interconnect"] == "Thunderbolt 5 RDMA"
+    assert row["campaign_hardware_world_size"] == 2
+    assert legacy["campaign_hardware_interconnect"] is None
+    assert legacy["campaign_hardware_world_size"] is None
     assert row["campaign_hardware_pcie_generation"] is None
     assert json.loads(row["campaign_software_gpu_architectures_json"]) == ["sm_120"]
     assert json.loads(row["campaign_software_build_flags_json"]) == {

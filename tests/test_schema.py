@@ -91,6 +91,27 @@ def test_cluster_envelope_validates(cluster_envelope: dict) -> None:
     validate_envelope(cluster_envelope)
 
 
+def test_cluster_hardware_dimensions_validate(valid_envelope: dict) -> None:
+    validate_envelope(
+        {
+            **valid_envelope,
+            "campaign_dimensions": {
+                "hardware": {
+                    "machine": "2x Apple M4 Max 128GB (Thunderbolt RDMA)",
+                    "interconnect": "Thunderbolt 5 RDMA",
+                    "world_size": 2,
+                    "host_ram_limit_gib": 187.890625,
+                },
+                "run": {
+                    "kv_offload_backend": "none",
+                    "moe_cpu_offload": "none",
+                    "cache_workload": "none",
+                },
+            },
+        }
+    )
+
+
 def test_new_optional_top_level_fields_validate(valid_envelope: dict) -> None:
     env = {
         **valid_envelope,

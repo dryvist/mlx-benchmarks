@@ -39,6 +39,44 @@ def test_recent_shards_require_a_canonical_machine_label() -> None:
         _validator().validate_entries([_entry(machine="Mac Studio")])
 
 
+def test_cluster_machine_label_and_cache_dimensions_validate() -> None:
+    entry = _entry(
+        path="data/run-2026-10-18T00-00-00-cluster.parquet",
+        machine="2x Apple M4 Max 128GB (Thunderbolt RDMA)",
+        campaign_dimensions={
+            "hardware": {
+                "host_ram_limit_gib": 187.890625,
+                "interconnect": "Thunderbolt 5 RDMA",
+                "world_size": 2,
+            },
+            "run": {
+                "prefix_cache": True,
+                "kv_offload_backend": "none",
+                "kv_offload_cpu_gib": 0.0,
+                "kv_offload_disk_gib": 0.0,
+                "weight_cpu_offload_gib": 0.0,
+                "moe_cpu_offload": "none",
+                "llamacpp_cache_ram_mib": None,
+                "gpu_memory_utilization": None,
+                "max_num_batched_tokens": None,
+                "kv_pool_tokens": None,
+                "cache_workload": "none",
+            },
+        },
+        dimension_null_reasons={
+            "run.llamacpp_cache_ram_mib": "NOT_APPLICABLE_ENGINE",
+            "run.gpu_memory_utilization": "NOT_APPLICABLE_ENGINE",
+            "run.max_num_batched_tokens": "NOT_CAPTURED",
+            "run.kv_pool_tokens": "NOT_CAPTURED",
+        },
+    )
+
+    _validator().validate_entries([entry])
+
+    with pytest.raises(ValueError, match="machine label"):
+        _validator().validate_entries([_entry(machine="Unknown two-host machine")])
+
+
 def test_scored_llama_cpp_shards_use_release_tag_and_separate_commit() -> None:
     entry = _entry(
         engine="llama.cpp",
