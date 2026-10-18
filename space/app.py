@@ -623,6 +623,19 @@ ITEM_NAME = re.compile(r"test_\d+(?:_assertion_\d+)?\Z", re.IGNORECASE)
 AGGREGATE_METRICS = frozenset(
     {"accuracy", "exact_match", "pass_at_1_mean", "pass_at_1_rate", "pass_rate", "score"}
 )
+THROUGHPUT_OUTPUT_METRIC = "throughput_output_toks_per_s"
+BAR_LABEL_LIMIT = 70
+
+
+def _fit_model_label(model: str, limit: int) -> str:
+    """Shorten the model while retaining its start and distinguishing suffix."""
+    limit = max(8, limit)
+    if len(model) <= limit:
+        return model
+    keep = limit - 1
+    head = (keep + 1) // 2
+    tail = keep - head
+    return f"{model[:head]}…{model[-tail:]}" if tail else f"{model[:head]}…"
 
 
 def comparable_rows(df: pd.DataFrame) -> pd.DataFrame:
@@ -871,6 +884,8 @@ def top_metric(df: pd.DataFrame, suite: str, task: str) -> str | None:
     sub = df[(df["suite"] == suite) & (df["name"] == task)]
     if sub.empty:
         return None
+    if suite == "throughput" and THROUGHPUT_OUTPUT_METRIC in sub["metric"].values:
+        return THROUGHPUT_OUTPUT_METRIC
     return str(sub.groupby("metric")["model"].nunique().idxmax())
 
 
@@ -883,16 +898,19 @@ def best_default(df: pd.DataFrame) -> tuple[str | None, str | None, str | None]:
         return (None, None, None)
 
     candidates = []
-    for (suite, task, metric), group in rows.groupby(["suite", "name", "metric"], dropna=True):
-        if group["machine"].dropna().nunique() < 2:
-            continue
-        values = pd.to_numeric(group["value"], errors="coerce").dropna()
-        if values.nunique() < 2:
-            continue
-        latest = pd.to_datetime(group["timestamp"], utc=True, errors="coerce").max()
-        if pd.isna(latest):
-            continue
-        candidates.append((latest, str(suite), str(task), str(metric)))
+    for (suite, task), task_group in rows.groupby(["suite", "name"], dropna=True):
+        if suite == "throughput" and THROUGHPUT_OUTPUT_METRIC in task_group["metric"].values:
+            task_group = task_group[task_group["metric"] == THROUGHPUT_OUTPUT_METRIC]
+        for metric, group in task_group.groupby("metric", dropna=True):
+            if group["machine"].dropna().nunique() < 2:
+                continue
+            values = pd.to_numeric(group["value"], errors="coerce").dropna()
+            if values.nunique() < 2:
+                continue
+            latest = pd.to_datetime(group["timestamp"], utc=True, errors="coerce").max()
+            if pd.isna(latest):
+                continue
+            candidates.append((latest, str(suite), str(task), str(metric)))
     if not candidates:
         return (None, None, None)
     candidates.sort(key=lambda item: (-item[0].value, item[1], item[2], item[3]))
@@ -928,6 +946,8 @@ def workload_details(row: pd.Series) -> str:
     if completion is not None:
         details.append(f"Completion: {completion}")
     for field, label in (
+        ("backend", "Backend"),
+        ("quant_format", "Quant"),
         ("reasoning_effort", "Reasoning"),
         ("thinking", "Thinking"),
         ("mtp", "MTP"),
@@ -939,6 +959,7 @@ def workload_details(row: pd.Series) -> str:
         ("arrival_pattern", "Arrival"),
         ("request_rate", "Request rate"),
         ("burstiness", "Burstiness"),
+        ("variant", "Variant"),
     ):
         value = _clean_value(row.get(field))
         if value is not None:
@@ -953,22 +974,21 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
         return {}
     latest = df.sort_values("timestamp").drop_duplicates("series_key", keep="last")
     varying_fields = (
-        ("backend", "backend"),
-        ("engine_version", "version"),
-        ("quant_format", "quant"),
-        ("reasoning_effort", "reasoning"),
-        ("thinking", "thinking"),
-        ("mtp", "MTP"),
-        ("speculative_tokens", "spec tokens"),
-        ("kv_cache_dtype", "KV"),
-        ("power_limit_w", "power W"),
         ("agents", "c"),
         ("context_band", "context band"),
+        ("mtp", "MTP"),
+        ("arrival_pattern", "arrival"),
+        ("reasoning_effort", "reasoning"),
+        ("thinking", "thinking"),
+        ("quant_format", "quant"),
+        ("kv_cache_dtype", "KV"),
+        ("speculative_tokens", "spec tokens"),
+        ("power_limit_w", "power W"),
+        ("backend", "backend"),
         ("allocated_context", "allocated"),
         ("context_tokens", "context"),
         ("prompt_tokens", "prompt"),
         ("output_budget_tokens", "output"),
-        ("arrival_pattern", "arrival"),
         ("request_rate", "req/s"),
         ("burstiness", "burst"),
         ("variant", "variant"),
@@ -976,13 +996,41 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
     varying = [
         (field, label)
         for field, label in varying_fields
-        if field in latest and latest[field].map(_clean_value).nunique() > 1
+        if field in latest and len(set(latest[field].map(_clean_value))) > 1
     ]
     labels = {}
-    for row in latest.itertuples(index=False):
-        values = [f"{label} {_clean_value(getattr(row, field))}" for field, label in varying]
-        base = _clean_value(row.series_label) or "Benchmark run"
-        labels[row.series_key] = f"{base} · " + " · ".join(values) if values else base
+    for _, row in latest.iterrows():
+        model = _clean_value(row.get("model_short")) or _clean_value(row.get("model")) or "Benchmark run"
+        if model != "Benchmark run":
+            model = short_model(model)
+        machine = (
+            _clean_value(row.get("machine")) or _clean_value(row.get("accelerator")) or "machine not recorded"
+        )
+        engine = " ".join(
+            value
+            for value in (_clean_value(row.get("engine")), _clean_value(row.get("engine_version")))
+            if value
+        )
+        base_parts = [model, machine, engine]
+        base_parts = [part for part in base_parts if part]
+        knobs = [
+            f"{name} {value}"
+            for field, name in varying
+            if (value := _clean_value(row.get(field))) is not None
+        ]
+        base_suffix = " · ".join(base_parts[1:])
+        first_knob_length = len(f" · {knobs[0]}") if knobs else 0
+        model_limit = BAR_LABEL_LIMIT - len(base_suffix) - (3 if base_suffix else 0) - first_knob_length
+        base_parts[0] = _fit_model_label(model, model_limit)
+        label = " · ".join(base_parts) or "Benchmark run"
+        for knob in knobs:
+            candidate = f"{label} · {knob}"
+            if len(candidate) > BAR_LABEL_LIMIT:
+                if len(label) + 4 <= BAR_LABEL_LIMIT:
+                    label += " · …"
+                break
+            label = candidate
+        labels[row["series_key"]] = label
     return labels
 
 
