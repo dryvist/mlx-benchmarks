@@ -28,6 +28,6 @@ jobs:
         with:
           python-version: "3.15"
       - name: Install index validator
-        run: python -m pip install --no-cache-dir "huggingface-hub>=1.28.0"
+        run: python -m pip install --no-cache-dir "huggingface-hub>=1.28.0" "pyarrow>=25.0.1"
       - name: Validate index and immutable dataset paths
-        run: python scripts/validate_run_index.py --remote
+        run: PYTHONPATH=src python scripts/validate_run_index.py --remote
