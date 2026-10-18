@@ -950,6 +950,11 @@ def _evidence_rows(rows: pd.DataFrame, status: str) -> pd.DataFrame:
 def _prepare_cache(df: pd.DataFrame) -> ViewerCache:
     """Build reusable mode frames and whole-dataset evidence counts for one load."""
     df = df.copy()
+    # Every interaction rebuilds the filter menus, so normalize these fields once per refresh.
+    for name in FILTER_SPECS:
+        if name in df and pd.api.types.infer_dtype(df[name], skipna=True) not in {"string", "empty"}:
+            df[name] = df[name].map(lambda value, field=name: _filter_value(value, field))
+    df.attrs["_viewer_filter_values_normalized"] = True
     df["_is_throughput"] = _throughput_mask(df)
     counts = (
         df["evidence_status"].astype("string").str.casefold().value_counts().to_dict()
@@ -1114,10 +1119,11 @@ def short_model(name: str | None) -> str:
 def row_choices(df: pd.DataFrame, column: str) -> list[str]:
     if df.empty or column not in df:
         return []
-    return sorted(
-        {value for item in df[column] if (value := _filter_value(item, column)) is not None},
-        key=str.casefold,
-    )
+    if df.attrs.get("_viewer_filter_values_normalized") and column in FILTER_SPECS:
+        values = set(df[column].dropna().unique())
+    else:
+        values = {value for item in df[column] if (value := _filter_value(item, column)) is not None}
+    return sorted(values, key=str.casefold)
 
 
 def filter_rows(df: pd.DataFrame, selections: dict[str, str | None]) -> pd.DataFrame:
@@ -1125,9 +1131,13 @@ def filter_rows(df: pd.DataFrame, selections: dict[str, str | None]) -> pd.DataF
     for column, selection in selections.items():
         selected = _filter_value(selection, column)
         if selected is not None and column in filtered:
-            filtered = filtered[
-                filtered[column].map(lambda value, field=column: _filter_value(value, field)) == selected
-            ]
+            if filtered.attrs.get("_viewer_filter_values_normalized") and column in FILTER_SPECS:
+                mask = filtered[column].eq(selected).fillna(False)
+            else:
+                mask = (
+                    filtered[column].map(lambda value, field=column: _filter_value(value, field)) == selected
+                )
+            filtered = filtered[mask]
     return filtered
 
 
