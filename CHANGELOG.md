@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.0...v0.59.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* publish concurrent throughput rows ([#461](https://github.com/dryvist/mlx-benchmarks/issues/461)) ([68a5d60](https://github.com/dryvist/mlx-benchmarks/commit/68a5d605cc46141adc8e3f37d9a8b806ccb54f79))
+
 ## [0.59.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.3...v0.59.0) (2026-10-18)
 
 
