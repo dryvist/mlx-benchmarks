@@ -88,6 +88,46 @@ def test_default_evidence_is_scored_and_mode_frames_keep_dataset_counts(monkeypa
     )
 
 
+def test_experimental_filter_switch_uses_cached_normalized_values(monkeypatch) -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "viewer_mode": app.AGENTIC_MODE,
+                "evidence_status": "experimental",
+                "mtp": True,
+                "agents": 4,
+                "kv_offload_backend": "none",
+            },
+            {
+                "viewer_mode": app.AGENTIC_MODE,
+                "evidence_status": "experimental",
+                "mtp": False,
+                "agents": 8,
+                "kv_offload_backend": None,
+            },
+        ]
+    )
+    monkeypatch.setattr(app, "_cache", app._prepare_cache(rows))
+
+    def no_dataset_reload():
+        raise AssertionError("filter switches must reuse the prepared cache")
+
+    monkeypatch.setattr(app, "_load_dataset", no_dataset_reload)
+
+    experimental = app.cached_viewer_rows(app.AGENTIC_MODE, "experimental")
+    filtered = app.filter_viewer_rows(
+        experimental,
+        {"mtp": "true", "agents": "4", "kv_offload_backend": "none"},
+        app.AGENTIC_MODE,
+    )
+
+    assert experimental["mtp"].tolist() == ["true", "false"]
+    assert experimental["agents"].tolist() == ["4", "8"]
+    assert app.row_choices(experimental, "mtp") == ["false", "true"]
+    assert len(filtered) == 1
+    assert filtered["mtp"].tolist() == ["true"]
+
+
 def test_default_task_is_the_scored_output_task_with_the_most_rows_in_band() -> None:
     rows = [
         {
