@@ -332,10 +332,19 @@ def test_viewer_labels_show_machine_engine_and_varying_workload_once() -> None:
 
     labels = app.series_labels(rows)
 
-    assert set(labels.values()) == {
-        "Qwen3.5-9B-MLX-4bit · Mac Studio M4 Max 128GB · MLX · context 4096 · …",
-        "Qwen3.5-9B-MLX-4bit · Mac Studio M4 Max 128GB · MLX · context 16384",
-    }
+    assert len(set(labels.values())) == 2
+    assert all(
+        label.startswith("Qwen3.5-9B-MLX-4bit · Mac Studio M4 Max 128GB · MLX") for label in labels.values()
+    )
+    assert any(
+        "context 4096" in label and "prompt 1024" in label and "output 128" in label
+        for label in labels.values()
+    )
+    assert any(
+        "context 16384" in label and "prompt 8192" in label and "output 256" in label
+        for label in labels.values()
+    )
+    assert all("None" not in label for label in labels.values())
     assert all(label.count("Mac Studio M4 Max 128GB") == 1 for label in labels.values())
     assert list(app.series_labels(rows.iloc[[0]]).values()) == [
         "Qwen3.5-9B-MLX-4bit · Mac Studio M4 Max 128GB · MLX"

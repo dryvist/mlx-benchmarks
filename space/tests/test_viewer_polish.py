@@ -13,32 +13,52 @@ sys.path.insert(0, str(SPACE_ROOT))
 app = importlib.import_module("app")
 
 
-def test_throughput_default_prefers_output_tokens_and_eval_keeps_score() -> None:
-    rows = pd.DataFrame(
-        [
+def test_throughput_default_prefers_output_tokens_in_both_modes() -> None:
+    records = []
+    for prompt_tokens, day in ((4096, "01"), (65536, "02")):
+        for machine, value in zip(("Machine A", "Machine B"), (10.0, 20.0), strict=True):
+            records.append(
+                {
+                    "timestamp": f"2026-10-{day}T00:00:00Z",
+                    "suite": "throughput",
+                    "name": "benchmark_serving",
+                    "metric": "throughput_output_toks_per_s",
+                    "value": value,
+                    "model": "throughput-model",
+                    "machine": machine,
+                    "prompt_tokens": prompt_tokens,
+                    "evidence_status": "scored",
+                }
+            )
+    for machine, value in zip(("Machine A", "Machine B"), (0.6, 0.7), strict=True):
+        records.append(
             {
-                "timestamp": "2026-10-01T00:00:00Z",
-                "suite": "throughput",
-                "name": "benchmark_serving",
-                "metric": metric,
+                "timestamp": "2026-10-03T00:00:00Z",
+                "suite": "framework-eval",
+                "name": "promptfoo-aggregate",
+                "metric": "score",
                 "value": value,
-                "model": f"model-{number}",
+                "model": "eval-model",
                 "machine": machine,
                 "evidence_status": "scored",
             }
-            for metric, values in (
-                ("itl_p50_ms", (2.0, 3.0)),
-                ("throughput_output_toks_per_s", (10.0, 20.0)),
-            )
-            for number, (machine, value) in enumerate(zip(("Machine A", "Machine B"), values, strict=True))
-        ]
-    )
+        )
+    rows = pd.DataFrame(records)
 
-    assert app.top_metric(rows, "throughput", "benchmark_serving") == "throughput_output_toks_per_s"
-    assert app.best_default(rows) == ("throughput", "benchmark_serving", "throughput_output_toks_per_s")
+    expected = ("throughput", "benchmark_serving", "throughput_output_toks_per_s")
+    assert app.top_metric(rows, "throughput", "benchmark_serving") == expected[2]
+    for mode in (app.AGENTIC_MODE, app.DIAGNOSTIC_MODE):
+        assert app.best_default(app.mode_rows(rows, mode)) == expected
 
-    eval_rows = rows.assign(suite="reasoning", name="aggregate", metric="score")
-    assert app.top_metric(eval_rows, "reasoning", "aggregate") == "score"
+    single_output = app.mode_rows(rows, app.AGENTIC_MODE)
+    single_output = single_output[
+        (single_output["suite"] == "throughput") & (single_output["metric"] == app.THROUGHPUT_OUTPUT_METRIC)
+    ].iloc[[0]]
+    assert app.best_default(single_output) == expected
+    assert "throughput" in app.suite_choices(single_output)
+
+    eval_rows = rows[rows["suite"] == "framework-eval"]
+    assert app.top_metric(eval_rows, "framework-eval", "promptfoo-aggregate") == "score"
 
 
 def test_bar_labels_keep_identity_and_only_show_varying_nonempty_knobs() -> None:
@@ -73,6 +93,39 @@ def test_bar_labels_keep_identity_and_only_show_varying_nonempty_knobs() -> None
         assert "context band" not in label
         assert "MTP" not in label
         assert "None" not in label
+
+
+def test_bar_chart_labels_four_reasoning_efforts_separately() -> None:
+    efforts = ("low", "medium", "high", "xhigh")
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": f"2026-10-0{number + 1}T00:00:00Z",
+                "suite": "reasoning",
+                "name": "promptfoo-aggregate",
+                "metric": "score",
+                "value": 0.533 + number * 0.05,
+                "display_unit": "%",
+                "evidence_status": "scored",
+                "model": "nvidia/Qwen3.8-27B-NVFP4",
+                "machine": "RTX PRO 6000 Max-Q 96GB",
+                "engine": "vLLM",
+                "engine_version": "0.31.0",
+                "agents": "4",
+                "reasoning_effort": effort,
+                "series_key": f"reasoning-{effort}",
+            }
+            for number, effort in enumerate(efforts)
+        ]
+    )
+
+    figure = app.bar_chart(rows, "reasoning", "promptfoo-aggregate", "score", "%")
+    labels = list(figure.data[0].y)
+
+    assert len(labels) == 4
+    assert len(set(labels)) == 4
+    assert all(f"reasoning {effort}" in label for effort, label in zip(efforts, labels, strict=True))
+    assert figure.layout.barmode == "group"
 
 
 def test_missing_knob_values_are_omitted_from_the_label() -> None:
