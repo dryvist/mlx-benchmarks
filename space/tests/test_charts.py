@@ -133,6 +133,59 @@ def test_summary_table_returns_dataframe() -> None:
     assert "Evidence" in pivot.columns or pivot.empty
 
 
+def test_run_metric_lookup_matches_latest_companion_metrics_for_exact_run() -> None:
+    base = {
+        "suite": "throughput",
+        "name": "benchmark_serving",
+        "model": "model-a",
+        "machine": "RTX PRO 6000",
+        "source_path": "data/pro.parquet",
+    }
+    records = []
+    for timestamp, metric, value, unit, machine, source_path in (
+        ("2026-10-01T00:00:00Z", "throughput_output_toks_per_s", 125.0, "tok/s", None, None),
+        ("2026-10-03T00:00:00Z", "output_tokens_per_second", 900.0, "tok/s", None, None),
+        ("2026-10-01T00:00:00Z", "ttft_p50_ms", 240.0, "ms", None, None),
+        ("2026-10-02T00:00:00Z", "ttft_p50_ms", 200.0, "ms", None, None),
+        ("2026-10-04T00:00:00Z", "ttft_p50_ms", 5.0, "ms", "RTX 4080", None),
+        ("2026-10-04T00:00:00Z", "throughput_output_toks_per_s", 1100.0, "tok/s", None, "data/other.parquet"),
+    ):
+        row = {
+            **base,
+            "timestamp": timestamp,
+            "metric": metric,
+            "value": value,
+            "unit": unit,
+            "display_unit": unit,
+        }
+        if machine is not None:
+            row["machine"] = machine
+        if source_path is not None:
+            row["source_path"] = source_path
+        records.append(row)
+
+    rows = pd.DataFrame(records)
+    rows["timestamp"] = pd.to_datetime(rows["timestamp"], utc=True)
+    target = rows.iloc[0]
+    lookup = app._run_metric_lookup(
+        rows,
+        ("throughput_output_toks_per_s", "output_tokens_per_second", "ttft_p50_ms"),
+    )
+
+    output_aliases = ("throughput_output_toks_per_s", "output_tokens_per_second")
+    ttft_aliases = ("ttft_p50_ms",)
+    assert (
+        app._run_metric_value(rows, target, output_aliases, lookup)
+        == app._run_metric_value(rows, target, output_aliases)
+        == "125.0 tok/s"
+    )
+    assert (
+        app._run_metric_value(rows, target, ttft_aliases, lookup)
+        == app._run_metric_value(rows, target, ttft_aliases)
+        == "200.00 ms"
+    )
+
+
 def test_short_model_strips_common_prefixes() -> None:
     assert app.short_model("mlx-community/Qwen3.5-9B-MLX-4bit") == "Qwen3.5-9B-MLX-4bit"
     assert app.short_model("openrouter/openai/gpt-5-mini") == "openrouter/gpt-5-mini"
