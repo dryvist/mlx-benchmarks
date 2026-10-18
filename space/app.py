@@ -697,6 +697,13 @@ def add_evidence_metadata(
                 _clean_value(existing) or dimension_value(row, name, aliases)
                 for existing, (_, row) in zip(df[name], df.iterrows(), strict=False)
             ]
+        elif name == "thinking":
+
+            def thinking_value(row: pd.Series, keys: tuple[str, ...] = aliases) -> str | None:
+                value = dimension_value(row, "thinking", keys)
+                return {"true": "on", "false": "off"}.get(str(value).casefold(), value)
+
+            df[name] = df.apply(thinking_value, axis="columns")
         else:
             df[name] = df.apply(
                 lambda row, key=name, keys=aliases: dimension_value(row, key, keys),
@@ -1922,13 +1929,15 @@ def filter_option_label(name: str, value: str) -> str:
 
 
 def filter_dropdown(values: list[str], label: str, value: str | None, name: str):
+    # Every viewer dropdown accepts stale values: a second input event can arrive before the browser applies the
+    # previous update, and synchronize() resets any value outside the current choices.
     return gr.Dropdown(
         choices=[(filter_option_label(name, item), item) for item in values],
         value=value if value in values else None,
         label=label,
         interactive=bool(values),
         visible=True,
-        allow_custom_value=False,
+        allow_custom_value=True,
         elem_id=f"filter-{name}",
     )
 
@@ -1994,7 +2003,7 @@ def build_ui():
             label=label,
             interactive=enabled,
             visible=bool(values) if visible is None else visible,
-            allow_custom_value=False,
+            allow_custom_value=True,
             elem_id=elem_id,
         )
 
@@ -2068,6 +2077,8 @@ def build_ui():
         available_suites = suite_choices(filtered)
         if suite not in available_suites:
             suite, task, metric = best_default(filtered)
+            # best_default skips single-machine and unscored views; a filter can leave only those.
+            suite = suite or next(iter(available_suites), None)
         available_tasks = task_choices(filtered, suite)
         if task not in available_tasks and suite is not None:
             task, _ = top_task_metric(filtered, suite)
@@ -2095,7 +2106,7 @@ def build_ui():
             value=metric if metric in available_metrics else None,
             label="Metric" if available_metrics else "Metric — no matching rows",
             interactive=bool(available_metrics),
-            allow_custom_value=False,
+            allow_custom_value=True,
             elem_id="metric",
         )
         unit_update = gr.Dropdown(
@@ -2103,7 +2114,7 @@ def build_ui():
             value=unit,
             label="Unit" if available_units else "Unit — no matching rows",
             interactive=len(available_units) > 1,
-            allow_custom_value=False,
+            allow_custom_value=True,
             elem_id="unit",
         )
         bar = bar_chart(filtered, suite, task, metric, unit, str(mode))
@@ -2194,7 +2205,7 @@ def build_ui():
                 value=default_metric,
                 label="Metric",
                 interactive=bool(metrics),
-                allow_custom_value=False,
+                allow_custom_value=True,
                 elem_id="metric",
             )
             unit_dd = gr.Dropdown(
@@ -2202,7 +2213,7 @@ def build_ui():
                 value=initial_unit,
                 label="Unit",
                 interactive=len(units) > 1,
-                allow_custom_value=False,
+                allow_custom_value=True,
                 elem_id="unit",
             )
             refresh_btn = gr.Button("Refresh data", scale=0)

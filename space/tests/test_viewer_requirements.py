@@ -224,7 +224,7 @@ def test_knob_aliases_and_summary_details_use_published_columns() -> None:
     assert row["machine"] == "Mac Studio M4 Max 128GB"
     assert row["engine_version"] == "0.31.0"
     assert row["reasoning_effort"] == "xhigh"
-    assert row["thinking"] == "true"
+    assert row["thinking"] == "on"
     assert row["mtp"] == "true"
     assert row["arrival_pattern"] == "Staggered"
     assert row["request_rate"] == "0.12"
