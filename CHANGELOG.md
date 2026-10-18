@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.54.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.53.2...v0.54.0) (2026-10-18)
+
+
+### Features
+
+* improve benchmark viewer labels and throughput default ([#420](https://github.com/dryvist/mlx-benchmarks/issues/420)) ([f886eef](https://github.com/dryvist/mlx-benchmarks/commit/f886eef303aa949625dfe12536df10e2f000ac28))
+
+
+### Bug Fixes
+
+* **space:** show concise labels and output throughput by default ([f886eef](https://github.com/dryvist/mlx-benchmarks/commit/f886eef303aa949625dfe12536df10e2f000ac28))
+
 ## [0.53.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.53.1...v0.53.2) (2026-10-18)
 
 
