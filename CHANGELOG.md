@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.1...v0.58.2) (2026-10-18)
+
+
+### Performance
+
+* **viewer:** vectorize summary table detail formatting ([#455](https://github.com/dryvist/mlx-benchmarks/issues/455)) ([cf8a86f](https://github.com/dryvist/mlx-benchmarks/commit/cf8a86fab9ffde8a16ec87a316a9a62612508cd4))
+
 ## [0.58.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.0...v0.58.1) (2026-10-18)
 
 
