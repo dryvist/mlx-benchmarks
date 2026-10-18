@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.3...v0.51.0) (2026-10-18)
+
+
+### Features
+
+* **schema:** add repo-qa suite ([#397](https://github.com/dryvist/mlx-benchmarks/issues/397)) ([1671576](https://github.com/dryvist/mlx-benchmarks/commit/167157699f4e77d3d3f000d382452846902c326e))
+
 ## [0.50.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.2...v0.50.3) (2026-10-17)
 
 
