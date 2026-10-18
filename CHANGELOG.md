@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.5](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.4...v0.56.5) (2026-10-18)
+
+
+### Documentation
+
+* add KV cache benchmark standards ([#439](https://github.com/dryvist/mlx-benchmarks/issues/439)) ([a6381b9](https://github.com/dryvist/mlx-benchmarks/commit/a6381b929551e02ac1bc2ebf82e0c3fcc1bc7835))
+
 ## [0.56.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.3...v0.56.4) (2026-10-18)
 
 
