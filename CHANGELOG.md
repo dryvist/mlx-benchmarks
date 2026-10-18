@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.52.0...v0.53.0) (2026-10-18)
+
+
+### Features
+
+* **dataset:** index throughput shards from 2026-09 onward ([#410](https://github.com/dryvist/mlx-benchmarks/issues/410)) ([d238814](https://github.com/dryvist/mlx-benchmarks/commit/d2388146933f2639d059dc4a1cf5419f67d2f751))
+
 ## [0.52.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.51.2...v0.52.0) (2026-10-18)
 
 
