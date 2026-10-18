@@ -1724,8 +1724,7 @@ def summary_table(
         ("caveat", "Caveat"),
     )
 
-    def detail_value(row: pd.Series, field: str) -> str:
-        raw = row.get(field)
+    def detail_value(raw: object, field: str) -> str:
         if field == "patches":
             return str(raw) if isinstance(raw, str) else ""
         value = _clean_value(raw)
@@ -1751,11 +1750,11 @@ def summary_table(
         return f"{value}{suffix}"
 
     for field, label in row_backed_fields:
-        if (
-            field in latest
-            and latest.apply(lambda row, key=field: bool(detail_value(row, key)), axis="columns").any()
-        ):
-            latest[label] = latest.apply(lambda row, key=field: detail_value(row, key), axis="columns")
+        if field not in latest:
+            continue
+        values = latest[field].map(lambda raw, key=field: detail_value(raw, key))
+        if values.ne("").any():
+            latest[label] = values
             columns.append(label)
 
     sample_value = latest.apply(
