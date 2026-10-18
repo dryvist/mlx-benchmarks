@@ -49,10 +49,11 @@ A single unreplicated run is never published or scored.
 Every model is benchmarked in **two** classes, recorded as separate result
 dimensions. A divergence between them is itself a first-class finding.
 
-| Class | Definition | Managed window? |
-| --- | --- | --- |
-| **ISOLATED** | Clean room — only minimal-impact processes; record what ran. | Only if it can't co-reside ([Step 3](RUNBOOK.md#step-3--serve-the-model)). |
-| **UNDER-LOAD** | Production stays **live** — Hermes up, traffic flows, bench shares the GPU. | **No** — sharing the machine is the point. |
+- **ISOLATED:** Clean room; only minimal-impact processes run. Record what ran.
+  Use a managed window only if the model cannot co-reside
+  ([Step 3](RUNBOOK.md#step-3--serve-the-model)).
+- **UNDER-LOAD:** Measure with background load present. Do not use a managed
+  window.
 
 The under-load class needs no managed window, which drastically reduces
 production downtime: managed windows are only for isolated-class runs of models
@@ -76,8 +77,10 @@ apart**, where **each run is a validated consecutive pair** across the **full
 required suite set**. Missing any of those → the verdict stays PROVISIONAL.
 
 ```text
-final verdict  ⇐  isolated:   ≥4 runs (≥5 days apart), each a validated pair, full suite set
-              AND under-load: ≥4 runs (≥5 days apart), each a validated pair, full suite set
+final verdict ⇐ isolated: ≥4 runs (≥5 days apart), each a validated pair,
+                 full suite set
+          AND under-load: ≥4 runs (≥5 days apart), each a validated pair,
+                          full suite set
 ```
 
 ## Counting maturity in RANKINGS
@@ -104,19 +107,106 @@ not mature a verdict.
 
 ## NVIDIA campaign: relaxed Gate 1
 
-The NVIDIA/CUDA campaign ([`configs/nvidia/`](../configs/nvidia/)) relaxes **Gate 1
-only**: a model row from that campaign may be reported without ≥4 runs ≥5 days apart.
+The NVIDIA/CUDA campaign ([`configs/nvidia/`](../configs/nvidia/)) relaxes
+**Gate 1 only**. A model row from this campaign may be reported without ≥4
+runs ≥5 days apart.
 The relaxation is labelled, never silent:
 
-- The runbooks publish every campaign model row with `--tag campaign=nvidia --tag
-  verdict_gate=relaxed`, so the label travels with the data into the dataset.
-- In [`RANKINGS.md`](../RANKINGS.md) such a row reads `relaxed (NVIDIA)` in the Maturity
-  column instead of `N/4`, and its Role keeps the "leads/lags as of N runs" wording. A
-  relaxed row is never a final verdict.
-- Hardware baselines (gpu-burn, nvbandwidth, mbw, fio) have no model under test and make
-  no verdict, so they carry `campaign=nvidia` but no gate label.
+- The runbooks publish every campaign model row with
+  `--tag campaign=nvidia --tag verdict_gate=relaxed`. The label travels with
+  the data into the dataset.
+- In [`RANKINGS.md`](../RANKINGS.md), such a row reads `relaxed (NVIDIA)` in
+  the Maturity column instead of `N/4`. Its Role keeps the leads/lags-by-run
+  wording. A relaxed row is never a final verdict.
+- Hardware baselines (gpu-burn, nvbandwidth, mbw, fio) have no model under
+  test and make no verdict. They carry `campaign=nvidia` but no gate label.
 
 This section amends Gate 1 only; Gates 2 and 3 are unchanged here.
+
+## 2026-10-18 overnight recommendation record
+
+This record is provisional pending operator confirmation. Raw rows are in the
+[Hugging Face dataset](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks).
+The hardware labels below are the canonical dataset labels.
+
+- **RTX PRO 6000 Max-Q 96GB:** Qwen3.8 27B NVFP4 with vLLM 0.31.0,
+  FP8 KV, and MTP. Use 64k × 16 for everyday and 256k × 5 for long context.
+  Use reasoning OFF/LOW by default.
+- **Mac Studio M4 Max 128GB:** Flash-Next IQ3_S (ISTA-DASLab GSQ-RCO).
+  Use llama.cpp Metal v0.7.0 and prompts up to about 30k.
+- **RTX 4080 SUPER 16GB:** Qwen3.8 27B UD-IQ3_XXS with llama.cpp.
+  Use 1 × 131072 as the fallback.
+
+Nemotron 3.5 Bolt on the RTX PRO 6000 Max-Q is not in this provisional
+recommendation set for this cycle: repository QA was comparable, and its XHIGH
+coding run did not finish within the run window.
+
+### Repository QA
+
+The deterministic set has 60 questions and a standard error of about 6
+percentage points. Scores are reported counts. XHIGH helps Qwen3.8 27B on the
+20 multi-step questions only.
+
+| Candidate | Context | OFF | XHIGH |
+| --- | --- | ---: | ---: |
+| Qwen3.8 27B NVFP4, RTX PRO 6000 Max-Q 96GB | 30k | 35 | 42 |
+| Qwen3.8 27B NVFP4, RTX PRO 6000 Max-Q 96GB | 120k | 32 | 39 |
+| Flash-Next UD-Q2, RTX PRO 6000 Max-Q 96GB | 30k | 40 | 40 |
+| Flash-Next IQ3_S, Mac Studio M4 Max 128GB | 30k | 42 | 42 |
+| Qwen3.8 27B UD-IQ3_XXS, RTX 4080 SUPER 16GB | 30k | 41 | 41 |
+| Nemotron 3.5 Bolt, RTX PRO 6000 Max-Q 96GB | 30k | 40 | 40 |
+| Nemotron 3.5 Bolt, RTX PRO 6000 Max-Q 96GB | 120k | 41 | 40 |
+
+Flash-Next IQ3_S did not finish the Studio 120k run after 3 h 19 min and 7
+timeouts.
+
+### Coding and agentic results
+
+BigCodeBench-Hard v0.1.4 used its official evaluator. Its controls failed all
+three deliberately wrong outputs and passed all three canonical solutions. No
+model pair differed significantly on shared items.
+
+| Model and hardware | Score | Output tokens per item |
+| --- | ---: | ---: |
+| Qwen3.8 27B NVFP4, RTX PRO 6000 Max-Q 96GB, OFF | 52/148 (35.1%) | 685 |
+| Qwen3.8 27B NVFP4, RTX PRO 6000 Max-Q 96GB, LOW | 55/148 (37.2%) | 2,182 |
+| Qwen3.8 27B NVFP4, RTX PRO 6000 Max-Q 96GB, XHIGH | 39/107 (36.5%) | 16,339 |
+| Flash-Next UD-Q2, RTX PRO 6000 Max-Q 96GB | 26/71 (36.6%) | 29,505 |
+| Flash-Next IQ3_S, Mac Studio M4 Max 128GB | 42/123 (34.1%) | 18,317 |
+| Qwen3.8 27B UD-IQ3_XXS, RTX 4080 SUPER 16GB | 5/17 (29%) | 30,881 |
+
+For Harbor, Qwen3.8 27B NVFP4 solved 14/18 tasks in minutes per task.
+Flash-Next UD-Q2 solved 2/2 before the run stopped; each task took 1.6–2 hours.
+Nemotron 3.5 Bolt solved 0/3, with two timeouts.
+
+Nemotron 3.5 Bolt speed used 1024 input / 2048 output. At c1, output / total
+throughput was 66.9 / 102.3 tok/s, TTFT p50/p99 was 15,999.7 / 16,213.3 ms,
+TPOT p50/p99 was 7.11 / 7.11 ms, and failed requests were 0.
+
+The c4 cell completed 11/12 requests: output / total throughput was
+71.7 / 109.5 tok/s, TTFT was 56,523.8 / 59,420.3 ms, TPOT p50/p99 was
+26.51 / 26.55 ms, and one request failed with `ServerDisconnectedError`.
+
+### Benchmark lessons
+
+- Repository QA and BigCodeBench-Hard do not separate candidates at current
+  sample sizes. Grow the repository-QA reasoning subset to at least 150 items.
+- BigCodeBench-Hard scoring from EvalScope is invalid; use the official
+  evaluator.
+- Output limits are experiment settings. Use a 32k minimum where the slot
+  permits; cap output at slot size minus prompt size minus 512 tokens, and
+  record truncation.
+- The benchmark-run template uses the multi-architecture client image
+  `vllm/vllm-openai-cpu:v0.31.0-arm64`
+  ([ansible-proxmox-ai #1596](https://github.com/dryvist/ansible-proxmox-ai/pull/1596)).
+- Harbor and IFBench separated candidates; shared-item BigCodeBench-Hard
+  comparisons did not.
+
+Configurations pruned for this comparison: 27B UD-Q4_K_M with llama.cpp on the
+RTX PRO 6000 Max-Q; Flash-Next IQ3_S with llama.cpp on the RTX PRO 6000 Max-Q;
+Flash-Next NVFP4 with vLLM on the RTX PRO 6000 Max-Q because it does not fit;
+27B Q4 with llama.cpp and 27B MLX 8-bit on the Mac Studio; and Flash-Next at
+120k on the Mac Studio.
 
 ## Language rule
 
