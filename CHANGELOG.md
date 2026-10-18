@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.3...v0.59.4) (2026-10-18)
+
+
+### Bug Fixes
+
+* **index:** score the RTX 4080 BigCodeBench-Hard run with its engine build ([#467](https://github.com/dryvist/mlx-benchmarks/issues/467)) ([3996b26](https://github.com/dryvist/mlx-benchmarks/commit/3996b2672fb14cf7df0b5a840a59c2398d177b0b))
+
 ## [0.59.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.2...v0.59.3) (2026-10-18)
 
 
