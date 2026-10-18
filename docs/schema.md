@@ -65,63 +65,20 @@ update PR.
 
 ### `campaign_dimensions`
 
-The object is optional so existing v1 envelopes remain valid. Its optional
-groups contain the dimension fields defined for each group in `schema.json`; every
-leaf is optional and accepts an explicit `null` when a measurement is
-unavailable or inapplicable. The publisher flattens each leaf into one stable
-`campaign_<group>_<field>` Parquet column. Environment fan duty, patches,
-knob maps, sampling settings, build architecture, build-flag objects, and
-throttle-reason fields use a `_json` column suffix. Older canonical shards are
-normalized with nulls for new columns unless their run-index entry supplies a
-per-shard projection, so every file has the same schema.
+The object is optional and leaves may be `null`. The publisher flattens leaves
+into stable `campaign_<group>_<field>` Parquet columns; selected object fields
+use a `_json` suffix. The normalizer fills new columns with null unless the run
+index supplies a per-shard projection.
 
 `dimension_null_reasons` maps paths such as `run.kv_cache_dtype` to a concise
 reason code. Use a reason for each explicit null in newly enriched campaign
 envelopes; a missing property remains distinct from an observed-but-unknown
 value.
 
-### Cache field dimensions
+### Cache fields
 
-Cache configuration, workload, and measurement fields use the typed campaign
-dimensions below. Every dimension is nullable; explicit unknown or inapplicable
-values include a `dimension_null_reasons` entry. Rates are fractions from 0 to 1
-unless the description says percentage. Memory capacities use GiB or MiB as
-named.
-
-| Standard field | Campaign dimension | Type | Description |
-| --- | --- | --- | --- |
-| `host_ram_limit_gib` | `hardware.host_ram_limit_gib` | number | Memory limit available to the serving host, in GiB. |
-| `prefix_caching` | `run.prefix_cache` | boolean | Whether prefix caching was enabled. |
-| `kv_offload_backend` | `run.kv_offload_backend` | string enum | KV-cache offload backend: `none`, `native`, `lmcache`, or `llamacpp_cache_ram`. |
-| `kv_offload_cpu_gib` | `run.kv_offload_cpu_gib` | number | Configured KV-cache offload capacity in host RAM, in GiB. |
-| `kv_offload_disk_gib` | `run.kv_offload_disk_gib` | number | Configured KV-cache offload capacity on disk, in GiB. |
-| `weight_cpu_offload_gib` | `run.weight_cpu_offload_gib` | number | Model-weight offload capacity in host RAM, in GiB. |
-| `llamacpp_cache_ram_mib` | `run.llamacpp_cache_ram_mib` | integer | llama.cpp cache-ram setting in MiB. |
-| `gpu_memory_utilization` | `run.gpu_memory_utilization` | number | Fraction of GPU memory reserved by the serving engine, from 0 to 1. |
-| `max_num_batched_tokens` | `run.max_num_batched_tokens` | integer | Maximum number of tokens processed in one serving batch. |
-| `gpu_kv_capacity_tokens` | `run.kv_pool_tokens` | integer | Configured total token capacity of the serving KV pool, from the engine startup log. |
-| `cache_workload` | `run.cache_workload` | string enum | Cache pressure class: `fits_gpu`, `spills_to_ram`, `exceeds_all`, or `none`. |
-| `num_users` | `run.num_users` | integer | Number of simulated users in the cache workload. |
-| `num_rounds` | `run.num_rounds` | integer | Number of interaction rounds per simulated user. |
-| `shared_prompt_tokens` | `run.shared_prompt_tokens` | integer | Token count in the prompt shared across users. |
-| `user_history_tokens` | `run.user_history_tokens` | integer | History token count retained for each simulated user. |
-| `answer_tokens` | `run.output_tokens` | integer | Requested output token count per answer. |
-| `request_rate` | `run.request_rate` | number | Configured request arrival rate in requests per second. |
-| `prefix_cache_hit_rate` | `speed.prefix_cache_hit_rate` | number | Prefix-cache hit ratio as a fraction of eligible lookups. |
-| `external_prefix_cache_hit_rate` | `speed.external_prefix_cache_hit_rate` | number | External prefix-cache hit ratio as a fraction of eligible lookups. |
-| `kv_cache_usage_peak` | `speed.kv_cache_usage_peak_pct` | number | Peak KV-cache occupancy as a percentage of configured capacity. |
-| `kv_block_idle_before_evict_p50_s` | `speed.kv_block_idle_before_evict_p50_s` | number | Median idle time before a KV-cache block is evicted, in seconds. |
-| `host_ram_peak_gib` | `resource.host_ram_peak_gib` | number | Peak host RAM used during the run, in GiB. |
-| `preemptions` | `resource.preemptions` | integer | Number of requests preempted by the serving engine. |
-| `ttft_first_round_p50_ms` | `speed.ttft_first_round_p50_ms` | number | Median time to first token in the first interaction round, in milliseconds. |
-| `ttft_later_rounds_p50_ms` | `speed.ttft_later_rounds_p50_ms` | number | Median time to first token after the first interaction round, in milliseconds. |
-| `ttft_later_rounds_p99_ms` | `speed.ttft_later_rounds_p99_ms` | number | 99th percentile time to first token after the first interaction round, in milliseconds. |
-
-The standard names map to existing schema dimensions for `prefix_caching`
-(`run.prefix_cache`), `gpu_kv_capacity_tokens` (`run.kv_pool_tokens`),
-`answer_tokens` (`run.output_tokens`), and `kv_cache_usage_peak`
-(`speed.kv_cache_usage_peak_pct`). Other names use dimensions with the same
-field name.
+See [cache fields](cache-fields.md) for typed dimensions, units, and mappings.
+Explicit nulls include a `dimension_null_reasons` entry.
 
 Converters keep both objects. `mlx-bench-publish --campaign-dimensions PATH`
 reads a JSON file with a `campaign_dimensions` object and an optional
