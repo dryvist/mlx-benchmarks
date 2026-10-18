@@ -58,3 +58,12 @@ def test_card_states_the_window_the_publish_step_writes() -> None:
 def test_recent_file_is_outside_the_top_level_shard_glob() -> None:
     assert not PurePosixPath(RECENT_SHARD_PATH).match(CANONICAL_GLOB)
     assert "/" in RECENT_SHARD_PATH.removeprefix("data/")
+
+
+def test_card_describes_run_index_evidence_statuses_and_invalid_visibility() -> None:
+    text = _card().text.casefold()
+
+    assert "run index" in text
+    assert all(f"`{status}`" in text for status in ("scored", "experimental", "invalid", "recovered"))
+    assert "invalid shards remain available in" in text
+    assert "hidden from the viewer" in text

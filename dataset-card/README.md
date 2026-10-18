@@ -46,6 +46,15 @@ Original Parquet shards remain in the repository at their original paths. The
 normalized shards preserve their rows and add null-valued columns where an
 original shard did not contain a field.
 
+The public [run index](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks/blob/main/metadata/run-index-v1.json)
+records evidence status and run-specific context for canonical shards. A
+`scored` shard is eligible for scored comparisons; `experimental` shards are
+retained for exploration but are not part of scored comparisons; `invalid`
+shards failed the evidence checks described by their index caveats; and
+`recovered` shards contain recovered results with their limitations recorded.
+Invalid shards remain available in `history`, but are excluded from `default`
+and hidden from the viewer.
+
 ## Quickstart
 
 In the dataset SQL console, start with the measurements available for each
