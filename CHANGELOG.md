@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.6](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.5...v0.59.6) (2026-10-18)
+
+
+### Bug Fixes
+
+* **viewer:** keep every filter usable after stale inputs and narrow filters ([#471](https://github.com/dryvist/mlx-benchmarks/issues/471)) ([2f27277](https://github.com/dryvist/mlx-benchmarks/commit/2f27277a8614e4e14e1ade0995d46a5db4574d18))
+
 ## [0.59.5](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.4...v0.59.5) (2026-10-18)
 
 
