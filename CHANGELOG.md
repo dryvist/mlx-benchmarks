@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.54.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.54.0...v0.54.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **dataset:** apply run-index metadata and exclude invalid latest shards ([b14eed8](https://github.com/dryvist/mlx-benchmarks/commit/b14eed8aabf2d7e9a38e1ef3c34ba569ffc5c781))
+* **dataset:** normalize run metadata and exclude invalid latest shards ([#423](https://github.com/dryvist/mlx-benchmarks/issues/423)) ([b14eed8](https://github.com/dryvist/mlx-benchmarks/commit/b14eed8aabf2d7e9a38e1ef3c34ba569ffc5c781))
+
 ## [0.54.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.53.2...v0.54.0) (2026-10-18)
 
 
