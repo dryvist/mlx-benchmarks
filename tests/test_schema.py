@@ -44,6 +44,19 @@ def test_standard_cache_fields_have_typed_campaign_dimensions_and_descriptions()
         assert STANDARD_CACHE_FIELD_DESCRIPTIONS[name]
 
 
+def test_moe_offload_dimensions_validate_mode_and_nonnegative_layer_count(valid_envelope: dict) -> None:
+    env = {
+        **valid_envelope,
+        "campaign_dimensions": {"run": {"moe_cpu_offload": "ncmoe", "moe_cpu_layers": 15}},
+    }
+    validate_envelope(env)
+
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope({**valid_envelope, "campaign_dimensions": {"run": {"moe_cpu_offload": "all"}}})
+    with pytest.raises(EnvelopeValidationError):
+        validate_envelope({**valid_envelope, "campaign_dimensions": {"run": {"moe_cpu_layers": -1}}})
+
+
 def test_valid_envelope_passes(valid_envelope: dict) -> None:
     validate_envelope(valid_envelope)
 

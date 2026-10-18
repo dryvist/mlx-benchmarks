@@ -251,6 +251,8 @@ CAMPAIGN_DIMENSION_TYPES = {
         "kv_offload_cpu_gib": pa.float64(),
         "kv_offload_disk_gib": pa.float64(),
         "weight_cpu_offload_gib": pa.float64(),
+        "moe_cpu_offload": pa.string(),
+        "moe_cpu_layers": pa.int64(),
         "llamacpp_cache_ram_mib": pa.int64(),
         "gpu_memory_utilization": pa.float64(),
         "max_num_batched_tokens": pa.int64(),

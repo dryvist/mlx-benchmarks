@@ -122,6 +122,8 @@ def test_cache_configuration_projection_backfills_each_row_and_records_unknowns(
             "kv_offload_cpu_gib": 0.0,
             "kv_offload_disk_gib": 0.0,
             "weight_cpu_offload_gib": 0.0,
+            "moe_cpu_offload": "ncmoe",
+            "moe_cpu_layers": 15,
             "llamacpp_cache_ram_mib": 8192,
             "gpu_memory_utilization": 0.88,
             "max_num_batched_tokens": None,
@@ -145,6 +147,8 @@ def test_cache_configuration_projection_backfills_each_row_and_records_unknowns(
     assert all(row[campaign_dimension_column("hardware", "host_ram_limit_gib")] is None for row in normalized)
     assert all(row[campaign_dimension_column("run", "prefix_cache")] is True for row in normalized)
     assert all(row[campaign_dimension_column("run", "kv_offload_backend")] == "none" for row in normalized)
+    assert all(row[campaign_dimension_column("run", "moe_cpu_offload")] == "ncmoe" for row in normalized)
+    assert all(row[campaign_dimension_column("run", "moe_cpu_layers")] == 15 for row in normalized)
     assert all(row[campaign_dimension_column("run", "kv_offload_cpu_gib")] == 0.0 for row in normalized)
     assert all(row[campaign_dimension_column("run", "llamacpp_cache_ram_mib")] == 8192 for row in normalized)
     assert all(row[campaign_dimension_column("run", "max_num_batched_tokens")] is None for row in normalized)
