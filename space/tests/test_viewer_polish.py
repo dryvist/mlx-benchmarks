@@ -61,6 +61,81 @@ def test_throughput_default_prefers_output_tokens_in_both_modes() -> None:
     assert app.top_metric(eval_rows, "framework-eval", "promptfoo-aggregate") == "score"
 
 
+def test_default_evidence_is_scored_and_mode_frames_keep_dataset_counts(monkeypatch) -> None:
+    rows = pd.DataFrame(
+        [
+            {"viewer_mode": app.AGENTIC_MODE, "evidence_status": "scored", "suite": "reasoning"},
+            {"viewer_mode": app.AGENTIC_MODE, "evidence_status": "recovered", "suite": "reasoning"},
+            {"viewer_mode": app.DIAGNOSTIC_MODE, "evidence_status": "experimental", "suite": "throughput"},
+        ]
+    )
+    cache = app._prepare_cache(rows)
+    monkeypatch.setattr(app, "_cache", cache)
+
+    def no_parquet_read():
+        raise AssertionError("mode changes must use the cached frame")
+
+    monkeypatch.setattr(app, "_load_dataset", no_parquet_read)
+
+    assert app.DEFAULT_EVIDENCE == "scored"
+    assert app.cached_viewer_rows(app.AGENTIC_MODE, app.DEFAULT_EVIDENCE).evidence_status.tolist() == [
+        "scored"
+    ]
+    assert app.cached_viewer_rows(app.DIAGNOSTIC_MODE, "all").evidence_status.tolist() == ["experimental"]
+    assert cache.evidence_counts == {"scored": 1, "recovered": 1, "experimental": 1}
+    assert app.evidence_summary(cache.evidence_counts) == (
+        "Evidence in this dataset: Scored: 1 rows; Experimental: 1 rows; Recovered: 1 rows."
+    )
+
+
+def test_default_task_is_the_scored_output_task_with_the_most_rows_in_band() -> None:
+    rows = [
+        {
+            "timestamp": f"2026-10-{number + 1:02d}T00:00:00Z",
+            "suite": "throughput",
+            "name": "benchmark_serving",
+            "metric": app.THROUGHPUT_OUTPUT_METRIC,
+            "value": 20 + number,
+            "model": f"model-{number % 2}",
+            "machine": "RTX PRO 6000 Max-Q 96GB",
+            "context_band": "64k",
+            "evidence_status": "scored",
+        }
+        for number in range(6)
+    ]
+    rows.append(
+        {
+            "timestamp": "2026-10-20T00:00:00Z",
+            "suite": "throughput",
+            "name": "throughput_probe",
+            "metric": app.THROUGHPUT_OUTPUT_METRIC,
+            "value": 30,
+            "model": "old-model",
+            "machine": "Mac Studio",
+            "context_band": "64k",
+            "evidence_status": "scored",
+        }
+    )
+    rows.extend(
+        {
+            "timestamp": f"2026-10-{number + 1:02d}T00:00:00Z",
+            "suite": "throughput",
+            "name": "experimental_task",
+            "metric": app.THROUGHPUT_OUTPUT_METRIC,
+            "value": 30,
+            "model": f"experimental-{number}",
+            "machine": "RTX PRO 6000 Max-Q 96GB",
+            "context_band": "64k",
+            "evidence_status": "experimental",
+        }
+        for number in range(8)
+    )
+
+    in_band = pd.DataFrame(rows).query("context_band == '64k'")
+
+    assert app.best_default(in_band) == ("throughput", "benchmark_serving", app.THROUGHPUT_OUTPUT_METRIC)
+
+
 def test_bar_labels_keep_identity_and_only_show_varying_nonempty_knobs() -> None:
     rows = pd.DataFrame(
         [
@@ -95,6 +170,47 @@ def test_bar_labels_keep_identity_and_only_show_varying_nonempty_knobs() -> None
         assert "None" not in label
 
 
+def test_bar_labels_are_unique_bounded_and_exclude_free_text_and_runtime_flags() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": f"2026-10-0{number + 1}T00:00:00Z",
+                "series_key": f"run-{number}",
+                "model": "mlx-community/Qwen3.8-27B-Flash-Next-IQ3_S",
+                "machine": "RTX PRO 6000 Max-Q 96GB",
+                "engine": "vLLM",
+                "engine_version": "0.31.0",
+                "reasoning_effort": "low" if number < 2 else "high",
+                "thinking": True,
+                "mtp": True,
+                "quant_format": "NVFP4",
+                "agents": number + 1,
+                "variant": f"variant free text {number}",
+                "completion_state": f"completion complete {number}/{number + 1}",
+                "failed": 0,
+                "ignore_eos": True,
+            }
+            for number in range(4)
+        ]
+    )
+
+    labels = app.series_labels(rows)
+
+    assert len(set(labels.values())) == len(labels)
+    assert all(len(label) <= app.BAR_LABEL_LIMIT for label in labels.values())
+    assert all(
+        label.startswith("Qwen3.8-27B-Flash-Next-IQ3_S · RTX PRO 6000 Max-Q 96GB · vLLM 0.31.0")
+        for label in labels.values()
+    )
+    assert all("variant" not in label.casefold() for label in labels.values())
+    assert all("completion" not in label.casefold() for label in labels.values())
+    assert all(
+        "failed=" not in label.casefold() and "ignore_eos=" not in label.casefold()
+        for label in labels.values()
+    )
+    assert all(len(label.split(" · ")) <= 7 for label in labels.values())
+
+
 def test_bar_chart_labels_four_reasoning_efforts_separately() -> None:
     efforts = ("low", "medium", "high", "xhigh")
     rows = pd.DataFrame(
@@ -126,6 +242,34 @@ def test_bar_chart_labels_four_reasoning_efforts_separately() -> None:
     assert len(set(labels)) == 4
     assert all(f"reasoning {effort}" in label for effort, label in zip(efforts, labels, strict=True))
     assert figure.layout.barmode == "group"
+
+
+def test_percentage_axis_and_value_labels_share_the_zero_to_hundred_scale() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": f"2026-10-0{number + 1}T00:00:00Z",
+                "suite": "coding",
+                "name": "coding-replay",
+                "metric": "pass_rate",
+                "value": value,
+                "display_unit": "%",
+                "evidence_status": "scored",
+                "model": f"model-{number}",
+                "machine": "Mac Studio M4 Max 128GB",
+                "series_key": f"percent-{number}",
+            }
+            for number, value in enumerate((0.372, 0.25))
+        ]
+    )
+
+    figure = app.bar_chart(rows, "coding", "coding-replay", "pass_rate", "%")
+
+    assert sorted(figure.data[0].x) == [25.0, 37.2]
+    assert set(figure.data[0].text) == {"25.0%", "37.2%"}
+    assert list(figure.layout.xaxis.range) == [0, 100]
+    assert figure.layout.yaxis.automargin is True
+    assert app.format_value(37.2, "%") == "37.2%"
 
 
 def test_missing_knob_values_are_omitted_from_the_label() -> None:

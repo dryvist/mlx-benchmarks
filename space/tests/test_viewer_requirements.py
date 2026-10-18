@@ -285,22 +285,27 @@ def test_expired_cache_returns_old_frame_while_refresh_runs(monkeypatch) -> None
 
     monkeypatch.setattr(app, "_cache_lock", Lock())
     monkeypatch.setattr(app, "_refresh_lock", Lock())
-    monkeypatch.setattr(app, "_cache", (time.time() - app.CACHE_TTL - 1, old))
+    cached = app._prepare_cache(old)
+    expired = app.ViewerCache(
+        time.time() - app.CACHE_TTL - 1, cached.rows, cached.modes, cached.evidence_counts
+    )
+    monkeypatch.setattr(app, "_cache", expired)
     monkeypatch.setattr(app, "_load_dataset", slow_refresh)
 
     before = time.monotonic()
     served = app.load_data()
     elapsed = time.monotonic() - before
-    assert served is old
+    assert served is cached.rows
+    assert served["value"].tolist() == ["cached"]
     assert elapsed < 0.5
     assert started.wait(timeout=1)
     release.set()
     assert finished.wait(timeout=2)
     for _ in range(100):
-        if app._cache is not None and app._cache[1] is new:
+        if app._cache is not None and app._cache.rows["value"].tolist() == ["fresh"]:
             break
         time.sleep(0.01)
-    assert app._cache is not None and app._cache[1] is new
+    assert app._cache is not None and app._cache.rows["value"].tolist() == ["fresh"]
 
 
 def test_filter_catalog_includes_all_requested_tuning_dimensions() -> None:
