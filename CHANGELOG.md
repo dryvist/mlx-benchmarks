@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.53.0...v0.53.1) (2026-10-18)
+
+
+### Documentation
+
+* add the run-index step to the benchmark block runbook ([#413](https://github.com/dryvist/mlx-benchmarks/issues/413)) ([06dfa8e](https://github.com/dryvist/mlx-benchmarks/commit/06dfa8e01d473ac4be5b306fee5cec504e8ae24d))
+
 ## [0.53.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.52.0...v0.53.0) (2026-10-18)
 
 
