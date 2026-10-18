@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.53.1...v0.53.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* speed up and clean benchmark viewer ([#416](https://github.com/dryvist/mlx-benchmarks/issues/416)) ([9940663](https://github.com/dryvist/mlx-benchmarks/commit/9940663aecafc5b0a58029a6f211e92485aabfd3))
+
 ## [0.53.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.53.0...v0.53.1) (2026-10-18)
 
 
