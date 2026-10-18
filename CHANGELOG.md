@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.7](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.6...v0.59.7) (2026-10-18)
+
+
+### Bug Fixes
+
+* **viewer:** label same-knob bars by their variant difference ([#473](https://github.com/dryvist/mlx-benchmarks/issues/473)) ([6f8eacc](https://github.com/dryvist/mlx-benchmarks/commit/6f8eacc3d3d336d7ba40c5eadaeb1aef58edf8bc))
+
 ## [0.59.6](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.5...v0.59.6) (2026-10-18)
 
 
