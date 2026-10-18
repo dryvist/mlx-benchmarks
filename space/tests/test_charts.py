@@ -296,7 +296,7 @@ def test_workload_budgets_are_part_of_comparison_identity() -> None:
     assert rows["output_budget_tokens"].tolist() == ["128", "256"]
 
 
-def test_incomplete_workload_rows_remain_distinct_and_labels_hide_placeholders() -> None:
+def test_incomplete_rows_share_series_without_placeholders() -> None:
     raw = _workload_rows().drop(
         columns=[
             "tag_configured_window_tokens",
@@ -308,7 +308,7 @@ def test_incomplete_workload_rows_remain_distinct_and_labels_hide_placeholders()
     )
     rows = app.add_evidence_metadata(raw, {}, pd.Timestamp("2026-08-25T00:00:00Z"))
     assert not rows["workload_complete"].any()
-    assert rows["series_key"].nunique() == 2
+    assert rows["series_key"].nunique() == 1
     label = rows.iloc[0]["series_label"]
     assert "unknown" not in label.casefold()
     assert "unspecified" not in label.casefold()
@@ -317,11 +317,11 @@ def test_incomplete_workload_rows_remain_distinct_and_labels_hide_placeholders()
     assert "Accelerator A" not in label
     assert "Metal" not in label
     visible_labels = app.series_labels(rows)
-    assert len(set(visible_labels.values())) == len(rows)
-    assert all("(run " in value for value in visible_labels.values())
+    assert len(set(visible_labels.values())) == 1
+    assert all("(run " not in value for value in visible_labels.values())
 
 
-def test_viewer_labels_show_matching_machine_and_accelerator_once_with_date_and_run() -> None:
+def test_viewer_labels_show_machine_engine_and_varying_workload_once() -> None:
     raw = _workload_rows()
     raw["hostname"] = "Apple M4 Max"
     raw["chip"] = "Apple M4 Max"
@@ -330,12 +330,12 @@ def test_viewer_labels_show_matching_machine_and_accelerator_once_with_date_and_
     labels = app.series_labels(rows)
 
     assert set(labels.values()) == {
-        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 1)",
-        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 2)",
+        "Qwen3.5-9B-MLX-4bit / Mac Studio M4 Max 128GB / MLX · context 4096 · prompt 1024 · output 128",
+        "Qwen3.5-9B-MLX-4bit / Mac Studio M4 Max 128GB / MLX · context 16384 · prompt 8192 · output 256",
     }
-    assert all(label.count("Apple M4 Max") == 1 for label in labels.values())
+    assert all(label.count("Mac Studio M4 Max 128GB") == 1 for label in labels.values())
     assert list(app.series_labels(rows.iloc[[0]]).values()) == [
-        "Qwen3.5-9B-MLX-4bit / Apple M4 Max (2026-04-24) (run 1)"
+        "Qwen3.5-9B-MLX-4bit / Mac Studio M4 Max 128GB / MLX"
     ]
 
 
@@ -350,7 +350,7 @@ def test_cascade_options_are_only_row_backed_and_summary_uses_task_and_unit() ->
     other["display_unit"] = "tok/s"
     rows = pd.concat([df, other], ignore_index=True)
 
-    assert app.suite_choices(rows) == ["reasoning", "throughput"]
+    assert app.suite_choices(rows) == ["reasoning"]
     assert app.task_choices(rows, "throughput") == ["short-50"]
     assert app.metric_choices(rows, "throughput", "short-50") == ["throughput"]
     assert app.valid_triples(rows) == [
