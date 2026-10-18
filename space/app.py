@@ -1168,6 +1168,47 @@ def available_viewer_filter_choices(
     return row_choices(filter_viewer_rows(df, other_filters, mode), column)
 
 
+def available_viewer_filter_choices_for_all(
+    df: pd.DataFrame, selections: dict[str, str | None], mode: str
+) -> dict[str, list[str]]:
+    """Build cascading choices from shared row masks instead of refiltering the frame per menu."""
+    names = tuple(FILTER_SPECS)
+    all_rows = pd.Series(True, index=df.index)
+    masks = []
+    for name in names:
+        selected = _filter_value(selections.get(name), name)
+        if selected is None or name not in df:
+            masks.append(all_rows)
+        elif name == "context_band" and mode == AGENTIC_MODE:
+            throughput = (
+                df["_is_throughput"].fillna(False).astype(bool)
+                if "_is_throughput" in df
+                else _throughput_mask(df)
+            )
+            in_band = df[name].astype("string").eq(selected).fillna(False)
+            masks.append(~throughput | in_band)
+        elif df.attrs.get("_viewer_filter_values_normalized") and name in FILTER_SPECS:
+            masks.append(df[name].eq(selected).fillna(False))
+        else:
+            masks.append(
+                df[name]
+                .map(lambda value, field=name, choice=selected: _filter_value(value, field) == choice)
+                .fillna(False)
+            )
+
+    prefix = [all_rows]
+    for mask in masks:
+        prefix.append(prefix[-1] & mask)
+    suffix = [all_rows] * (len(names) + 1)
+    for index in range(len(names) - 1, -1, -1):
+        suffix[index] = suffix[index + 1] & masks[index]
+
+    return {
+        name: row_choices(df.loc[prefix[index] & suffix[index + 1], [name]], name) if name in df else []
+        for index, name in enumerate(names)
+    }
+
+
 def suite_choices(df: pd.DataFrame) -> list[str]:
     rows = comparable_rows(df)
     if rows.empty:
@@ -1994,9 +2035,10 @@ def build_ui():
         cache = _current_cache()
         data = cached_viewer_rows(str(mode), str(evidence), cache)
         selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
+        available_choices = available_viewer_filter_choices_for_all(data, selections, str(mode))
         filter_updates = []
         for name, (label, _) in FILTER_SPECS.items():
-            choices = available_viewer_filter_choices(data, name, selections, str(mode))
+            choices = available_choices[name]
             selected = selections.get(name)
             if name == "context_band" and pick_default_context and selected is None and mode == AGENTIC_MODE:
                 selected = default_context_band(data)

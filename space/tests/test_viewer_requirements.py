@@ -342,6 +342,67 @@ def test_filter_catalog_includes_all_requested_tuning_dimensions() -> None:
     } <= set(app.FILTER_SPECS)
 
 
+def test_batched_filter_choices_match_cascading_filter_choices() -> None:
+    cache = app._prepare_cache(
+        pd.DataFrame(
+            [
+                {
+                    "viewer_mode": app.AGENTIC_MODE,
+                    "suite": "reasoning",
+                    "name": "task",
+                    "metric": "accuracy",
+                    "model": "m/a",
+                    "machine": "Machine A",
+                    "engine": "Engine A",
+                    "context_band": None,
+                    "evidence_status": "scored",
+                    "prefix_caching": True,
+                },
+                {
+                    "viewer_mode": app.AGENTIC_MODE,
+                    "suite": "throughput",
+                    "name": "serve",
+                    "metric": "output_tokens_per_second",
+                    "model": "m/b",
+                    "machine": "Machine A",
+                    "engine": "Engine A",
+                    "context_band": "64k",
+                    "prompt_tokens": 65536,
+                    "evidence_status": "scored",
+                    "prefix_caching": True,
+                },
+                {
+                    "viewer_mode": app.DIAGNOSTIC_MODE,
+                    "suite": "throughput",
+                    "name": "serve",
+                    "metric": "output_tokens_per_second",
+                    "model": "m/c",
+                    "machine": "Machine B",
+                    "engine": "Engine B",
+                    "context_band": "4k",
+                    "prompt_tokens": 4096,
+                    "evidence_status": "experimental",
+                    "prefix_caching": False,
+                },
+            ]
+        )
+    )
+
+    for mode, selected in (
+        (app.AGENTIC_MODE, {"machine": "Machine A", "context_band": "64k", "prefix_caching": "true"}),
+        (app.DIAGNOSTIC_MODE, {"machine": "Machine B", "context_band": "4k", "prefix_caching": "false"}),
+    ):
+        data = cache.modes[mode]
+        selections = dict.fromkeys(app.FILTER_SPECS)
+        selections.update(selected)
+        expected = {
+            name: app.available_viewer_filter_choices(data, name, selections, mode)
+            for name in app.FILTER_SPECS
+        }
+
+        assert app.available_viewer_filter_choices_for_all(data, selections, mode) == expected
+
+
 def test_summary_table_formats_detail_columns_without_row_wide_apply(monkeypatch) -> None:
     rows = _annotated(
         [
