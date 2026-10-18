@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.5](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.4...v0.59.5) (2026-10-18)
+
+
+### Bug Fixes
+
+* **viewer:** drop filter selections the current mode lacks ([#469](https://github.com/dryvist/mlx-benchmarks/issues/469)) ([64a6702](https://github.com/dryvist/mlx-benchmarks/commit/64a6702333368663ad9173062ad736f656735023))
+
 ## [0.59.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.3...v0.59.4) (2026-10-18)
 
 
