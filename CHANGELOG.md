@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.57.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.0...v0.57.1) (2026-10-18)
+
+
+### Performance
+
+* **space:** index summary metrics for mode changes ([34d7cd8](https://github.com/dryvist/mlx-benchmarks/commit/34d7cd877639e52eef35fb2bf934afe01977f925))
+* **space:** speed mode switching ([#445](https://github.com/dryvist/mlx-benchmarks/issues/445)) ([34d7cd8](https://github.com/dryvist/mlx-benchmarks/commit/34d7cd877639e52eef35fb2bf934afe01977f925))
+
 ## [0.57.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.5...v0.57.0) (2026-10-18)
 
 
