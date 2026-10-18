@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.57.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.1...v0.57.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* polish diagnostic viewer comparisons ([d0fac91](https://github.com/dryvist/mlx-benchmarks/commit/d0fac9174a3785f0362b3098285fd8c653694ea1))
+* **viewer:** label diagnostic bars by workload and keep all filters ([#447](https://github.com/dryvist/mlx-benchmarks/issues/447)) ([d0fac91](https://github.com/dryvist/mlx-benchmarks/commit/d0fac9174a3785f0362b3098285fd8c653694ea1))
+
 ## [0.57.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.0...v0.57.1) (2026-10-18)
 
 
