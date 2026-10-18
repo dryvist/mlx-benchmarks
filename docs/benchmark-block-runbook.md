@@ -169,6 +169,12 @@ immutable source commit in the path.
 7. **Remove the client.** Run `proxmox-benchmark-client` with
    `state=absent`. The playbook refuses to stop or destroy an LXC that lacks
    the `benchmark-client` tag.
+8. **Index the block's shards.** Add one `metadata/run-index-v1.json` entry per
+   published shard (`data/run-<id>.parquet`): `scored` for decision rows,
+   `experimental` for exploratory rows, and `invalid` with a caveat for
+   superseded, duplicate or broken rows. Shards are never deleted. Run
+   `scripts/validate_run_index.py --remote`, then open the viewer Space and
+   check that the new series appear in the Scored view.
 
 The Studio-native variant runs its suite client natively on the Studio and
 publishes from the workstation using the same result contract. The current
