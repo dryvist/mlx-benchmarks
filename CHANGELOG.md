@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.2...v0.57.3) (2026-10-18)
+
+
+### Documentation
+
+* record viewer and dataset performance ([#449](https://github.com/dryvist/mlx-benchmarks/issues/449)) ([5b32f84](https://github.com/dryvist/mlx-benchmarks/commit/5b32f84f6aff253582c283850d9306c91b79f1a5))
+
 ## [0.57.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.1...v0.57.2) (2026-10-18)
 
 
