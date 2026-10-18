@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.3...v0.59.0) (2026-10-18)
+
+
+### Features
+
+* add canonical MLX cluster dimensions ([#458](https://github.com/dryvist/mlx-benchmarks/issues/458)) ([f2126b8](https://github.com/dryvist/mlx-benchmarks/commit/f2126b84a9f18781d31dee06bfd699e8c2ad12e2))
+
 ## [0.58.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.2...v0.58.3) (2026-10-18)
 
 
