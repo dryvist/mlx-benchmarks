@@ -170,6 +170,171 @@ def test_bar_labels_keep_identity_and_only_show_varying_nonempty_knobs() -> None
         assert "None" not in label
 
 
+def test_bar_labels_prioritize_varying_workload_knobs_over_static_knobs() -> None:
+    workload_values = {
+        "agents": (4, 8),
+        "prompt_tokens": (1024, 2048),
+        "output_budget_tokens": (128, 256),
+        "arrival_pattern": ("Batched", "Staggered"),
+        "request_rate": ("1", "2"),
+        "burstiness": ("0.5", "1"),
+        "context_band": ("32k", "64k"),
+    }
+
+    for field, values in workload_values.items():
+        rows = pd.DataFrame(
+            [
+                {
+                    "timestamp": f"2026-10-0{number + 1}T00:00:00Z",
+                    "series_key": f"{field}-{number}",
+                    "model": "Qwen",
+                    "machine": "Mac Studio",
+                    "engine": "vLLM",
+                    "engine_version": "0.31.0",
+                    "agents": 4,
+                    "prompt_tokens": 1024,
+                    "output_budget_tokens": 128,
+                    "arrival_pattern": "Batched",
+                    "request_rate": "1",
+                    "burstiness": "0.5",
+                    "context_band": "32k",
+                    "mtp": True,
+                    "quant_format": "NVFP4",
+                    "kv_cache_dtype": "fp8",
+                    field: values[number],
+                }
+                for number in range(2)
+            ]
+        )
+
+        labels = app.series_labels(rows)
+
+        knob_name = dict(app.LABEL_KNOBS)[field]
+        assert all(f"{knob_name} " in label for label in labels.values())
+        assert all(
+            "MTP" not in label and "quant " not in label and "KV " not in label for label in labels.values()
+        )
+        assert all("run " not in label for label in labels.values())
+
+
+def test_three_varying_workload_knobs_outrank_static_knobs() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": f"2026-10-0{number + 1}T00:00:00Z",
+                "series_key": f"workload-{number}",
+                "model": "Qwen",
+                "machine": "Mac Studio",
+                "engine": "vLLM",
+                "engine_version": "0.31.0",
+                "agents": agents,
+                "prompt_tokens": prompt,
+                "output_budget_tokens": output,
+                "mtp": bool(number % 2),
+                "quant_format": f"quant-{number}",
+                "kv_cache_dtype": f"kv-{number}",
+            }
+            for number, (agents, prompt, output) in enumerate(
+                ((4, 1024, 128), (4, 2048, 128), (8, 1024, 128), (4, 1024, 256))
+            )
+        ]
+    )
+
+    labels = app.series_labels(rows)
+
+    assert len(set(labels.values())) == len(labels)
+    assert all(
+        " · c " in label and " · prompt " in label and " · output " in label for label in labels.values()
+    )
+    assert all(
+        "MTP" not in label and "quant " not in label and "KV " not in label for label in labels.values()
+    )
+
+
+def test_equal_knobs_use_run_date_to_keep_bar_labels_unique() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": f"2026-10-0{number + 1}T00:00:00Z",
+                "series_key": f"same-workload-{number}",
+                "model": "Qwen",
+                "machine": "Mac Studio",
+                "engine": "vLLM",
+                "engine_version": "0.31.0",
+                "agents": 4,
+                "prompt_tokens": 1024,
+                "output_budget_tokens": 128,
+            }
+            for number in range(2)
+        ]
+    )
+
+    labels = app.series_labels(rows)
+
+    assert len(set(labels.values())) == 2
+    assert all("run 2026-10-0" in label for label in labels.values())
+
+
+def test_diagnostic_bar_chart_keeps_latest_workload_group() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "timestamp": timestamp,
+                "suite": "throughput",
+                "name": "benchmark_serving",
+                "metric": app.THROUGHPUT_OUTPUT_METRIC,
+                "value": value,
+                "display_unit": "tok/s",
+                "model": "Qwen",
+                "machine": "Mac Studio",
+                "engine": "vLLM",
+                "engine_version": "0.31.0",
+                "agents": agents,
+                "prompt_tokens": prompt_tokens,
+                "output_budget_tokens": 128,
+                "series_key": key,
+                "evidence_status": "scored",
+            }
+            for timestamp, value, agents, prompt_tokens, key in (
+                ("2026-10-01T00:00:00Z", 10, 4, 1024, "old-run"),
+                ("2026-10-03T00:00:00Z", 20, 4, 1024, "latest-run"),
+                ("2026-10-02T00:00:00Z", 30, 8, 1024, "other-workload"),
+                ("2026-10-01T00:00:00Z", 40, 4, None, "old-unknown-prompt"),
+                ("2026-10-04T00:00:00Z", 50, 4, None, "latest-unknown-prompt"),
+            )
+        ]
+    )
+
+    diagnostic = app.bar_chart(
+        rows,
+        "throughput",
+        "benchmark_serving",
+        app.THROUGHPUT_OUTPUT_METRIC,
+        "tok/s",
+        app.DIAGNOSTIC_MODE,
+    )
+    agentic = app.bar_chart(rows, "throughput", "benchmark_serving", app.THROUGHPUT_OUTPUT_METRIC, "tok/s")
+
+    assert sorted(diagnostic.data[0].x) == [20, 30, 50]
+    assert len(agentic.data[0].x) == 5
+
+
+def test_all_filter_controls_remain_visible_in_both_modes() -> None:
+    rows = pd.DataFrame(
+        [{"viewer_mode": mode, "machine": f"Machine {index}"} for index, mode in enumerate(app.VIEWER_MODES)]
+    )
+    for mode in app.VIEWER_MODES:
+        visible_controls = {
+            name: app.filter_dropdown(
+                app.row_choices(app.mode_rows(rows, mode), name), label, None, name
+            ).get_config()
+            for name, (label, _) in app.FILTER_SPECS.items()
+        }
+
+        assert set(visible_controls) == set(app.FILTER_SPECS)
+        assert all(control["visible"] for control in visible_controls.values())
+
+
 def test_bar_labels_are_unique_bounded_and_exclude_free_text_and_runtime_flags() -> None:
     rows = pd.DataFrame(
         [
