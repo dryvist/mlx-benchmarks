@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.54.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.54.1...v0.54.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **dataset:** project run-index metadata in viewer ([#427](https://github.com/dryvist/mlx-benchmarks/issues/427)) ([ecfbbfd](https://github.com/dryvist/mlx-benchmarks/commit/ecfbbfda752078af78920526632b02ec0ebec8f6))
+
+
+### Documentation
+
+* **dataset:** describe run index evidence statuses ([da267d7](https://github.com/dryvist/mlx-benchmarks/commit/da267d703f143ea20fff95c78559b2cdb88ccd9d))
+* **dataset:** describe run-index evidence statuses ([#424](https://github.com/dryvist/mlx-benchmarks/issues/424)) ([da267d7](https://github.com/dryvist/mlx-benchmarks/commit/da267d703f143ea20fff95c78559b2cdb88ccd9d))
+
 ## [0.54.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.54.0...v0.54.1) (2026-10-18)
 
 
