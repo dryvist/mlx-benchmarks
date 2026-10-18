@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.1...v0.59.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **viewer:** draw initial charts from the default-filtered rows ([#463](https://github.com/dryvist/mlx-benchmarks/issues/463)) ([e218efa](https://github.com/dryvist/mlx-benchmarks/commit/e218efa2d3aaaa29bd092b403a18c7f3c35b4117))
+
 ## [0.59.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.0...v0.59.1) (2026-10-18)
 
 
