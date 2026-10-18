@@ -27,6 +27,10 @@ DATASET = "datasets/JacobPEvans/mlx-benchmarks"
 DATASET_REPO_ID = "JacobPEvans/mlx-benchmarks"
 RUN_INDEX_PATH = "metadata/run-index-v1.json"
 CACHE_TTL = 600  # seconds
+AGENTIC_MODE = "Agentic & coding"
+DIAGNOSTIC_MODE = "Speed / diagnostic"
+MIN_AGENTIC_INPUT_TOKENS = 32768
+MODEL_CONTEXTS = json.loads(Path(__file__).with_name("model-contexts.json").read_text())["models"]
 EXPECTED_COLUMNS = ["timestamp", "suite", "name", "metric", "model", "value"]
 FILTER_SPECS = {
     "machine": ("Machine", ("campaign_hardware_machine", "machine")),
@@ -106,6 +110,8 @@ FILTER_SPECS = {
             "tag_prompt_tokens",
             "total_input_tokens",
             "tag_total_input_tokens",
+            "input_tokens",
+            "tag_input_tokens",
             "requested_prompt_tokens",
             "tag_requested_prompt_tokens",
         ),
@@ -190,6 +196,12 @@ def empty_data() -> pd.DataFrame:
         "series_key",
         "series_label",
         "workload_complete",
+        "viewer_mode",
+        "model_card_url",
+        "native_context_tokens",
+        "yarn_extended_context_tokens",
+        "max_recommended_context_tokens",
+        "largest_measured_input_tokens",
         "variant",
         "caveat",
         "fan_duty",
@@ -274,6 +286,69 @@ def _row_value(row: pd.Series, aliases: tuple[str, ...], preferred: tuple[str, .
             if value is not None:
                 return value
     return None
+
+
+def _token_count(value: object) -> float | None:
+    cleaned = _clean_value(value)
+    if cleaned is None:
+        return None
+    match = re.fullmatch(r"([\d,.]+)\s*([kKmM]?)", cleaned)
+    if match is None:
+        return None
+    try:
+        number = float(match[1].replace(",", ""))
+    except ValueError:
+        return None
+    multiplier = {"k": 1024, "m": 1024 * 1024}.get(match[2].casefold(), 1)
+    return number * multiplier
+
+
+def _is_throughput_row(row: Mapping[str, object] | pd.Series) -> bool:
+    suite = (_clean_value(row.get("suite")) or "").casefold().replace("_", "-")
+    task = (_clean_value(row.get("name")) or "").casefold().replace("_", "-")
+    metric = (_clean_value(row.get("metric")) or "").casefold().replace("_", "-")
+    return (
+        any(term in suite for term in ("throughput", "serving", "bench-serve"))
+        or any(term in task for term in ("benchmark-serving", "throughput-probe"))
+        or any(term in metric for term in ("throughput-", "tokens-per-second", "ttft-", "tpot-", "itl-"))
+    )
+
+
+def classify_viewer_row(row: Mapping[str, object] | pd.Series) -> str:
+    """Keep evaluations and long-input throughput in the decision view."""
+    if not _is_throughput_row(row):
+        return AGENTIC_MODE
+
+    input_tokens = _token_count(row.get("prompt_tokens"))
+    if input_tokens is None:
+        input_tokens = _token_count(row.get("context_tokens"))
+    return (
+        AGENTIC_MODE
+        if input_tokens is not None and input_tokens >= MIN_AGENTIC_INPUT_TOKENS
+        else DIAGNOSTIC_MODE
+    )
+
+
+def mode_rows(df: pd.DataFrame, mode: str) -> pd.DataFrame:
+    if "viewer_mode" in df:
+        return df[df["viewer_mode"] == mode].copy()
+    return df[df.apply(classify_viewer_row, axis="columns") == mode].copy()
+
+
+def default_context_band(df: pd.DataFrame) -> str | None:
+    throughput = df[
+        df.apply(
+            lambda row: _is_throughput_row(row) and classify_viewer_row(row) == AGENTIC_MODE, axis="columns"
+        )
+    ]
+    candidates = [
+        (count, band)
+        for band in row_choices(throughput, "context_band")
+        if (count := _token_count(band)) is not None and count >= MIN_AGENTIC_INPUT_TOKENS
+    ]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda item: (abs(item[0] - 65536), item[0]))[1]
 
 
 def _metric_unit(metric: str, unit: object = None) -> str:
@@ -594,6 +669,37 @@ def add_evidence_metadata(
     df["model_short"] = df["model"].map(
         lambda value: short_model(str(value)) if _clean_value(value) is not None else ""
     )
+    df["model_card_url"] = df["model"].map(
+        lambda value: (MODEL_CONTEXTS.get(_clean_value(value) or "") or {}).get("card_url")
+    )
+    df["native_context_tokens"] = df["model"].map(
+        lambda value: (MODEL_CONTEXTS.get(_clean_value(value) or "") or {}).get("native_context_tokens")
+    )
+    df["yarn_extended_context_tokens"] = df["model"].map(
+        lambda value: (MODEL_CONTEXTS.get(_clean_value(value) or "") or {}).get(
+            "yarn_extended_context_tokens"
+        )
+    )
+    df["max_recommended_context_tokens"] = df["model"].map(
+        lambda value: (MODEL_CONTEXTS.get(_clean_value(value) or "") or {}).get(
+            "max_recommended_context_tokens"
+        )
+    )
+    input_tokens = pd.to_numeric(df["prompt_tokens"], errors="coerce").fillna(
+        pd.to_numeric(df["context_tokens"], errors="coerce")
+    )
+    context_rows = pd.DataFrame(
+        {
+            "model": df["model"].map(_clean_value),
+            "machine": df.apply(_context_machine, axis="columns"),
+            "input_tokens": input_tokens,
+        },
+        index=df.index,
+    )
+    df["largest_measured_input_tokens"] = context_rows.groupby(["model", "machine"], dropna=False)[
+        "input_tokens"
+    ].transform("max")
+    df["viewer_mode"] = df.apply(classify_viewer_row, axis="columns")
     df["workload_complete"] = df.loc[:, list(WORKLOAD_FIELDS)].notna().all(axis="columns")
     efforts = df.get("reasoning_effort", pd.Series(None, index=df.index)).map(_clean_value).fillna("unstated")
     variants = df["variant"].map(_clean_value)
@@ -860,6 +966,23 @@ def available_filter_choices(df: pd.DataFrame, column: str, selections: dict[str
     return row_choices(filter_rows(df, other_filters), column)
 
 
+def filter_viewer_rows(df: pd.DataFrame, selections: dict[str, str | None], mode: str) -> pd.DataFrame:
+    context_band = selections.get("context_band")
+    if mode != AGENTIC_MODE or context_band is None or "context_band" not in df:
+        return filter_rows(df, selections)
+    without_context = {name: value for name, value in selections.items() if name != "context_band"}
+    filtered = filter_rows(df, without_context)
+    throughput = filtered.apply(_is_throughput_row, axis="columns")
+    return filtered[~throughput | (filtered["context_band"].astype("string") == context_band)].copy()
+
+
+def available_viewer_filter_choices(
+    df: pd.DataFrame, column: str, selections: dict[str, str | None], mode: str
+) -> list[str]:
+    other_filters = {name: value for name, value in selections.items() if name != column}
+    return row_choices(filter_viewer_rows(df, other_filters, mode), column)
+
+
 def suite_choices(df: pd.DataFrame) -> list[str]:
     rows = comparable_rows(df)
     if rows.empty:
@@ -959,6 +1082,21 @@ def format_tokens(value: object) -> str | None:
     return f"{number:,.0f}" if number.is_integer() else f"{number:,.1f}"
 
 
+def model_context_values(model: object) -> tuple[str, str, str, str] | None:
+    context = MODEL_CONTEXTS.get(_clean_value(model) or "")
+    if not context:
+        return None
+    native = format_tokens(context.get("native_context_tokens"))
+    extended = format_tokens(context.get("yarn_extended_context_tokens"))
+    recommended = format_tokens(context.get("max_recommended_context_tokens"))
+    return (
+        f"{native} tokens" if native else "",
+        f"{extended} tokens" if extended else "Not documented",
+        f"{recommended} tokens" if recommended else "",
+        str(context.get("card_url") or ""),
+    )
+
+
 def workload_details(row: pd.Series) -> str:
     details = []
     for name, label in (
@@ -976,6 +1114,20 @@ def workload_details(row: pd.Series) -> str:
     completion = _clean_value(row.get("completion_state"))
     if completion is not None:
         details.append(f"Completion: {completion}")
+    context = model_context_values(row.get("model"))
+    if context:
+        details.extend(
+            (
+                f"Native model context: {context[0]}",
+                f"YaRN-extended context: {context[1]}",
+                f"Max recommended context: {context[2]}",
+            )
+        )
+        if context[3]:
+            details.append(f'Model card: <a href="{context[3]}" target="_blank">Hugging Face</a>')
+    largest_input = format_tokens(row.get("largest_measured_input_tokens"))
+    if largest_input:
+        details.append(f"Largest input measured for this model and machine: {largest_input} tokens")
     for field, label in (
         ("backend", "Backend"),
         ("quant_format", "Quant"),
@@ -1240,6 +1392,33 @@ def summary_table(
     latest["Run date (UTC)"] = pd.to_datetime(latest["timestamp"], utc=True).dt.strftime("%Y-%m-%d %H:%M")
 
     columns = ["Model and system"]
+    context_values = latest["model"].map(model_context_values)
+    if context_values.map(lambda value: value is not None).any():
+        latest["Native model context"] = context_values.map(lambda value: value[0] if value else "")
+        latest["YaRN-extended context"] = context_values.map(lambda value: value[1] if value else "")
+        latest["Max recommended context"] = context_values.map(lambda value: value[2] if value else "")
+        latest["Model card URL"] = context_values.map(lambda value: value[3] if value else "")
+        columns.extend(
+            ["Native model context", "YaRN-extended context", "Max recommended context", "Model card URL"]
+        )
+    if "largest_measured_input_tokens" in latest:
+        latest["Largest input measured"] = latest["largest_measured_input_tokens"].map(
+            lambda value: f"{format_tokens(value)} tokens" if _clean_value(value) is not None else ""
+        )
+        if latest["Largest input measured"].ne("").any():
+            columns.append("Largest input measured")
+
+    if not latest.empty and _is_throughput_row(latest.iloc[0]):
+        for label, aliases in (
+            ("Output tok/s", ("throughput_output_toks_per_s", "output_tokens_per_second")),
+            ("TTFT p50 (ms)", ("ttft_p50_ms",)),
+            ("TTFT p99 (ms)", ("ttft_p99_ms",)),
+        ):
+            latest[label] = latest.apply(
+                lambda row, metrics=aliases: _run_metric_value(df, row, metrics), axis="columns"
+            )
+            columns.append(label)
+
     row_backed_fields = (
         ("machine", "Machine"),
         ("accelerator", "Accelerator model"),
@@ -1323,17 +1502,48 @@ def summary_table(
     return latest[columns].reset_index(drop=True)
 
 
+def _context_machine(row: pd.Series) -> str | None:
+    return (
+        _clean_value(row.get("machine"))
+        or _clean_value(row.get("accelerator"))
+        or _clean_value(row.get("host"))
+    )
+
+
+def _run_metric_value(df: pd.DataFrame, row: pd.Series, aliases: tuple[str, ...]) -> str:
+    if not {"metric", "value"} <= set(df.columns):
+        return ""
+    matches = df[df["metric"].isin(aliases)]
+    for field in ("suite", "name", "model", "machine", "source_path"):
+        value = _clean_value(row.get(field))
+        if field in df and value is not None:
+            matches = matches[matches[field].map(_clean_value) == value]
+    if matches.empty:
+        return ""
+    metric = next((name for name in aliases if name in set(matches["metric"])), None)
+    if metric is None:
+        return ""
+    value_row = matches[matches["metric"] == metric].sort_values("timestamp").iloc[-1]
+    unit = _clean_value(value_row.get("display_unit")) or _metric_unit(metric, value_row.get("unit"))
+    return format_value(value_row["value"], unit)
+
+
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
 
 
 def build_ui():
     all_rows = load_data()
+    initial_mode = AGENTIC_MODE
     evidence_options = [("Scored", "scored"), ("Experimental", "experimental"), ("Recovered", "recovered")]
     initial_evidence = "scored"
-    initial_rows = evidence_view(all_rows, initial_evidence)
+    initial_mode_rows = mode_rows(all_rows, initial_mode)
+    initial_rows = evidence_view(initial_mode_rows, initial_evidence)
+    preferred_context_band = default_context_band(initial_rows)
     default_suite, default_task, default_metric = best_default(initial_rows)
     initial_filter_values: dict[str, str | None] = dict.fromkeys(FILTER_SPECS)
-    filtered_rows = filter_rows(initial_rows, initial_filter_values)
+    if preferred_context_band in row_choices(initial_rows, "context_band"):
+        initial_filter_values["context_band"] = preferred_context_band
+    filtered_rows = filter_viewer_rows(initial_rows, initial_filter_values, initial_mode)
     suites = suite_choices(filtered_rows)
     if default_suite not in suites:
         default_suite, default_task, default_metric = best_default(filtered_rows)
@@ -1440,18 +1650,30 @@ def build_ui():
             message += "  \nTrend shows individual results until comparable runs repeat over time."
         return f"{message}  \nEvidence in this dataset: {evidence_totals}."
 
+    def mode_description(mode: str) -> str:
+        if mode == DIAGNOSTIC_MODE:
+            return (
+                "Decode-speed diagnostics — short prompts, not used for model decisions. "
+                "Includes throughput rows below 32k or with unknown input length."
+            )
+        return "Throughput comparisons require at least 32k input tokens; all evaluation suites are included."
+
     def default_models(rows: pd.DataFrame) -> list[str]:
         if rows.empty:
             return []
         return rows["series_key"].value_counts().head(6).index.tolist()
 
-    def synchronize(evidence, suite, task, metric, unit, selected_models, *filter_values):
-        data = evidence_view(load_data(), str(evidence))
+    def synchronize(
+        mode, evidence, suite, task, metric, unit, selected_models, pick_default_context, *filter_values
+    ):
+        data = mode_rows(evidence_view(load_data(), str(evidence)), str(mode))
         selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
         filter_updates = []
         for name, (label, _) in FILTER_SPECS.items():
-            choices = available_filter_choices(data, name, selections)
+            choices = available_viewer_filter_choices(data, name, selections, str(mode))
             selected = selections.get(name)
+            if name == "context_band" and pick_default_context and selected is None and mode == AGENTIC_MODE:
+                selected = default_context_band(data)
             if selected not in choices:
                 selected = None
             selections[name] = selected
@@ -1467,7 +1689,7 @@ def build_ui():
                 )
             )
 
-        filtered = filter_rows(data, selections)
+        filtered = filter_viewer_rows(data, selections, str(mode))
         available_suites = suite_choices(filtered)
         if suite not in available_suites:
             suite, task, metric = best_default(filtered)
@@ -1524,6 +1746,7 @@ def build_ui():
             task_update,
             metric_update,
             unit_update,
+            mode_description(str(mode)),
             *filter_updates,
             bar,
             model_update,
@@ -1532,34 +1755,39 @@ def build_ui():
             status,
         )
 
-    def update_trend_from_models(evidence, suite, task, metric, unit, *values):
+    def update_trend_from_models(mode, evidence, suite, task, metric, unit, *values):
         selected_models = values[-1] if values else []
         filter_values = values[:-1]
         selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
-        data = filter_rows(evidence_view(load_data(), str(evidence)), selections)
+        data = filter_viewer_rows(
+            mode_rows(evidence_view(load_data(), str(evidence)), str(mode)), selections, str(mode)
+        )
         return trend_chart(data, suite, task, metric, selected_models, unit)
 
-    def synchronize_evidence(evidence, *filter_values):
-        return synchronize(evidence, None, None, None, None, None, *filter_values)
+    def synchronize_mode(mode, evidence, *filter_values):
+        return synchronize(mode, evidence, None, None, None, None, None, True, *filter_values)
 
-    def synchronize_suite(evidence, suite, *filter_values):
-        return synchronize(evidence, suite, None, None, None, None, *filter_values)
+    def synchronize_evidence(mode, evidence, *filter_values):
+        return synchronize(mode, evidence, None, None, None, None, None, True, *filter_values)
 
-    def synchronize_task(evidence, suite, task, *filter_values):
-        return synchronize(evidence, suite, task, None, None, None, *filter_values)
+    def synchronize_suite(mode, evidence, suite, *filter_values):
+        return synchronize(mode, evidence, suite, None, None, None, None, False, *filter_values)
 
-    def synchronize_metric(evidence, suite, task, metric, *filter_values):
-        return synchronize(evidence, suite, task, metric, None, None, *filter_values)
+    def synchronize_task(mode, evidence, suite, task, *filter_values):
+        return synchronize(mode, evidence, suite, task, None, None, None, False, *filter_values)
 
-    def synchronize_unit(evidence, suite, task, metric, unit, *filter_values):
-        return synchronize(evidence, suite, task, metric, unit, None, *filter_values)
+    def synchronize_metric(mode, evidence, suite, task, metric, *filter_values):
+        return synchronize(mode, evidence, suite, task, metric, None, None, False, *filter_values)
 
-    def synchronize_filters(evidence, suite, task, metric, unit, *filter_values):
-        return synchronize(evidence, suite, task, metric, unit, None, *filter_values)
+    def synchronize_unit(mode, evidence, suite, task, metric, unit, *filter_values):
+        return synchronize(mode, evidence, suite, task, metric, unit, None, False, *filter_values)
 
-    def refresh(evidence, suite, task, metric, unit, *filter_values):
+    def synchronize_filters(mode, evidence, suite, task, metric, unit, *filter_values):
+        return synchronize(mode, evidence, suite, task, metric, unit, None, False, *filter_values)
+
+    def refresh(mode, evidence, suite, task, metric, unit, *filter_values):
         request_data_refresh()
-        return synchronize(evidence, suite, task, metric, unit, None, *filter_values)
+        return synchronize(mode, evidence, suite, task, metric, unit, None, True, *filter_values)
 
     with gr.Blocks(title="MLX Benchmarks") as demo:
         gr.Markdown("# MLX Benchmarks", elem_id="title")
@@ -1568,6 +1796,15 @@ def build_ui():
             "Dataset: [MLX Benchmarks](https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks)",
             elem_id="subtitle",
         )
+        with gr.Row():
+            mode_dd = gr.Radio(
+                choices=[(AGENTIC_MODE, AGENTIC_MODE), (DIAGNOSTIC_MODE, DIAGNOSTIC_MODE)],
+                value=initial_mode,
+                label="Benchmark focus",
+                scale=1,
+                elem_id="mode",
+            )
+        mode_help = gr.Markdown(mode_description(initial_mode), elem_id="mode-description")
         with gr.Row():
             evidence_dd = gr.Radio(
                 choices=evidence_options,
@@ -1616,7 +1853,7 @@ def build_ui():
 
         status = gr.Markdown(
             selection_status(
-                all_rows,
+                initial_rows,
                 active_rows,
                 initial_evidence,
                 default_suite,
@@ -1665,6 +1902,7 @@ def build_ui():
             task_dd,
             metric_dd,
             unit_dd,
+            mode_help,
             *filter_controls,
             bar_plot,
             model_select,
@@ -1672,46 +1910,60 @@ def build_ui():
             table_out,
             status,
         ]
+        mode_dd.input(
+            synchronize_mode,
+            inputs=[mode_dd, evidence_dd, *filter_controls],
+            outputs=sync_outputs,
+        )
         evidence_dd.input(
             synchronize_evidence,
-            inputs=[evidence_dd, *filter_controls],
+            inputs=[mode_dd, evidence_dd, *filter_controls],
             outputs=sync_outputs,
         )
         suite_dd.input(
             synchronize_suite,
-            inputs=[evidence_dd, suite_dd, *filter_controls],
+            inputs=[mode_dd, evidence_dd, suite_dd, *filter_controls],
             outputs=sync_outputs,
         )
         task_dd.input(
             synchronize_task,
-            inputs=[evidence_dd, suite_dd, task_dd, *filter_controls],
+            inputs=[mode_dd, evidence_dd, suite_dd, task_dd, *filter_controls],
             outputs=sync_outputs,
         )
         metric_dd.input(
             synchronize_metric,
-            inputs=[evidence_dd, suite_dd, task_dd, metric_dd, *filter_controls],
+            inputs=[mode_dd, evidence_dd, suite_dd, task_dd, metric_dd, *filter_controls],
             outputs=sync_outputs,
         )
         unit_dd.input(
             synchronize_unit,
-            inputs=[evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
+            inputs=[mode_dd, evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
             outputs=sync_outputs,
         )
         for control in filter_controls:
             control.input(
                 synchronize_filters,
-                inputs=[evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
+                inputs=[mode_dd, evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
                 outputs=sync_outputs,
             )
 
         model_select.input(
             update_trend_from_models,
-            inputs=[evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls, model_select],
+            inputs=[
+                mode_dd,
+                evidence_dd,
+                suite_dd,
+                task_dd,
+                metric_dd,
+                unit_dd,
+                *filter_controls,
+                model_select,
+            ],
             outputs=[trend_plot],
         )
         refresh_btn.click(
             refresh,
-            inputs=[evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
+            inputs=[mode_dd, evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
             outputs=sync_outputs,
         )
     return demo

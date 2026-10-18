@@ -1,0 +1,55 @@
+{
+  "models": {
+    "nvidia/Qwen3.8-27B-NVFP4": {
+      "native_context_tokens": 262144,
+      "yarn_extended_context_tokens": null,
+      "max_recommended_context_tokens": 262144,
+      "card_url": "https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4",
+      "context_source_url": "https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4/resolve/main/config.json",
+      "context_basis": "The card states up to 262K tokens; config max_position_embeddings is 262144. No YaRN extension is documented on this card."
+    },
+    "unsloth/Qwen3.8-27B-GGUF": {
+      "native_context_tokens": 262144,
+      "yarn_extended_context_tokens": 1000000,
+      "max_recommended_context_tokens": 1000000,
+      "card_url": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF",
+      "context_source_url": "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/config.json",
+      "context_basis": "The card states 262144 natively and extension up to 1000000 with RoPE scaling such as YaRN; config max_position_embeddings is 262144."
+    },
+    "mlx-community/Qwen3.8-27B-8bit": {
+      "native_context_tokens": 262144,
+      "yarn_extended_context_tokens": 1000000,
+      "max_recommended_context_tokens": 1000000,
+      "card_url": "https://huggingface.co/mlx-community/Qwen3.8-27B-8bit",
+      "context_source_url": "https://huggingface.co/Qwen/Qwen3.8-27B",
+      "config_url": "https://huggingface.co/mlx-community/Qwen3.8-27B-8bit/resolve/main/config.json",
+      "context_basis": "The conversion card refers to Qwen/Qwen3.8-27B; its config max_position_embeddings is 262144 and the base card documents YaRN extension up to 1000000."
+    },
+    "unsloth/Qwen3.8-Flash-Next-GGUF": {
+      "native_context_tokens": 262144,
+      "yarn_extended_context_tokens": 1000000,
+      "max_recommended_context_tokens": 1000000,
+      "card_url": "https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF",
+      "context_source_url": "https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF",
+      "config_url": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next/resolve/main/config.json",
+      "context_basis": "The card states 262144 natively and extension up to 1000000 with YaRN; the base config max_position_embeddings is 262144."
+    },
+    "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF": {
+      "native_context_tokens": 262144,
+      "yarn_extended_context_tokens": 1000000,
+      "max_recommended_context_tokens": 1000000,
+      "card_url": "https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF",
+      "context_source_url": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next",
+      "config_url": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next/resolve/main/config.json",
+      "context_basis": "The quantization card identifies Qwen/Qwen3.8-Flash-Next as its base; that card states 262144 natively and extension up to 1000000 with YaRN."
+    },
+    "nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF": {
+      "native_context_tokens": 262144,
+      "yarn_extended_context_tokens": null,
+      "max_recommended_context_tokens": 262144,
+      "card_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF",
+      "context_source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF",
+      "context_basis": "The card states up to 256K tokens and gives a 262144-token deployment recipe; no YaRN extension is documented."
+    }
+  }
+}

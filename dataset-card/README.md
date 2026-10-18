@@ -55,6 +55,36 @@ shards failed the evidence checks described by their index caveats; and
 Invalid shards remain available in `history`, but are excluded from `default`
 and hidden from the viewer.
 
+## Model context limits
+
+Max recommended context is the longest documented model limit. YaRN-extended context
+is shown separately and requires engine support; runtime or memory can
+impose a smaller limit. Native values come from `max_position_embeddings` in
+linked configs or model cards. For conversions and quantizations, the base card
+supplies limits when the derived card has none.
+
+| Model | Native context | YaRN extension | Max rec. context | Context sources |
+| --- | ---: | ---: | ---: | --- |
+| [nvidia/Qwen3.8-27B-NVFP4][nvfp4-card] | 262,144 | Not documented | 262,144 | [Card: up to 262K][nvfp4-card]; [config][nvfp4-config] |
+| [unsloth/Qwen3.8-27B-GGUF][unsloth-27b-card] | 262,144 | 1,000,000 | 1,000,000 | [card][unsloth-27b-card]; [config][unsloth-27b-config] |
+| [mlx-community/Qwen3.8-27B-8bit][mlx-27b-card] | 262,144 | 1,000,000 | 1,000,000 | [base card][qwen-27b-card]; [config][mlx-27b-config] |
+| [unsloth/Qwen3.8-Flash-Next-GGUF][unsloth-flash-card] | 262,144 | 1,000,000 | 1,000,000 | [card][unsloth-flash-card]; [config][flash-config] |
+| [ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF][ista-flash-card] | 262,144 | 1,000,000 | 1,000,000 | [Base card][flash-card]; [base config][flash-config] |
+| [nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF][nemotron-card] | 262,144 | Not documented | 262,144 | [card][nemotron-card] |
+
+[nvfp4-card]: https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4
+[nvfp4-config]: https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4/resolve/main/config.json
+[unsloth-27b-card]: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF
+[unsloth-27b-config]: https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/config.json
+[mlx-27b-card]: https://huggingface.co/mlx-community/Qwen3.8-27B-8bit
+[mlx-27b-config]: https://huggingface.co/mlx-community/Qwen3.8-27B-8bit/resolve/main/config.json
+[qwen-27b-card]: https://huggingface.co/Qwen/Qwen3.8-27B
+[unsloth-flash-card]: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+[ista-flash-card]: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+[flash-card]: https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+[flash-config]: https://huggingface.co/Qwen/Qwen3.8-Flash-Next/resolve/main/config.json
+[nemotron-card]: https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF
+
 ## Quickstart
 
 In the dataset SQL console, start with the measurements available for each
