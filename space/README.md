@@ -46,15 +46,98 @@ Launch the viewer locally:
 python app.py
 ```
 
-Gradio prints a local URL (default `http://127.0.0.1:7860`). The app pulls all
-`data/*.parquet` shards from the HF dataset, caches them for 10 minutes, and
-offers three tabs:
+Gradio prints a local URL (default `http://127.0.0.1:7860`). The app loads
+canonical Parquet shards and the run index from the HF dataset. It prepares
+both viewer modes, then caches the prepared data for 600 seconds. After that
+TTL expires, the viewer keeps serving the cached rows and starts one background
+refresh. The **Refresh data** button uses the same path. See
+[`space/app.py`](https://github.com/JacobPEvans/mlx-benchmarks/blob/main/space/app.py)
+for the cache implementation. The viewer offers three charts:
 
 - **Bar chart — latest run** — one bar per model for a given (suite, task, metric)
 - **Trend — over time** — score trajectory per model across runs
 - **Summary table** — pivot of models x tasks for the selected (suite, metric)
 
-Hit **Refresh data** to invalidate the cache manually.
+Select **Refresh data** to load the latest dataset snapshot.
+
+## Performance and remeasurement
+
+These measurements were recorded on 2026-10-18 UTC against the live public
+Space, dataset, and datasets-server endpoints. Network timings vary by run.
+
+Measurements while the Space was already running:
+
+- Three fresh headless Chromium sessions showed data in 1.5 s, 3.2 s, and
+  1.6 s. The first switch to **Speed / diagnostic** took 2.9 s; the next took
+  0.3 s. Evidence-filter switches took 0.3–1.8 s.
+- After a 660-second cache wait, three fresh sessions showed page-to-data in
+  1.9 s, 1.7 s, and 1.5 s; mode switches in 5.0 s, 4.8 s, and 4.8 s; and
+  evidence-filter switches in 0.4 s, 0.3 s, and 0.4 s.
+- datasets-server `default` first rows returned HTTP 200 in 0.41 s; `history`
+  first rows returned HTTP 200 in 0.25 s.
+- `data/recent/latest.parquet` downloaded 268,957 bytes in 0.71 s. The dataset
+  page loaded in 0.76 s.
+- The fresh viewer snapshot had 3,060 rows: 637 scored, 2,410 experimental,
+  and 13 recovered. The 313-entry remote run index passed validation. No scored
+  row had an empty machine, engine, or engine version.
+
+The first measured server cold start after the [PR #416 rewrite](https://github.com/JacobPEvans/mlx-benchmarks/pull/416)
+took about 18 s to show data. Before the [PR #440](https://github.com/JacobPEvans/mlx-benchmarks/pull/440)
+and [PR #445](https://github.com/JacobPEvans/mlx-benchmarks/pull/445)
+precompute fixes, a mode switch still showed `processing` after 6 s.
+
+The current targets are:
+
+| Check | Target |
+| --- | --- |
+| Cold page load | Show data within 30 s. |
+| Mode switch | Complete within 5 s. |
+| Interaction after the cache TTL | Return the cached frame while the background refresh runs; do not wait for a full reload. |
+
+The current code starts the refresh in a background thread when cached data
+reaches its 600-second TTL. It serves the existing frame until the refresh
+completes. A Space wake or restart with the current code has not been measured.
+Neither has loading the full history through the `datasets` library.
+
+### Repeat the measurements
+
+From the repository root, run the timing script against three fresh browser
+pages while the Space is running:
+
+```sh
+uvx --with playwright python -I scripts/measure_viewer_performance.py
+```
+
+The script prints page-to-data, mode-switch, and evidence-filter timings for
+each page. To capture the same visual states for comparison, pass a screenshot
+directory:
+
+```sh
+mkdir -p /tmp/mlx-viewer-shots
+uvx --with playwright python -I scripts/capture_viewer_screenshots.py /tmp/mlx-viewer-shots
+```
+
+Time the public dataset endpoints and page with `curl`:
+
+```sh
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' \
+  'https://datasets-server.huggingface.co/first-rows?dataset=JacobPEvans%2Fmlx-benchmarks&config=default&split=train'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' \
+  'https://datasets-server.huggingface.co/first-rows?dataset=JacobPEvans%2Fmlx-benchmarks&config=history&split=train'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{size_download} bytes; %{time_total}s\n' \
+  'https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks/resolve/main/data/recent/latest.parquet?download=true'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' \
+  'https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks'
+```
+
+Validate the live run-index entries from the repository root:
+
+```sh
+.venv/bin/python scripts/validate_run_index.py --remote
+```
+
+The current-code Space cold start after sleep or restart and a full-history
+load through the `datasets` library remain unmeasured.
 
 ## Deployment
 

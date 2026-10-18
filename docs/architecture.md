@@ -163,10 +163,14 @@ the Hub but do not write to it.
 
 ### Viewer (`space/`)
 
-Gradio app that reads every `data/*.parquet` shard via `HfFileSystem`,
-caches for 10 minutes, and renders three tabs (bar / trend / pivot).
-Deployed to HF Spaces by `.github/workflows/deploy-space.yml` on `main`
-pushes that touch `space/`.
+Gradio app that loads canonical Parquet shards and the run index from the HF
+dataset snapshot. It prepares both viewer modes and caches the rows for 600
+seconds. After expiry, it serves the current frame while a background refresh
+runs. It renders a bar chart, trend chart, and summary table. The
+[`Space README`](../space/README.md#performance-and-remeasurement) records
+the live load baseline, targets, and remeasurement steps. The viewer deploys
+to HF Spaces through `.github/workflows/deploy-space.yml` on `main` pushes
+that touch `space/`.
 
 ### CI
 
