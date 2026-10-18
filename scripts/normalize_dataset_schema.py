@@ -26,19 +26,15 @@ from mlx_benchmarks.publish import canonical_shard_path
 DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
 DATASET_CARD_PATH = Path("dataset-card/README.md")
 RUN_INDEX_PATH = Path("metadata/run-index-v1.json")
-RUN_OVERRIDE_FIELDS = ("machine", "engine", "engine_version", "engine_build", "engine_commit")
 
 
 def normalize_legacy_table(
     table: pa.Table,
     *,
     machine_labels: dict[str, str] | None = None,
-    run_overrides: dict[str, object] | None = None,
 ) -> pa.Table:
     """Pad one historical table and replace machine identifiers in its projection."""
-    rows = normalize_legacy_rows(
-        table.to_pylist(), machine_labels=machine_labels, run_overrides=run_overrides
-    )
+    rows = normalize_legacy_rows(table.to_pylist(), machine_labels=machine_labels)
     return pa.Table.from_pylist(rows, schema=PARQUET_ROW_SCHEMA)
 
 
@@ -62,12 +58,6 @@ def _run_index_entries() -> dict[str, dict[str, object]]:
     if len(entries) != len(runs):
         raise ValueError("run index paths must be strings and unique")
     return entries
-
-
-def _overrides_for_run(entry: dict[str, object] | None) -> dict[str, object] | None:
-    if entry is None:
-        return None
-    return {field: entry[field] for field in RUN_OVERRIDE_FIELDS if field in entry}
 
 
 def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
@@ -102,25 +92,19 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     for source_path in originals:
         source = _read_table(api, repo_id, source_path)
         target_path = canonical_shard_path(source_path)
-        run_overrides = _overrides_for_run(run_index.get(source_path))
         source_rows += source.num_rows
-        normalized = normalize_legacy_table(
-            source, machine_labels=machine_labels, run_overrides=run_overrides
-        )
+        normalized = normalize_legacy_table(source, machine_labels=machine_labels)
         if normalized.num_rows != source.num_rows:
             raise RuntimeError(f"normalization changed the row count for {source_path}")
         if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
             raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
         if target_path in repo_paths:
             existing = _read_table(api, repo_id, target_path)
-            prior_projection = (
-                normalize_legacy_table(source, machine_labels={}) if machine_labels or run_overrides else None
-            )
+            prior_projection = normalize_legacy_table(source, machine_labels={}) if machine_labels else None
             needs_refresh = canonical_shard_needs_refresh(
                 existing,
                 normalized,
                 machine_labels=machine_labels,
-                run_overrides=run_overrides,
                 prior_projection=prior_projection,
             )
             if needs_refresh:
@@ -143,35 +127,6 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         )
         canonical_tables[target_path] = normalized
         canonical_to_add += 1
-
-    for source_path, entry in run_index.items():
-        if source_path in originals:
-            continue
-        target_path = canonical_shard_path(source_path)
-        run_overrides = _overrides_for_run(entry)
-        if target_path not in repo_paths or not run_overrides:
-            continue
-        existing = _read_table(api, repo_id, target_path)
-        normalized = normalize_legacy_table(
-            existing, machine_labels=machine_labels, run_overrides=run_overrides
-        )
-        if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
-            raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
-        prior_projection = normalize_legacy_table(existing, machine_labels={})
-        if canonical_shard_needs_refresh(
-            existing,
-            normalized,
-            machine_labels=machine_labels,
-            run_overrides=run_overrides,
-            prior_projection=prior_projection,
-        ):
-            operations.append(
-                CommitOperationAdd(path_in_repo=target_path, path_or_fileobj=_parquet_bytes(normalized))
-            )
-            canonical_tables[target_path] = normalized
-            canonical_to_refresh += 1
-        else:
-            existing_copies += 1
 
     canonical_paths = {path for path in repo_paths if path.startswith("data/run-canonical-")}
     invalid_paths = {

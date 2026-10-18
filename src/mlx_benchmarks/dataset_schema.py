@@ -656,17 +656,8 @@ def normalize_legacy_rows(
     rows: list[dict[str, Any]],
     *,
     machine_labels: Mapping[str, str] | None = None,
-    run_overrides: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Pad historical rows and apply the safe projections recorded in the run index."""
-    overrides = dict(run_overrides or {})
-    allowed_overrides = {"machine", "engine", "engine_version", "engine_build", "engine_commit"}
-    unknown_overrides = set(overrides) - allowed_overrides
-    if unknown_overrides:
-        raise ValueError(f"unsupported run-index overrides: {', '.join(sorted(unknown_overrides))}")
-    machine_override = overrides.get("machine")
-    if machine_override is not None and not _machine_label_is_valid(machine_override):
-        raise ValueError("run-index machine override contains an invalid label")
+    """Pad historical rows, retain dynamic fields, and project safe machine labels."""
     normalized_rows: list[dict[str, Any]] = []
     schema_names = set(PARQUET_ROW_SCHEMA.names)
     for legacy in rows:
@@ -709,7 +700,7 @@ def normalize_legacy_rows(
             if system_extra is not None
             else "{}"
         )
-        label = machine_override or _machine_label_for_row(row, tags, extras, machine_labels or {})
+        label = _machine_label_for_row(row, tags, extras, machine_labels or {})
         if label:
             row["hostname"] = label
             for field in _MACHINE_ID_FIELDS:
@@ -723,8 +714,6 @@ def normalize_legacy_rows(
                     tags[tag] = label
                 if tag in extras:
                     extras[tag] = label
-            if machine_override is not None:
-                row["campaign_hardware_machine"] = label
             row["tags_json"] = json.dumps(tags, sort_keys=True)
             row["extra_json"] = json.dumps(extras, sort_keys=True, default=str)
         row["tags_json"] = json.dumps(tags, sort_keys=True)
@@ -741,18 +730,6 @@ def normalize_legacy_rows(
                 machine_id: (machine_labels or {}).get(machine_id, label) for machine_id in raw_machine_ids
             }
             row = _scrub_machine_identifiers(row, replacements)
-        if "engine" in overrides:
-            row["engine"] = overrides["engine"]
-            row["campaign_software_engine"] = overrides["engine"]
-        for override, column in (
-            ("engine_version", "campaign_software_engine_version"),
-            ("engine_build", "campaign_software_engine_build"),
-            ("engine_commit", "campaign_software_engine_commit"),
-        ):
-            if override in overrides:
-                row[override if override == "engine_version" else column] = overrides[override]
-                if override == "engine_version":
-                    row[column] = overrides[override]
         normalized_rows.append(row)
     return normalized_rows
 
@@ -762,7 +739,6 @@ def canonical_shard_needs_refresh(
     expected: pa.Table,
     *,
     machine_labels: Mapping[str, str] | None = None,
-    run_overrides: Mapping[str, Any] | None = None,
     prior_projection: pa.Table | None = None,
 ) -> bool:
     """Check whether a canonical shard can be refreshed from its retained source."""
@@ -784,9 +760,7 @@ def canonical_shard_needs_refresh(
             return True
 
     refreshed = pa.Table.from_pylist(
-        normalize_legacy_rows(
-            existing.to_pylist(), machine_labels=machine_labels, run_overrides=run_overrides
-        ),
+        normalize_legacy_rows(existing.to_pylist(), machine_labels=machine_labels),
         schema=PARQUET_ROW_SCHEMA,
     )
     if refreshed.to_pylist() != expected.to_pylist():
