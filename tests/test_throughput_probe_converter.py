@@ -114,6 +114,40 @@ def test_the_concurrent_phase_aggregate_is_published() -> None:
     assert by_metric["throughput_total_toks_per_s"]["tags"]["phase"] == "sequential"
 
 
+def test_combined_sections_share_metric_rows_and_record_concurrency() -> None:
+    sequential = {
+        "cumulative_tok_s": {"median": 54.1, "min": 52.0, "max": 55.0},
+        "decode_tok_s": {"median": 42.9},
+    }
+    raw = {
+        "model": "m",
+        "thinking": "off",
+        "sequential": sequential,
+        "concurrent": {
+            "width": 4,
+            "wall_s": 12.5,
+            "n_ok": 4,
+            "n_err": 0,
+            "aggregate_cumulative_tok_s": 210.5,
+            "aggregate_decode_tok_s": 88.25,
+            "errors": [],
+        },
+    }
+    sequential_only = {key: value for key, value in raw.items() if key != "concurrent"}
+    rows = _results(raw)
+    sequential_rows = [row for row in rows if row["tags"]["phase"] == "sequential"]
+
+    # Adding the concurrent summary must leave every existing sequential row intact.
+    assert [{**row, "raw": sequential_only} for row in sequential_rows] == _results(sequential_only)
+
+    concurrent_rows = [row for row in rows if row["tags"]["phase"] == "concurrent"]
+    assert [(row["metric"], row["value"]) for row in concurrent_rows] == [
+        ("throughput_aggregate_toks_per_s", 210.5),
+        ("throughput_aggregate_output_toks_per_s", 88.25),
+    ]
+    assert all(row["tags"]["concurrency"] == "4" for row in concurrent_rows)
+
+
 def test_a_partially_failed_batch_is_marked_not_silently_averaged() -> None:
     """The aggregate covers only the requests that returned, so without the error
     count a batch where 3 of 5 failed reads as a clean measurement."""

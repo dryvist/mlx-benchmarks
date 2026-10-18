@@ -9,12 +9,14 @@ from mlx_benchmarks.envelope import Envelope, Result, System
 
 log = logging.getLogger(__name__)
 
-_METRICS: tuple[tuple[str, str, str], ...] = (
-    ("cumulative_tok_s", "throughput_total_toks_per_s", "tok/s"),
-    ("decode_tok_s", "throughput_output_toks_per_s", "tok/s"),
-    ("prefill_tok_s", "throughput_prompt_toks_per_s", "tok/s"),
-    ("ttft_s", "ttft_p50_ms", "ms"),
-    ("total_s", "request_duration_p50_s", "s"),
+_METRICS: tuple[tuple[str, str, str, str], ...] = (
+    ("sequential", "cumulative_tok_s", "throughput_total_toks_per_s", "tok/s"),
+    ("sequential", "decode_tok_s", "throughput_output_toks_per_s", "tok/s"),
+    ("sequential", "prefill_tok_s", "throughput_prompt_toks_per_s", "tok/s"),
+    ("sequential", "ttft_s", "ttft_p50_ms", "ms"),
+    ("sequential", "total_s", "request_duration_p50_s", "s"),
+    ("concurrent", "aggregate_cumulative_tok_s", "throughput_aggregate_toks_per_s", "tok/s"),
+    ("concurrent", "aggregate_decode_tok_s", "throughput_aggregate_output_toks_per_s", "tok/s"),
 )
 
 
@@ -107,20 +109,43 @@ class ThroughputProbeConverter:
             if prompt_tokens:
                 tags["context_tokens_actual"] = ",".join(map(str, sorted(prompt_tokens)))
 
+        concurrent = raw.get("concurrent")
+        concurrent_tags: dict[str, str] | None = None
+        if isinstance(concurrent, dict):
+            concurrent_tags = dict(tags)
+            concurrent_tags["phase"] = "concurrent"
+            for key in ("width", "n_ok", "n_err", "wall_s"):
+                if concurrent.get(key) is not None:
+                    concurrent_tags[key] = str(concurrent[key])
+            if concurrent.get("width") is not None:
+                concurrent_tags["concurrency"] = str(concurrent["width"])
+            errors = concurrent.get("errors")
+            if isinstance(errors, list) and errors:
+                # A partial aggregate covers only the requests that returned.
+                concurrent_tags["concurrent_errors"] = str(len(errors))
+
         results: list[Result] = []
-        for source_key, metric, unit in _METRICS:
-            stats = sequential.get(source_key)
-            if not isinstance(stats, dict) or not isinstance(stats.get("median"), int | float):
+        for phase, source_key, metric, unit in _METRICS:
+            summary = raw.get(phase)
+            if not isinstance(summary, dict):
                 continue
-            result_tags = dict(tags)
-            # Which phase produced the number. Without it the sequential and
-            # concurrent rows are indistinguishable once published, and a reader
-            # cannot tell a one-at-a-time figure from an aggregate under load.
-            result_tags["phase"] = "sequential"
-            for stat in ("min", "max"):
-                if isinstance(stats.get(stat), int | float):
-                    result_tags[f"{source_key}_{stat}"] = str(stats[stat])
-            value = float(stats["median"])
+
+            source = summary.get(source_key)
+            if phase == "sequential":
+                if not isinstance(source, dict) or not isinstance(source.get("median"), int | float):
+                    continue
+                value = float(source["median"])
+                result_tags = dict(tags)
+                for stat in ("min", "max"):
+                    if isinstance(source.get(stat), int | float):
+                        result_tags[f"{source_key}_{stat}"] = str(source[stat])
+            else:
+                if concurrent_tags is None or not isinstance(source, int | float):
+                    continue
+                value = float(source)
+                result_tags = dict(concurrent_tags)
+
+            result_tags["phase"] = phase
             if source_key == "ttft_s":
                 value *= 1000.0
             results.append(
@@ -133,51 +158,4 @@ class ThroughputProbeConverter:
                     "raw": raw,
                 }
             )
-        results.extend(_concurrent_results(raw, tags))
         return results
-
-
-# The concurrent phase's aggregate throughput: the only figure in this harness
-# that answers "what does the endpoint deliver with N requests in flight". The
-# runner has always recorded it and this converter dropped it, so every published
-# throughput row described one-at-a-time serving no matter what width was driven.
-_CONCURRENT_METRICS: tuple[tuple[str, str], ...] = (
-    ("aggregate_cumulative_tok_s", "throughput_aggregate_toks_per_s"),
-    ("aggregate_decode_tok_s", "throughput_aggregate_output_toks_per_s"),
-)
-
-
-def _concurrent_results(raw: Any, tags: dict[str, str]) -> list[Result]:
-    concurrent = raw.get("concurrent") if isinstance(raw, dict) else None
-    if not isinstance(concurrent, dict):
-        # --skip-concurrent, or a run that failed before the phase. Absent, not zero.
-        return []
-
-    base = dict(tags)
-    base["phase"] = "concurrent"
-    for key in ("width", "n_ok", "n_err", "wall_s"):
-        if concurrent.get(key) is not None:
-            base[key] = str(concurrent[key])
-    errors = concurrent.get("errors")
-    if isinstance(errors, list) and errors:
-        # A partially-failed batch still publishes; the aggregate is over the
-        # requests that returned, so the error count is what stops it reading
-        # as a clean measurement.
-        base["concurrent_errors"] = str(len(errors))
-
-    results: list[Result] = []
-    for source_key, metric in _CONCURRENT_METRICS:
-        value = concurrent.get(source_key)
-        if not isinstance(value, int | float):
-            continue
-        results.append(
-            {
-                "name": "throughput_probe",
-                "metric": metric,
-                "value": float(value),
-                "unit": "tok/s",
-                "tags": dict(base),
-                "raw": raw,
-            }
-        )
-    return results
