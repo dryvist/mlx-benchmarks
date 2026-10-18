@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.55.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.54.2...v0.55.0) (2026-10-18)
+
+
+### Features
+
+* **viewer:** add agentic and context views ([#429](https://github.com/dryvist/mlx-benchmarks/issues/429)) ([d8e8a5d](https://github.com/dryvist/mlx-benchmarks/commit/d8e8a5dbfbd0eed9bc8b148520acd6566ace6883))
+* **viewer:** split agentic and diagnostic modes ([d8e8a5d](https://github.com/dryvist/mlx-benchmarks/commit/d8e8a5dbfbd0eed9bc8b148520acd6566ace6883))
+
 ## [0.54.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.54.1...v0.54.2) (2026-10-18)
 
 
