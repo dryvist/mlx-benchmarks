@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.51.0...v0.51.1) (2026-10-18)
+
+
+### Documentation
+
+* record overnight recommendation results ([#401](https://github.com/dryvist/mlx-benchmarks/issues/401)) ([564eb39](https://github.com/dryvist/mlx-benchmarks/commit/564eb39a0c670a7b74a955eb6880aeb670d45e75))
+
 ## [0.51.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.50.3...v0.51.0) (2026-10-18)
 
 
