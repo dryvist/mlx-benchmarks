@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.55.0...v0.56.0) (2026-10-18)
+
+
+### Features
+
+* **dataset:** score only indexed shards ([#431](https://github.com/dryvist/mlx-benchmarks/issues/431)) ([e8948f0](https://github.com/dryvist/mlx-benchmarks/commit/e8948f0dd7de20c2b2022a73a50f5651ff492507))
+
 ## [0.55.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.54.2...v0.55.0) (2026-10-18)
 
 
