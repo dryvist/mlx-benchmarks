@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.51.1...v0.51.2) (2026-10-18)
+
+
+### Documentation
+
+* document upgrade-first benchmark blocks ([#404](https://github.com/dryvist/mlx-benchmarks/issues/404)) ([03e7ae9](https://github.com/dryvist/mlx-benchmarks/commit/03e7ae92a263c470e158c9410cee1bbd6a2950d3))
+
 ## [0.51.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.51.0...v0.51.1) (2026-10-18)
 
 
