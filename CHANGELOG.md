@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.4](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.3...v0.56.4) (2026-10-18)
+
+
+### Bug Fixes
+
+* **space:** repair viewer defaults, labels, and mode switching ([#440](https://github.com/dryvist/mlx-benchmarks/issues/440)) ([322df70](https://github.com/dryvist/mlx-benchmarks/commit/322df70fa163d8d83c23ccb8b88f51372f34727d))
+
 ## [0.56.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.2...v0.56.3) (2026-10-18)
 
 
