@@ -8,21 +8,23 @@ Deploy to HF Spaces (SDK: gradio, Python 3.11+).
 """
 
 import json
+import logging
 import os
 import re
 import time
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 
 import gradio as gr
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from huggingface_hub import HfFileSystem
+from huggingface_hub import snapshot_download
 
 DATASET = "datasets/JacobPEvans/mlx-benchmarks"
+DATASET_REPO_ID = "JacobPEvans/mlx-benchmarks"
 RUN_INDEX_PATH = "metadata/run-index-v1.json"
 CACHE_TTL = 600  # seconds
 EXPECTED_COLUMNS = ["timestamp", "suite", "name", "metric", "model", "value"]
@@ -34,15 +36,48 @@ FILTER_SPECS = {
         ("campaign_hardware_accelerator_model", "accelerator_model", "chip", "gpu"),
     ),
     "engine": ("Engine", ("campaign_software_engine", "engine")),
+    "engine_version": (
+        "Engine version",
+        ("campaign_software_engine_version", "engine_version", "tag_engine_version"),
+    ),
     "backend": ("Backend", ("campaign_software_backend", "backend", "tag_backend")),
     "quant_format": (
         "Quant format",
         ("campaign_model_quantization", "quant_format", "quantization", "tag_quant", "quant"),
     ),
+    "reasoning_effort": (
+        "Reasoning effort",
+        ("campaign_run_reasoning_effort", "reasoning_effort", "tag_reasoning_effort", "reasoning_arm"),
+    ),
+    "thinking": (
+        "Thinking arm",
+        ("campaign_run_thinking", "thinking", "tag_thinking", "tag_think_value"),
+    ),
+    "mtp": (
+        "MTP",
+        ("campaign_run_speculative_mtp", "speculative_mtp", "tag_mtp", "mtp", "tag_speculative_decoding"),
+    ),
+    "speculative_tokens": (
+        "Speculative tokens",
+        (
+            "campaign_run_num_speculative_tokens",
+            "num_speculative_tokens",
+            "tag_num_speculative_tokens",
+        ),
+    ),
+    "kv_cache_dtype": (
+        "KV cache dtype",
+        ("campaign_run_kv_cache_dtype", "kv_cache_dtype", "tag_kv_cache_dtype"),
+    ),
+    "power_limit_w": (
+        "Power limit (W)",
+        ("power_limit_w", "campaign_hardware_power_cap_w", "tag_power_limit_w"),
+    ),
     "agents": (
-        "Agents",
+        "Concurrency",
         ("campaign_run_concurrent_agents", "concurrent_agents", "concurrency", "tag_concurrency", "agents"),
     ),
+    "context_band": ("Context band", ("context_band", "tag_context_band")),
     "allocated_context": (
         "Allocated context (tokens)",
         (
@@ -76,7 +111,7 @@ FILTER_SPECS = {
         ),
     ),
     "output_budget_tokens": (
-        "Output budget (tokens)",
+        "Output tokens",
         (
             "campaign_run_output_tokens",
             "max_output_tokens",
@@ -90,6 +125,15 @@ FILTER_SPECS = {
             "tag_reserved_output_tokens",
         ),
     ),
+    "arrival_pattern": (
+        "Arrival pattern",
+        ("arrival", "arrival_pattern", "tag_arrival", "tag_arrival_pattern", "load_shape"),
+    ),
+    "request_rate": (
+        "Request rate",
+        ("request_rate", "tag_request_rate", "campaign_run_request_rate"),
+    ),
+    "burstiness": ("Burstiness", ("burstiness", "tag_burstiness", "campaign_run_burstiness")),
 }
 WORKLOAD_FIELDS = (
     "allocated_context",
@@ -108,6 +152,10 @@ CSS = """
 .gradio-container { background: #f2f5f6; }
 .dark .gradio-container { background: var(--body-background-fill); }
 .dark #selection-status { background: var(--background-fill-secondary); }
+.gradio-container .js-plotly-plot,
+.gradio-container .js-plotly-plot .svg-container { background: transparent !important; }
+.gradio-container .js-plotly-plot text,
+.gradio-container .js-plotly-plot .annotation-text { fill: var(--body-text-color, #243746) !important; }
 body, .gradio-container { font-family: Inter, "Segoe UI", Arial, sans-serif; }
 button:focus-visible, input:focus-visible, [role="combobox"]:focus-visible {
     outline: 3px solid #126b72 !important;
@@ -128,6 +176,8 @@ THEME = gr.themes.Base(
 
 _cache: tuple[float, pd.DataFrame] | None = None
 _cache_lock = Lock()
+_refresh_lock = Lock()
+LOGGER = logging.getLogger(__name__)
 
 
 def empty_data() -> pd.DataFrame:
@@ -140,6 +190,12 @@ def empty_data() -> pd.DataFrame:
         "series_key",
         "series_label",
         "workload_complete",
+        "variant",
+        "caveat",
+        "fan_duty",
+        "ambient_temp_f",
+        "patches",
+        "dedicated",
         *FILTER_SPECS,
         *WORKLOAD_FIELDS,
     ]
@@ -298,30 +354,8 @@ def humanize(value: object) -> str:
     return " ".join(words)
 
 
-def load_run_index(fs: HfFileSystem) -> tuple[dict[str, dict[str, object]], pd.Timestamp | None]:
-    """Load the optional immutable-shard index, keyed by dataset-relative path.
-
-    A missing index entry is intentionally *experimental*: absence must never
-    make an unreviewed parquet eligible for the scored/default view.
-    """
-    try:
-        with fs.open(f"{DATASET}/{RUN_INDEX_PATH}") as file:
-            payload = json.load(file)
-    except (FileNotFoundError, OSError, json.JSONDecodeError):
-        return {}, None
-    runs = payload.get("runs", [])
-    if not isinstance(runs, list):
-        return {}, None
-    cutoff = payload.get("historical_scored_before")
-    cutoff_timestamp = pd.to_datetime(cutoff, utc=True, errors="coerce") if cutoff else None
-    return (
-        {entry["path"]: entry for entry in runs if isinstance(entry, dict) and "path" in entry},
-        cutoff_timestamp if pd.notna(cutoff_timestamp) else None,
-    )
-
-
 def load_local_run_index(data_dir: Path) -> tuple[dict[str, dict[str, object]], pd.Timestamp | None]:
-    """Read the repository run index beside a local Parquet directory when present."""
+    """Read the optional run index beside a local or cached Parquet directory."""
     path = data_dir.parent / RUN_INDEX_PATH
     try:
         payload = json.loads(path.read_text())
@@ -338,10 +372,63 @@ def load_local_run_index(data_dir: Path) -> tuple[dict[str, dict[str, object]], 
     )
 
 
+MACHINE_LABELS = {
+    "nvidia rtx pro 6000 blackwell max-q": "RTX PRO 6000 Max-Q 96GB",
+    "nvidia rtx pro 6000 blackwell max-q 96gb": "RTX PRO 6000 Max-Q 96GB",
+    "rtx pro 6000 96gb": "RTX PRO 6000 Max-Q 96GB",
+    "rtx pro 6000 max-q 96gb": "RTX PRO 6000 Max-Q 96GB",
+    "rtx 4080 16gb": "RTX 4080 SUPER 16GB",
+    "rtx 4080 super 16gb": "RTX 4080 SUPER 16GB",
+    "apple m4 max": "Mac Studio M4 Max 128GB",
+    "mac studio": "Mac Studio M4 Max 128GB",
+    "mac studio m4 max 128gb": "Mac Studio M4 Max 128GB",
+}
+
+
+def normalize_machine(value: object) -> str | None:
+    """Normalize known machine-label variants to the public display names."""
+    cleaned = _clean_value(value)
+    return MACHINE_LABELS.get(cleaned.casefold(), cleaned) if cleaned else None
+
+
+def _arrival_pattern(row: pd.Series) -> str | None:
+    arrival = _row_value(row, FILTER_SPECS["arrival_pattern"][1])
+    normalized = arrival.casefold() if arrival else ""
+    if "batch" in normalized or normalized in {"inf", "infinite"}:
+        return "Batched"
+    if "poisson" in normalized or "stagger" in normalized:
+        return "Staggered"
+    request_rate = _row_value(row, FILTER_SPECS["request_rate"][1])
+    if request_rate is None:
+        return None
+    return "Batched" if request_rate.casefold() in {"inf", "infinite"} else "Staggered"
+
+
+def _json_text(row: pd.Series, aliases: tuple[str, ...]) -> str | None:
+    for alias in aliases:
+        if alias not in row.index:
+            continue
+        value = row[alias]
+        try:
+            if bool(pd.isna(value)):
+                continue
+        except (TypeError, ValueError):
+            pass
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return value.strip() or None
+        if isinstance(value, (Mapping, list, tuple)):
+            return json.dumps(value, sort_keys=True, ensure_ascii=False)
+        return _clean_value(value)
+    return None
+
+
 def add_evidence_metadata(
     df: pd.DataFrame, index: dict[str, dict[str, object]], historical_cutoff: pd.Timestamp | None
 ) -> pd.DataFrame:
-    """Add row-backed dimensions and retain incomplete workloads as separate runs."""
+    """Attach evidence and row-backed dimensions used to compare benchmark series."""
     df = df.copy()
 
     def run_entry(row: pd.Series) -> dict[str, object]:
@@ -358,8 +445,13 @@ def add_evidence_metadata(
 
     df["evidence_status"] = df.apply(evidence_status, axis="columns")
     df["variant"] = df.apply(lambda row: _clean_value(run_entry(row).get("variant")), axis="columns")
+    df["caveat"] = df.apply(lambda row: _clean_value(run_entry(row).get("caveat")), axis="columns")
     df["context_band"] = df.apply(
-        lambda row: _clean_value(run_entry(row).get("context_band")), axis="columns"
+        lambda row: (
+            _clean_value(run_entry(row).get("context_band"))
+            or _row_value(row, FILTER_SPECS["context_band"][1])
+        ),
+        axis="columns",
     )
 
     preferred = {
@@ -377,10 +469,32 @@ def add_evidence_metadata(
         return _clean_value(serving.get(name), preferred.get(name, ())) if serving else None
 
     for name, (_, aliases) in FILTER_SPECS.items():
-        df[name] = df.apply(
-            lambda row, key=name, keys=aliases: dimension_value(row, key, keys),
-            axis="columns",
-        )
+        if name == "arrival_pattern":
+            df[name] = df.apply(_arrival_pattern, axis="columns")
+        elif name == "machine":
+
+            def machine_value(row: pd.Series, keys: tuple[str, ...] = aliases) -> str | None:
+                value = dimension_value(row, "machine", keys)
+                if value is None:
+                    candidate = _row_value(
+                        row,
+                        ("campaign_hardware_accelerator_model", "accelerator_model", "chip", "accelerator"),
+                    )
+                    if candidate and candidate.casefold() in MACHINE_LABELS:
+                        value = candidate
+                return normalize_machine(value)
+
+            df[name] = df.apply(machine_value, axis="columns")
+        elif name == "context_band":
+            df[name] = [
+                _clean_value(existing) or dimension_value(row, name, aliases)
+                for existing, (_, row) in zip(df[name], df.iterrows(), strict=False)
+            ]
+        else:
+            df[name] = df.apply(
+                lambda row, key=name, keys=aliases: dimension_value(row, key, keys),
+                axis="columns",
+            )
     df["output_budget_tokens"] = [
         value if value is not None else _clean_value(run_entry(row).get("max_output_tokens"))
         for (_, row), value in zip(
@@ -404,6 +518,41 @@ def add_evidence_metadata(
         return _clean_value(run_entry(row).get("completion_state"))
 
     df["completion_state"] = df.apply(completion, axis="columns")
+    df["fan_duty"] = df.apply(
+        lambda row: _row_value(
+            row,
+            (
+                "campaign_environment_fan_duty_pct_json",
+                "campaign_resource_fan_percent",
+                "fan_duty_pct",
+                "tag_fan_duty_pct",
+            ),
+            ("gpu", "chassis", "mac"),
+        ),
+        axis="columns",
+    )
+    df["ambient_temp_f"] = df.apply(
+        lambda row: _row_value(
+            row,
+            ("campaign_environment_ambient_temp_f", "ambient_temp_f", "tag_ambient_temp_f"),
+        ),
+        axis="columns",
+    )
+    df["patches"] = df.apply(
+        lambda row: _json_text(
+            row,
+            ("campaign_run_patches_json", "patches_json", "patches", "tag_patches"),
+        ),
+        axis="columns",
+    )
+    df["dedicated"] = df.apply(
+        lambda row: _row_value(row, ("dedicated", "tag_dedicated", "campaign_run_dedicated")),
+        axis="columns",
+    )
+    df["caveat"] = [
+        caveat or _row_value(row, ("caveat", "tag_caveat", "tag_caveats"))
+        for caveat, (_, row) in zip(df["caveat"], df.iterrows(), strict=False)
+    ]
     df["display_unit"] = [
         _metric_unit(str(metric), unit)
         for metric, unit in zip(
@@ -418,38 +567,41 @@ def add_evidence_metadata(
     df["workload_complete"] = df.loc[:, list(WORKLOAD_FIELDS)].notna().all(axis="columns")
     efforts = df.get("reasoning_effort", pd.Series(None, index=df.index)).map(_clean_value).fillna("unstated")
     variants = df["variant"].map(_clean_value)
-    row_ids = df.get("_row_id", pd.Series(None, index=df.index))
-    if "source_path" in df:
-        fallback_ids = pd.Series(df["source_path"].astype(str) + ":" + df.index.astype(str), index=df.index)
-    else:
-        fallback_ids = pd.Series(df.index.astype(str), index=df.index)
-    row_ids = row_ids.fillna(fallback_ids)
-
     identity_fields = (
         "model",
         "machine",
+        "host",
         "accelerator",
         "engine",
         "backend",
+        "engine_version",
         "quant_format",
+        "reasoning_effort",
+        "thinking",
+        "mtp",
+        "speculative_tokens",
+        "kv_cache_dtype",
+        "power_limit_w",
         "agents",
+        "context_band",
         "allocated_context",
         "context_tokens",
         "prompt_tokens",
         "output_budget_tokens",
+        "arrival_pattern",
+        "request_rate",
+        "burstiness",
         "completion_state",
         "display_unit",
     )
 
-    def comparison_key(position: int, row: pd.Series) -> str:
+    def comparison_key(row: pd.Series) -> str:
         values = [row.get(field) for field in identity_fields]
-        values.append(variants.iloc[position])
-        if not row["workload_complete"]:
-            values.insert(0, f"row:{row_ids.iloc[position]}")
+        values.append(variants.loc[row.name])
         joined = "|".join("" if _clean_value(value) is None else str(value) for value in values)
-        return f"{joined}|{efforts.iloc[position] or 'unstated'}"
+        return f"{joined}|{efforts.loc[row.name] or 'unstated'}"
 
-    df["series_key"] = [comparison_key(position, row) for position, (_, row) in enumerate(df.iterrows())]
+    df["series_key"] = df.apply(comparison_key, axis="columns")
 
     def series_label(row: pd.Series) -> str:
         model = _clean_value(row.get("model_short"))
@@ -458,15 +610,42 @@ def add_evidence_metadata(
             or _clean_value(row.get("host"))
             or _clean_value(row.get("accelerator"))
         )
-        parts = list(dict.fromkeys(value for value in (model, machine) if value))
-        label = " / ".join(parts) or "Benchmark run"
-        timestamp = pd.to_datetime(row.get("timestamp"), utc=True, errors="coerce")
-        if pd.notna(timestamp):
-            label += f" ({timestamp:%Y-%m-%d})"
-        return label
+        engine = _clean_value(row.get("engine"))
+        return (
+            " / ".join(dict.fromkeys(value for value in (model, machine, engine) if value)) or "Benchmark run"
+        )
 
     df["series_label"] = df.apply(series_label, axis="columns")
     return df
+
+
+ITEM_NAME = re.compile(r"test_\d+(?:_assertion_\d+)?\Z", re.IGNORECASE)
+AGGREGATE_METRICS = frozenset(
+    {"accuracy", "exact_match", "pass_at_1_mean", "pass_at_1_rate", "pass_rate", "score"}
+)
+
+
+def comparable_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop invalid evidence and per-item measurements before exposing tasks or charts."""
+    if df.empty:
+        return df.copy()
+    rows = df
+    if "evidence_status" in rows:
+        rows = rows[rows["evidence_status"].astype("string").str.casefold() != "invalid"]
+    if "name" in rows:
+        item_names = rows["name"].astype("string").str.fullmatch(ITEM_NAME, na=False)
+        rows = rows[~item_names]
+
+    if {"metric", "suite", "name"} <= set(rows.columns):
+        metrics = rows["metric"].astype("string").str.casefold()
+        item_pass = metrics == "pass_at_1"
+        aggregates = metrics.isin(AGGREGATE_METRICS)
+        keys = [column for column in ("source_path", "suite", "name", "model") if column in rows]
+        if item_pass.any() and aggregates.any() and keys:
+            aggregate_keys = pd.MultiIndex.from_frame(rows.loc[aggregates, keys].fillna(""))
+            item_keys = pd.MultiIndex.from_frame(rows.loc[item_pass, keys].fillna(""))
+            rows = rows.drop(index=rows.loc[item_pass].index[item_keys.isin(aggregate_keys)])
+    return rows.copy()
 
 
 def evidence_view(df: pd.DataFrame, status: str = "scored") -> pd.DataFrame:
@@ -478,7 +657,14 @@ def evidence_view(df: pd.DataFrame, status: str = "scored") -> pd.DataFrame:
         "experimental": "experimental",
         "recovered": "recovered",
     }
-    return df[df["evidence_status"] == aliases.get(normalized, normalized)].copy()
+    if normalized == "invalid":
+        return df.iloc[0:0].copy()
+    rows = comparable_rows(df)
+    if "evidence_status" not in rows:
+        return rows if normalized == "scored" else rows.iloc[0:0].copy()
+    return rows[
+        rows["evidence_status"].astype("string").str.casefold() == aliases.get(normalized, normalized)
+    ]
 
 
 def normalize_rows(df: pd.DataFrame) -> pd.DataFrame:
@@ -515,54 +701,87 @@ def normalize_rows(df: pd.DataFrame) -> pd.DataFrame:
 def load_data() -> pd.DataFrame:
     global _cache
     with _cache_lock:
-        if _cache and time.time() - _cache[0] < CACHE_TTL:
-            return _cache[1]
+        cached = _cache
+    if cached is not None:
+        if time.time() - cached[0] >= CACHE_TTL:
+            _start_background_refresh()
+        return cached[1]
 
-        local_data_dir = (
-            Path(os.environ["MLX_BENCHMARKS_LOCAL_DATA_DIR"]).expanduser()
-            if os.getenv("MLX_BENCHMARKS_LOCAL_DATA_DIR")
-            else None
-        )
-        fs = None
-        if local_data_dir is not None:
-            paths = sorted(str(path) for path in local_data_dir.glob("*.parquet"))
-        else:
-            fs = HfFileSystem()
-            try:
-                paths = sorted(f"hf://{p}" for p in fs.glob(f"{DATASET}/data/run-canonical-*.parquet"))
-            except (FileNotFoundError, OSError):
-                paths = []
-
-        if not paths:
-            df = empty_data()
+    # The first request has no prior frame to serve, so it loads synchronously.
+    with _refresh_lock:
+        with _cache_lock:
+            if _cache is not None:
+                return _cache[1]
+        df = _load_dataset()
+        with _cache_lock:
             _cache = (time.time(), df)
-            return df
-
-        frames = []
-        for path in paths:
-            frame = pd.read_parquet(path)
-            if local_data_dir is not None:
-                local_path = Path(path)
-                frame["source_path"] = _dataset_path(f"hf://{DATASET}/data/{local_path.name}")
-                frame["_row_id"] = [f"{local_path.name}:{position}" for position in range(len(frame))]
-            else:
-                frame["source_path"] = _dataset_path(path)
-            frames.append(frame)
-        df = pd.concat(frames, ignore_index=True)
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="ISO8601")
-        raw_suites = set(df["suite"].dropna().unique())
-        df = normalize_rows(df)
-        if local_data_dir is not None:
-            run_index, historical_cutoff = load_local_run_index(local_data_dir)
-        else:
-            run_index, historical_cutoff = load_run_index(fs)
-        df = add_evidence_metadata(df, run_index, historical_cutoff)
-        # Suites that exist in the dataset but have zero comparable rows today
-        # (every run skipped/errored) — surfaced in the UI as "awaiting data" so
-        # the capability is visibly tracked, not silently dropped.
-        df.attrs["awaiting_suites"] = sorted(raw_suites - set(df["suite"].dropna().unique()))
-        _cache = (time.time(), df)
         return df
+
+
+def _load_dataset() -> pd.DataFrame:
+    local_data_dir = (
+        Path(os.environ["MLX_BENCHMARKS_LOCAL_DATA_DIR"]).expanduser()
+        if os.getenv("MLX_BENCHMARKS_LOCAL_DATA_DIR")
+        else None
+    )
+    if local_data_dir is None:
+        snapshot_dir = Path(
+            snapshot_download(
+                repo_id=DATASET_REPO_ID,
+                repo_type="dataset",
+                token=False,
+                allow_patterns=["data/run-canonical-*.parquet", RUN_INDEX_PATH],
+            )
+        )
+        data_dir = snapshot_dir / "data"
+    else:
+        data_dir = local_data_dir
+
+    paths = sorted(data_dir.glob("run-canonical-*.parquet"))
+    if not paths:
+        return empty_data()
+
+    frames = []
+    for path in paths:
+        frame = pd.read_parquet(path)
+        frame["source_path"] = _dataset_path(f"hf://{DATASET}/data/{path.name}")
+        frames.append(frame)
+    df = pd.concat(frames, ignore_index=True)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="ISO8601")
+    raw_suites = set(df["suite"].dropna().unique())
+    df = normalize_rows(df)
+    run_index, historical_cutoff = load_local_run_index(data_dir)
+    df = comparable_rows(add_evidence_metadata(df, run_index, historical_cutoff))
+    df.attrs["awaiting_suites"] = sorted(raw_suites - set(df["suite"].dropna().unique()))
+    return df
+
+
+def _refresh_cache() -> None:
+    global _cache
+    try:
+        df = _load_dataset()
+    except Exception:
+        LOGGER.exception("Background benchmark dataset refresh failed; serving the cached frame")
+    else:
+        with _cache_lock:
+            _cache = (time.time(), df)
+    finally:
+        _refresh_lock.release()
+
+
+def _start_background_refresh() -> None:
+    if _refresh_lock.acquire(blocking=False):
+        Thread(target=_refresh_cache, daemon=True).start()
+
+
+def request_data_refresh() -> pd.DataFrame:
+    """Refresh cached rows in the background and return the current frame immediately."""
+    with _cache_lock:
+        cached = _cache
+    if cached is None:
+        return load_data()
+    _start_background_refresh()
+    return cached[1]
 
 
 def short_model(name: str | None) -> str:
@@ -585,7 +804,8 @@ def row_choices(df: pd.DataFrame, column: str) -> list[str]:
 
 def filter_rows(df: pd.DataFrame, selections: dict[str, str | None]) -> pd.DataFrame:
     filtered = df
-    for column, selected in selections.items():
+    for column, selection in selections.items():
+        selected = _clean_value(selection)
         if selected is not None and column in filtered:
             filtered = filtered[filtered[column].astype("string") == selected]
     return filtered
@@ -597,26 +817,32 @@ def available_filter_choices(df: pd.DataFrame, column: str, selections: dict[str
 
 
 def suite_choices(df: pd.DataFrame) -> list[str]:
-    return row_choices(df, "suite")
+    rows = comparable_rows(df)
+    if rows.empty:
+        return []
+    series_column = "series_key" if "series_key" in rows else "model"
+    counts = rows.groupby(["suite", "name", "metric"], dropna=False)[series_column].nunique()
+    comparable = counts[counts >= 2].index.get_level_values("suite")
+    return sorted(set(comparable), key=str.casefold)
 
 
 def task_choices(df: pd.DataFrame, suite: str | None) -> list[str]:
     if suite is None or df.empty:
         return []
-    return row_choices(df[df["suite"] == suite], "name")
+    return row_choices(comparable_rows(df[df["suite"] == suite]), "name")
 
 
 def metric_choices(df: pd.DataFrame, suite: str | None, task: str | None) -> list[str]:
     if suite is None or task is None or df.empty:
         return []
-    matching = df[(df["suite"] == suite) & (df["name"] == task)]
+    matching = comparable_rows(df[(df["suite"] == suite) & (df["name"] == task)])
     return row_choices(matching, "metric")
 
 
 def unit_choices(df: pd.DataFrame, suite: str | None, task: str | None, metric: str | None) -> list[str]:
     if suite is None or task is None or metric is None or df.empty:
         return []
-    matching = df[(df["suite"] == suite) & (df["name"] == task) & (df["metric"] == metric)]
+    matching = comparable_rows(df[(df["suite"] == suite) & (df["name"] == task) & (df["metric"] == metric)])
     return row_choices(matching, "display_unit")
 
 
@@ -649,12 +875,28 @@ def top_metric(df: pd.DataFrame, suite: str, task: str) -> str | None:
 
 
 def best_default(df: pd.DataFrame) -> tuple[str | None, str | None, str | None]:
-    """Choose a row-backed suite/task/metric triple with the most models."""
-    if df.empty:
+    """Choose the newest non-saturated scored triple measured on two machines."""
+    rows = comparable_rows(df)
+    if "evidence_status" in rows:
+        rows = rows[rows["evidence_status"].astype("string").str.casefold() == "scored"]
+    if rows.empty or "machine" not in rows:
         return (None, None, None)
-    counts = df.groupby(["suite", "name", "metric"])["model"].nunique()
-    suite, task, metric = counts.idxmax()
-    return (str(suite), str(task), str(metric))
+
+    candidates = []
+    for (suite, task, metric), group in rows.groupby(["suite", "name", "metric"], dropna=True):
+        if group["machine"].dropna().nunique() < 2:
+            continue
+        values = pd.to_numeric(group["value"], errors="coerce").dropna()
+        if values.nunique() < 2:
+            continue
+        latest = pd.to_datetime(group["timestamp"], utc=True, errors="coerce").max()
+        if pd.isna(latest):
+            continue
+        candidates.append((latest, str(suite), str(task), str(metric)))
+    if not candidates:
+        return (None, None, None)
+    candidates.sort(key=lambda item: (-item[0].value, item[1], item[2], item[3]))
+    return candidates[0][1:]
 
 
 def format_tokens(value: object) -> str | None:
@@ -685,8 +927,24 @@ def workload_details(row: pd.Series) -> str:
     completion = _clean_value(row.get("completion_state"))
     if completion is not None:
         details.append(f"Completion: {completion}")
+    for field, label in (
+        ("reasoning_effort", "Reasoning"),
+        ("thinking", "Thinking"),
+        ("mtp", "MTP"),
+        ("speculative_tokens", "Speculative tokens"),
+        ("kv_cache_dtype", "KV cache"),
+        ("engine_version", "Engine version"),
+        ("power_limit_w", "Power limit (W)"),
+        ("context_band", "Context band"),
+        ("arrival_pattern", "Arrival"),
+        ("request_rate", "Request rate"),
+        ("burstiness", "Burstiness"),
+    ):
+        value = _clean_value(row.get(field))
+        if value is not None:
+            details.append(f"{label}: {value}")
     if not row.get("workload_complete", False):
-        details.append("Workload details incomplete; this run is kept separate")
+        details.append("Workload details incomplete")
     return "; ".join(details) or "Workload details were not recorded"
 
 
@@ -694,13 +952,37 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
     if df.empty:
         return {}
     latest = df.sort_values("timestamp").drop_duplicates("series_key", keep="last")
-    labels = {row.series_key: row.series_label or "Benchmark run" for row in latest.itertuples(index=False)}
-    grouped = {}
-    for key, label in labels.items():
-        grouped.setdefault(label, []).append(key)
-    for label, keys in grouped.items():
-        for number, key in enumerate(sorted(keys), start=1):
-            labels[key] = f"{label} (run {number})"
+    varying_fields = (
+        ("backend", "backend"),
+        ("engine_version", "version"),
+        ("quant_format", "quant"),
+        ("reasoning_effort", "reasoning"),
+        ("thinking", "thinking"),
+        ("mtp", "MTP"),
+        ("speculative_tokens", "spec tokens"),
+        ("kv_cache_dtype", "KV"),
+        ("power_limit_w", "power W"),
+        ("agents", "c"),
+        ("context_band", "context band"),
+        ("allocated_context", "allocated"),
+        ("context_tokens", "context"),
+        ("prompt_tokens", "prompt"),
+        ("output_budget_tokens", "output"),
+        ("arrival_pattern", "arrival"),
+        ("request_rate", "req/s"),
+        ("burstiness", "burst"),
+        ("variant", "variant"),
+    )
+    varying = [
+        (field, label)
+        for field, label in varying_fields
+        if field in latest and latest[field].map(_clean_value).nunique() > 1
+    ]
+    labels = {}
+    for row in latest.itertuples(index=False):
+        values = [f"{label} {_clean_value(getattr(row, field))}" for field, label in varying]
+        base = _clean_value(row.series_label) or "Benchmark run"
+        labels[row.series_key] = f"{base} · " + " · ".join(values) if values else base
     return labels
 
 
@@ -719,6 +1001,19 @@ def empty_figure(message: str) -> go.Figure:
         font_size=16,
     )
     fig.update_layout(height=360, margin={"l": 24, "r": 24, "t": 32, "b": 32})
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    return theme_figure(fig)
+
+
+def theme_figure(fig: go.Figure) -> go.Figure:
+    """Use Plotly's dark palette on dark pages and transparent surfaces for both modes."""
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#f2f5fa",
+    )
     return fig
 
 
@@ -727,7 +1022,8 @@ def selected_rows(
 ) -> pd.DataFrame:
     if suite is None or task is None or metric is None:
         return df.iloc[0:0].copy()
-    selected = df[(df["suite"] == suite) & (df["name"] == task) & (df["metric"] == metric)].copy()
+    rows = comparable_rows(df)
+    selected = rows[(rows["suite"] == suite) & (rows["name"] == task) & (rows["metric"] == metric)].copy()
     if unit is not None and "display_unit" in selected:
         selected = selected[selected["display_unit"] == unit]
     return selected
@@ -781,7 +1077,7 @@ def bar_chart(
         font_size=13,
         showlegend=False,
     )
-    return fig
+    return theme_figure(fig)
 
 
 def trend_chart(
@@ -835,7 +1131,7 @@ def trend_chart(
         )
     )
     fig.update_layout(height=440, font_size=13, legend_title="", margin={"l": 72, "r": 24, "t": 62, "b": 62})
-    return fig
+    return theme_figure(fig)
 
 
 def summary_table(
@@ -869,32 +1165,63 @@ def summary_table(
         ("machine", "Machine"),
         ("accelerator", "Accelerator model"),
         ("engine", "Engine"),
+        ("engine_version", "Engine version"),
         ("backend", "Backend"),
         ("quant_format", "Quant format"),
+        ("reasoning_effort", "Reasoning effort"),
+        ("thinking", "Thinking arm"),
+        ("mtp", "MTP"),
+        ("speculative_tokens", "Speculative tokens"),
+        ("kv_cache_dtype", "KV cache dtype"),
+        ("power_limit_w", "Power limit (W)"),
         ("agents", "Agents (count)"),
+        ("context_band", "Context band"),
         ("allocated_context", "Allocated context (tokens)"),
         ("context_tokens", "Context (tokens)"),
         ("prompt_tokens", "Prompt (tokens)"),
         ("output_budget_tokens", "Output budget (tokens)"),
+        ("arrival_pattern", "Arrival pattern"),
+        ("request_rate", "Request rate"),
+        ("burstiness", "Burstiness"),
         ("completion_state", "Completion"),
+        ("fan_duty", "Fan duty"),
+        ("ambient_temp_f", "Ambient (°F)"),
+        ("patches", "Patches"),
+        ("dedicated", "Dedicated"),
+        ("variant", "Variant"),
+        ("caveat", "Caveat"),
     )
+
+    def detail_value(row: pd.Series, field: str) -> str:
+        raw = row.get(field)
+        if field == "patches":
+            return str(raw) if isinstance(raw, str) else ""
+        value = _clean_value(raw)
+        if value is None:
+            return ""
+        if field in {
+            "agents",
+            "allocated_context",
+            "context_tokens",
+            "prompt_tokens",
+            "output_budget_tokens",
+        }:
+            suffix = "agent" if field == "agents" else "tokens"
+            return f"{format_tokens(value)} {suffix}"
+        suffix = {
+            "power_limit_w": " W",
+            "ambient_temp_f": " °F",
+            "fan_duty": "%",
+            "request_rate": " req/s",
+        }.get(field, "")
+        return f"{value}{suffix}"
+
     for field, label in row_backed_fields:
-        if field in latest and latest[field].map(_clean_value).notna().any():
-            if field in {
-                "agents",
-                "allocated_context",
-                "context_tokens",
-                "prompt_tokens",
-                "output_budget_tokens",
-            }:
-                value_unit = "agent" if field == "agents" else "tokens"
-                latest[label] = latest[field].map(
-                    lambda value, suffix=value_unit: (
-                        f"{format_tokens(value)} {suffix}" if _clean_value(value) is not None else ""
-                    )
-                )
-            else:
-                latest[label] = latest[field].map(lambda value: _clean_value(value) or "")
+        if (
+            field in latest
+            and latest.apply(lambda row, key=field: bool(detail_value(row, key)), axis="columns").any()
+        ):
+            latest[label] = latest.apply(lambda row, key=field: detail_value(row, key), axis="columns")
             columns.append(label)
 
     sample_value = latest.apply(
@@ -965,6 +1292,7 @@ def build_ui():
         *,
         human_names: bool = False,
         interactive: bool | None = None,
+        visible: bool | None = None,
         elem_id: str | None = None,
         filter_name: str | None = None,
     ):
@@ -985,6 +1313,7 @@ def build_ui():
             value=value if value in values else None,
             label=label,
             interactive=enabled,
+            visible=bool(values) if visible is None else visible,
             allow_custom_value=False,
             elem_id=elem_id,
         )
@@ -1026,9 +1355,7 @@ def build_ui():
             int((~rows["workload_complete"].fillna(False)).sum()) if "workload_complete" in rows else 0
         )
         if incomplete:
-            message += (
-                f"  \nWorkload details are incomplete on {incomplete:,} rows; each remains a separate run."
-            )
+            message += f"  \nWorkload details are incomplete on {incomplete:,} rows."
         repeat_counts = rows.groupby("series_key").size() if "series_key" in rows else pd.Series(dtype=int)
         if not repeat_counts.gt(1).any():
             message += "  \nTrend shows individual results until comparable runs repeat over time."
@@ -1055,6 +1382,7 @@ def build_ui():
                     label,
                     selected,
                     interactive=bool(choices),
+                    visible=bool(choices),
                     elem_id=f"filter-{name}",
                     filter_name=name,
                 )
@@ -1147,13 +1475,11 @@ def build_ui():
     def synchronize_unit(evidence, suite, task, metric, unit, *filter_values):
         return synchronize(evidence, suite, task, metric, unit, None, *filter_values)
 
-    def synchronize_filters(evidence, *filter_values):
-        return synchronize(evidence, None, None, None, None, None, *filter_values)
+    def synchronize_filters(evidence, suite, task, metric, unit, *filter_values):
+        return synchronize(evidence, suite, task, metric, unit, None, *filter_values)
 
     def refresh(evidence, suite, task, metric, unit, *filter_values):
-        global _cache
-        with _cache_lock:
-            _cache = None
+        request_data_refresh()
         return synchronize(evidence, suite, task, metric, unit, None, *filter_values)
 
     with gr.Blocks(title="MLX Benchmarks") as demo:
@@ -1205,6 +1531,7 @@ def build_ui():
                                 label,
                                 elem_id=f"filter-{name}",
                                 filter_name=name,
+                                visible=bool(choices),
                             )
                         )
 
@@ -1294,7 +1621,7 @@ def build_ui():
         for control in filter_controls:
             control.input(
                 synchronize_filters,
-                inputs=[evidence_dd, *filter_controls],
+                inputs=[evidence_dd, suite_dd, task_dd, metric_dd, unit_dd, *filter_controls],
                 outputs=sync_outputs,
             )
 
