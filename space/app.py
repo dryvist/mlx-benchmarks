@@ -80,6 +80,14 @@ FILTER_SPECS = {
         "KV offload backend",
         ("campaign_run_kv_offload_backend", "kv_offload_backend"),
     ),
+    "moe_cpu_offload": (
+        "MoE CPU offload",
+        ("campaign_run_moe_cpu_offload", "moe_cpu_offload"),
+    ),
+    "moe_cpu_layers": (
+        "MoE CPU layers",
+        ("campaign_run_moe_cpu_layers", "moe_cpu_layers"),
+    ),
     "kv_offload_cpu_gib": (
         "KV offload CPU (GiB)",
         ("campaign_run_kv_offload_cpu_gib", "kv_offload_cpu_gib"),
@@ -320,7 +328,7 @@ def _row_value(row: pd.Series, aliases: tuple[str, ...], preferred: tuple[str, .
     return None
 
 
-FILTER_ENUM_NONE_FIELDS = frozenset({"kv_offload_backend", "cache_workload"})
+FILTER_ENUM_NONE_FIELDS = frozenset({"kv_offload_backend", "moe_cpu_offload", "cache_workload"})
 
 
 def _filter_value(value: object, field: str) -> str | None:

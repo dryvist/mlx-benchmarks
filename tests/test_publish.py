@@ -160,6 +160,8 @@ def test_cache_configuration_campaign_dimensions_reach_parquet(valid_envelope: d
                 "kv_offload_cpu_gib": 0.0,
                 "kv_offload_disk_gib": 0.0,
                 "weight_cpu_offload_gib": 0.0,
+                "moe_cpu_offload": "cpumoe",
+                "moe_cpu_layers": 40,
                 "llamacpp_cache_ram_mib": 8192,
                 "gpu_memory_utilization": 0.88,
                 "max_num_batched_tokens": 8192,
@@ -175,6 +177,8 @@ def test_cache_configuration_campaign_dimensions_reach_parquet(valid_envelope: d
     assert row[campaign_dimension_column("hardware", "host_ram_limit_gib")] == 48.0
     assert row[campaign_dimension_column("run", "prefix_cache")] is True
     assert row[campaign_dimension_column("run", "kv_offload_backend")] == "none"
+    assert row[campaign_dimension_column("run", "moe_cpu_offload")] == "cpumoe"
+    assert row[campaign_dimension_column("run", "moe_cpu_layers")] == 40
     assert row[campaign_dimension_column("run", "kv_offload_cpu_gib")] == 0.0
     assert row[campaign_dimension_column("run", "kv_offload_disk_gib")] == 0.0
     assert row[campaign_dimension_column("run", "weight_cpu_offload_gib")] == 0.0

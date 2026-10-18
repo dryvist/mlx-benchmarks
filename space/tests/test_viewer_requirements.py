@@ -333,6 +333,8 @@ def test_filter_catalog_includes_all_requested_tuning_dimensions() -> None:
         "burstiness",
         "quant_format",
         "kv_offload_backend",
+        "moe_cpu_offload",
+        "moe_cpu_layers",
         "kv_offload_cpu_gib",
         "host_ram_limit_gib",
         "prefix_caching",
@@ -372,6 +374,29 @@ def test_cache_filters_use_published_columns_and_keep_none_as_an_enum_value() ->
     assert len(app.filter_rows(rows, {"kv_offload_backend": "none"})) == 2
     assert len(app.filter_rows(rows, {"kv_offload_cpu_gib": "0"})) == 2
     assert len(app.filter_rows(rows, {"prefix_caching": "true"})) == 2
+
+
+def test_moe_offload_filters_use_published_columns_and_keep_none_as_an_enum_value() -> None:
+    rows = _annotated(
+        [
+            {
+                "timestamp": "2026-10-01T00:00:00Z",
+                "suite": "throughput-serving",
+                "name": "fixed-length",
+                "metric": "output_tokens_per_second",
+                "value": 10.0,
+                "model": "m/model",
+                "campaign_run_moe_cpu_offload": mode,
+                "campaign_run_moe_cpu_layers": layers,
+            }
+            for mode, layers in (("none", 0), ("ncmoe", 15), ("cpumoe", 40))
+        ]
+    )
+
+    assert app.row_choices(rows, "moe_cpu_offload") == ["cpumoe", "ncmoe", "none"]
+    assert app.row_choices(rows, "moe_cpu_layers") == ["0", "15", "40"]
+    assert len(app.filter_rows(rows, {"moe_cpu_offload": "none"})) == 1
+    assert len(app.filter_rows(rows, {"moe_cpu_layers": "15"})) == 1
 
 
 def test_empty_filter_selection_does_not_hide_available_rows() -> None:

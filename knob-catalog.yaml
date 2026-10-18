@@ -511,3 +511,28 @@
       values_seen: []
       default: null
       source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+
+- section: shared
+  engine: "*"
+  engine_version_seen: null
+  case_id: standard-moe-offload-field-contract
+  knobs:
+    moe_cpu_offload: [none, ncmoe, cpumoe]
+    moe_cpu_layers: model-dependent nonnegative layer count
+  knob_catalog:
+    - name: moe_cpu_offload
+      field: campaign_dimensions.run.moe_cpu_offload
+      type: string enum | null
+      description: CPU expert-weight offload mode.
+      flag_env: campaign_dimensions.run.moe_cpu_offload
+      values_seen: [none, ncmoe, cpumoe]
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#moe-expert-offload-fields
+    - name: moe_cpu_layers
+      field: campaign_dimensions.run.moe_cpu_layers
+      type: integer | null
+      description: Number of model layers covered by CPU expert-weight offload; zero means none.
+      flag_env: campaign_dimensions.run.moe_cpu_layers
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#moe-expert-offload-fields

@@ -628,6 +628,16 @@
               "description": "Model-weight offload capacity in host RAM, in GiB.",
               "minimum": 0
             },
+            "moe_cpu_offload": {
+              "type": ["string", "null"],
+              "description": "CPU expert-weight offload mode: none, ncmoe, or cpumoe.",
+              "enum": ["none", "ncmoe", "cpumoe", null]
+            },
+            "moe_cpu_layers": {
+              "type": ["integer", "null"],
+              "description": "Layer count covered by CPU expert-weight offload; 0 means no CPU offload.",
+              "minimum": 0
+            },
             "llamacpp_cache_ram_mib": {
               "type": ["integer", "null"],
               "description": "llama.cpp cache-ram setting in MiB.",

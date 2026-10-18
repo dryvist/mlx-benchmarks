@@ -80,6 +80,13 @@ value.
 See [cache fields](cache-fields.md) for typed dimensions, units, and mappings.
 Explicit nulls include a `dimension_null_reasons` entry.
 
+### MoE expert offload fields
+
+The optional `campaign_dimensions.run.moe_cpu_offload` field records `none`,
+`ncmoe`, or `cpumoe`. `campaign_dimensions.run.moe_cpu_layers` records the
+number of model layers covered by CPU expert offload; use `0` for `none` and
+the full model layer count for `cpumoe`.
+
 Converters keep both objects. `mlx-bench-publish --campaign-dimensions PATH`
 reads a JSON file with a `campaign_dimensions` object and an optional
 `dimension_null_reasons` object and copies them onto the envelope for every
