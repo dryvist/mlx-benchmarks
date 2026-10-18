@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.2...v0.58.3) (2026-10-18)
+
+
+### Performance
+
+* **viewer:** batch cascading filter choice masks ([#457](https://github.com/dryvist/mlx-benchmarks/issues/457)) ([ee45ca5](https://github.com/dryvist/mlx-benchmarks/commit/ee45ca5d86a02d21b787306edae0fd0af5731ef8))
+
 ## [0.58.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.58.1...v0.58.2) (2026-10-18)
 
 
