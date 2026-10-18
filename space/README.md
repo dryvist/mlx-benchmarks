@@ -65,15 +65,21 @@ Select **Refresh data** to load the latest dataset snapshot.
 These measurements were recorded on 2026-10-18 UTC against the live public
 Space, dataset, and datasets-server endpoints. Network timings vary by run.
 
-| Path | Measurement |
-| --- | --- |
-| Space page, already running | Three fresh headless Chromium sessions showed data in 1.5 s, 3.2 s, and 1.6 s. The first switch to **Speed / diagnostic** took 2.9 s; the next took 0.3 s. Evidence-filter switches took 0.3–1.8 s. |
-| After a 660-second cache wait | Three fresh sessions showed page-to-data in 1.9 s, 1.7 s, and 1.5 s; mode switches in 5.0 s, 4.8 s, and 4.8 s; evidence-filter switches in 0.4 s, 0.3 s, and 0.4 s. |
-| datasets-server `default` first rows | HTTP 200 in 0.41 s. |
-| datasets-server `history` first rows | HTTP 200 in 0.25 s. |
-| `data/recent/latest.parquet` | 268,957 bytes downloaded in 0.71 s. |
-| Dataset page | 0.76 s. |
-| Fresh viewer snapshot | 3,060 rows: 637 scored, 2,410 experimental, and 13 recovered. The 313-entry remote run index passed validation. No scored row had an empty machine, engine, or engine version. |
+Measurements while the Space was already running:
+
+- Three fresh headless Chromium sessions showed data in 1.5 s, 3.2 s, and
+  1.6 s. The first switch to **Speed / diagnostic** took 2.9 s; the next took
+  0.3 s. Evidence-filter switches took 0.3–1.8 s.
+- After a 660-second cache wait, three fresh sessions showed page-to-data in
+  1.9 s, 1.7 s, and 1.5 s; mode switches in 5.0 s, 4.8 s, and 4.8 s; and
+  evidence-filter switches in 0.4 s, 0.3 s, and 0.4 s.
+- datasets-server `default` first rows returned HTTP 200 in 0.41 s; `history`
+  first rows returned HTTP 200 in 0.25 s.
+- `data/recent/latest.parquet` downloaded 268,957 bytes in 0.71 s. The dataset
+  page loaded in 0.76 s.
+- The fresh viewer snapshot had 3,060 rows: 637 scored, 2,410 experimental,
+  and 13 recovered. The 313-entry remote run index passed validation. No scored
+  row had an empty machine, engine, or engine version.
 
 The first measured server cold start after the [PR #416 rewrite](https://github.com/JacobPEvans/mlx-benchmarks/pull/416)
 took about 18 s to show data. Before the [PR #440](https://github.com/JacobPEvans/mlx-benchmarks/pull/440)
@@ -114,10 +120,14 @@ uvx --with playwright python -I scripts/capture_viewer_screenshots.py /tmp/mlx-v
 Time the public dataset endpoints and page with `curl`:
 
 ```sh
-curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' 'https://datasets-server.huggingface.co/first-rows?dataset=JacobPEvans%2Fmlx-benchmarks&config=default&split=train'
-curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' 'https://datasets-server.huggingface.co/first-rows?dataset=JacobPEvans%2Fmlx-benchmarks&config=history&split=train'
-curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{size_download} bytes; %{time_total}s\n' 'https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks/resolve/main/data/recent/latest.parquet?download=true'
-curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' 'https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' \
+  'https://datasets-server.huggingface.co/first-rows?dataset=JacobPEvans%2Fmlx-benchmarks&config=default&split=train'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' \
+  'https://datasets-server.huggingface.co/first-rows?dataset=JacobPEvans%2Fmlx-benchmarks&config=history&split=train'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{size_download} bytes; %{time_total}s\n' \
+  'https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks/resolve/main/data/recent/latest.parquet?download=true'
+curl -sS -L -o /dev/null -w 'HTTP %{http_code}; %{time_total}s\n' \
+  'https://huggingface.co/datasets/JacobPEvans/mlx-benchmarks'
 ```
 
 Validate the live run-index entries from the repository root:
