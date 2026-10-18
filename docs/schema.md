@@ -67,10 +67,8 @@ update PR.
 
 The object is optional and leaves may be `null`. The publisher flattens leaves
 into stable `campaign_<group>_<field>` Parquet columns; selected object fields
-use a `_json` suffix. Hardware dimensions include `machine`, `interconnect`,
-and `world_size`; the latter two record multi-machine run topology. The
-normalizer fills new columns with null unless the run index supplies a
-per-shard projection.
+use a `_json` suffix. The normalizer fills new columns with null unless the run
+index supplies a per-shard projection.
 
 `dimension_null_reasons` maps paths such as `run.kv_cache_dtype` to a concise
 reason code. Use a reason for each explicit null in newly enriched campaign
