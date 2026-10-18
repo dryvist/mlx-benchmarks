@@ -13,6 +13,7 @@ import os
 import re
 import time
 from collections.abc import Mapping
+from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
 from threading import Lock, Thread
@@ -29,6 +30,8 @@ RUN_INDEX_PATH = "metadata/run-index-v1.json"
 CACHE_TTL = 600  # seconds
 AGENTIC_MODE = "Agentic & coding"
 DIAGNOSTIC_MODE = "Speed / diagnostic"
+VIEWER_MODES = (AGENTIC_MODE, DIAGNOSTIC_MODE)
+DEFAULT_EVIDENCE = "scored"
 MIN_AGENTIC_INPUT_TOKENS = 32768
 MODEL_CONTEXTS = json.loads(Path(__file__).with_name("model-contexts.json").read_text())["models"]
 EXPECTED_COLUMNS = ["timestamp", "suite", "name", "metric", "model", "value"]
@@ -180,7 +183,16 @@ THEME = gr.themes.Base(
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
-_cache: tuple[float, pd.DataFrame] | None = None
+
+@dataclass(frozen=True)
+class ViewerCache:
+    created_at: float
+    rows: pd.DataFrame
+    modes: dict[str, pd.DataFrame]
+    evidence_counts: dict[str, int]
+
+
+_cache: ViewerCache | None = None
 _cache_lock = Lock()
 _refresh_lock = Lock()
 LOGGER = logging.getLogger(__name__)
@@ -314,6 +326,19 @@ def _is_throughput_row(row: Mapping[str, object] | pd.Series) -> bool:
     )
 
 
+def _throughput_mask(df: pd.DataFrame) -> pd.Series:
+    mask = pd.Series(False, index=df.index)
+    for column, pattern in (
+        ("suite", r"throughput|serving|bench-serve"),
+        ("name", r"benchmark-serving|throughput-probe"),
+        ("metric", r"throughput-|tokens-per-second|ttft-|tpot-|itl-"),
+    ):
+        if column in df:
+            values = df[column].astype("string").str.casefold().str.replace("_", "-", regex=False)
+            mask |= values.str.contains(pattern, regex=True, na=False)
+    return mask
+
+
 def classify_viewer_row(row: Mapping[str, object] | pd.Series) -> str:
     """Keep evaluations and long-input throughput in the decision view."""
     if not _is_throughput_row(row):
@@ -336,11 +361,15 @@ def mode_rows(df: pd.DataFrame, mode: str) -> pd.DataFrame:
 
 
 def default_context_band(df: pd.DataFrame) -> str | None:
-    throughput = df[
-        df.apply(
-            lambda row: _is_throughput_row(row) and classify_viewer_row(row) == AGENTIC_MODE, axis="columns"
-        )
-    ]
+    throughput_mask = (
+        df["_is_throughput"].fillna(False).astype(bool) if "_is_throughput" in df else _throughput_mask(df)
+    )
+    agentic_mask = (
+        df["viewer_mode"].eq(AGENTIC_MODE)
+        if "viewer_mode" in df
+        else df.apply(lambda row: classify_viewer_row(row) == AGENTIC_MODE, axis="columns")
+    )
+    throughput = df[throughput_mask & agentic_mask]
     candidates = [
         (count, band)
         for band in row_choices(throughput, "context_band")
@@ -392,6 +421,18 @@ def _metric_unit(metric: str, unit: object = None) -> str:
     return "unitless"
 
 
+def _percentage_value(value: float) -> float:
+    return value * 100 if abs(value) <= 1 else value
+
+
+def _chart_value(value: object, unit: str) -> float:
+    number = pd.to_numeric(value, errors="coerce")
+    if pd.isna(number):
+        return float("nan")
+    number = float(number)
+    return _percentage_value(number) if unit == "%" else number
+
+
 def format_value(value: object, unit: str) -> str:
     """Format a measurement and its unit together for every user-facing value."""
     number = pd.to_numeric(value, errors="coerce")
@@ -399,7 +440,7 @@ def format_value(value: object, unit: str) -> str:
         return ""
     number = float(number)
     if unit == "%":
-        return f"{number * 100:.1f}%"
+        return f"{_percentage_value(number):.1f}%"
     if unit == "x":
         return f"{number:.2f}x"
     if unit == "tok/s":
@@ -769,18 +810,42 @@ AGGREGATE_METRICS = frozenset(
     {"accuracy", "exact_match", "pass_at_1_mean", "pass_at_1_rate", "pass_rate", "score"}
 )
 THROUGHPUT_OUTPUT_METRIC = "throughput_output_toks_per_s"
-BAR_LABEL_LIMIT = 70
+BAR_LABEL_LIMIT = 150
+LABEL_KNOBS = (
+    ("reasoning_effort", "reasoning"),
+    ("thinking", "thinking"),
+    ("mtp", "MTP"),
+    ("quant_format", "quant"),
+    ("kv_cache_dtype", "KV"),
+    ("agents", "c"),
+    ("speculative_tokens", "spec"),
+    ("power_limit_w", "power"),
+    ("backend", "backend"),
+    ("context_band", "context"),
+    ("allocated_context", "allocated"),
+    ("context_tokens", "context"),
+    ("prompt_tokens", "prompt"),
+    ("output_budget_tokens", "output"),
+    ("arrival_pattern", "arrival"),
+    ("request_rate", "request"),
+    ("burstiness", "burst"),
+)
 
 
-def _fit_model_label(model: str, limit: int) -> str:
-    """Shorten the model while retaining its start and distinguishing suffix."""
-    limit = max(8, limit)
-    if len(model) <= limit:
-        return model
-    keep = limit - 1
-    head = (keep + 1) // 2
-    tail = keep - head
-    return f"{model[:head]}…{model[-tail:]}" if tail else f"{model[:head]}…"
+@dataclass
+class SeriesLabelEntry:
+    key: str
+    row: pd.Series
+    base: str
+    parts: list[str]
+
+
+def _label_value(value: object) -> str | None:
+    cleaned = _clean_value(value)
+    if cleaned is None:
+        return None
+    text = re.sub(r"\s+", " ", cleaned)
+    return f"{text[:27]}…" if len(text) > 28 else text
 
 
 def comparable_rows(df: pd.DataFrame) -> pd.DataFrame:
@@ -808,6 +873,10 @@ def comparable_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 def evidence_view(df: pd.DataFrame, status: str = "scored") -> pd.DataFrame:
     """Return only results appropriate for the selected evidence view."""
+    return _evidence_rows(comparable_rows(df), status)
+
+
+def _evidence_rows(rows: pd.DataFrame, status: str) -> pd.DataFrame:
     normalized = status.casefold()
     aliases = {
         "scored evidence": "scored",
@@ -816,8 +885,7 @@ def evidence_view(df: pd.DataFrame, status: str = "scored") -> pd.DataFrame:
         "recovered": "recovered",
     }
     if normalized == "invalid":
-        return df.iloc[0:0].copy()
-    rows = comparable_rows(df)
+        return rows.iloc[0:0].copy()
     if normalized in {"all", "all valid", "all-valid"}:
         if "evidence_status" not in rows:
             return rows
@@ -828,6 +896,42 @@ def evidence_view(df: pd.DataFrame, status: str = "scored") -> pd.DataFrame:
     return rows[
         rows["evidence_status"].astype("string").str.casefold() == aliases.get(normalized, normalized)
     ]
+
+
+def _prepare_cache(df: pd.DataFrame) -> ViewerCache:
+    """Build reusable mode frames and whole-dataset evidence counts for one load."""
+    df = df.copy()
+    df["_is_throughput"] = _throughput_mask(df)
+    counts = (
+        df["evidence_status"].astype("string").str.casefold().value_counts().to_dict()
+        if "evidence_status" in df
+        else {}
+    )
+    modes = {mode: mode_rows(df, mode) for mode in VIEWER_MODES}
+    return ViewerCache(time.time(), df, modes, {str(key): int(value) for key, value in counts.items()})
+
+
+def _current_cache() -> ViewerCache:
+    load_data()
+    with _cache_lock:
+        if _cache is None:
+            raise RuntimeError("Benchmark data cache was not initialized")
+        return _cache
+
+
+def cached_viewer_rows(mode: str, evidence: str, cache: ViewerCache | None = None) -> pd.DataFrame:
+    """Select from the per-load mode frame without reopening any Parquet shard."""
+    cache = cache or _current_cache()
+    rows = cache.modes.get(mode, empty_data())
+    return _evidence_rows(rows, evidence).copy()
+
+
+def evidence_summary(counts: Mapping[str, int]) -> str:
+    totals = "; ".join(
+        f"{label}: {int(counts.get(key, 0)):,} rows"
+        for key, label in (("scored", "Scored"), ("experimental", "Experimental"), ("recovered", "Recovered"))
+    )
+    return f"Evidence in this dataset: {totals}."
 
 
 def normalize_rows(df: pd.DataFrame) -> pd.DataFrame:
@@ -866,18 +970,19 @@ def load_data() -> pd.DataFrame:
     with _cache_lock:
         cached = _cache
     if cached is not None:
-        if time.time() - cached[0] >= CACHE_TTL:
+        if time.time() - cached.created_at >= CACHE_TTL:
             _start_background_refresh()
-        return cached[1]
+        return cached.rows
 
     # The first request has no prior frame to serve, so it loads synchronously.
     with _refresh_lock:
         with _cache_lock:
             if _cache is not None:
-                return _cache[1]
+                return _cache.rows
         df = _load_dataset()
+        cache = _prepare_cache(df)
         with _cache_lock:
-            _cache = (time.time(), df)
+            _cache = cache
         return df
 
 
@@ -923,12 +1028,12 @@ def _load_dataset() -> pd.DataFrame:
 def _refresh_cache() -> None:
     global _cache
     try:
-        df = _load_dataset()
+        cache = _prepare_cache(_load_dataset())
     except Exception:
         LOGGER.exception("Background benchmark dataset refresh failed; serving the cached frame")
     else:
         with _cache_lock:
-            _cache = (time.time(), df)
+            _cache = cache
     finally:
         _refresh_lock.release()
 
@@ -945,7 +1050,7 @@ def request_data_refresh() -> pd.DataFrame:
     if cached is None:
         return load_data()
     _start_background_refresh()
-    return cached[1]
+    return cached.rows
 
 
 def short_model(name: str | None) -> str:
@@ -986,8 +1091,13 @@ def filter_viewer_rows(df: pd.DataFrame, selections: dict[str, str | None], mode
         return filter_rows(df, selections)
     without_context = {name: value for name, value in selections.items() if name != "context_band"}
     filtered = filter_rows(df, without_context)
-    throughput = filtered.apply(_is_throughput_row, axis="columns")
-    return filtered[~throughput | (filtered["context_band"].astype("string") == context_band)].copy()
+    throughput = (
+        filtered["_is_throughput"].fillna(False).astype(bool)
+        if "_is_throughput" in filtered
+        else _throughput_mask(filtered)
+    )
+    in_band = filtered["context_band"].astype("string").eq(context_band).fillna(False)
+    return filtered[~throughput | in_band].copy()
 
 
 def available_viewer_filter_choices(
@@ -1061,7 +1171,7 @@ def top_metric(df: pd.DataFrame, suite: str, task: str) -> str | None:
 
 
 def best_default(df: pd.DataFrame) -> tuple[str | None, str | None, str | None]:
-    """Prefer scored throughput output speed, then the newest comparable triple."""
+    """Prefer the scored output-throughput task with the most rows in this view."""
     rows = comparable_rows(df)
     if "evidence_status" in rows:
         rows = rows[rows["evidence_status"].astype("string").str.casefold() == "scored"]
@@ -1070,10 +1180,8 @@ def best_default(df: pd.DataFrame) -> tuple[str | None, str | None, str | None]:
 
     primary = rows[(rows["suite"] == "throughput") & (rows["metric"] == THROUGHPUT_OUTPUT_METRIC)]
     if not primary.empty:
-        timestamps = pd.to_datetime(primary["timestamp"], utc=True, errors="coerce")
-        latest = timestamps.max()
-        latest_tasks = primary.loc[timestamps == latest, "name"] if not pd.isna(latest) else primary["name"]
-        task = latest_tasks.dropna().astype(str).sort_values().iloc[0]
+        counts = primary.groupby("name", dropna=True).size()
+        task = str(counts.sort_values(ascending=False, kind="stable").index[0])
         return ("throughput", task, THROUGHPUT_OUTPUT_METRIC)
 
     if "machine" not in rows:
@@ -1184,40 +1292,14 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
     if df.empty:
         return {}
     latest = df.sort_values("timestamp").drop_duplicates("series_key", keep="last")
-    varying_fields = (
-        ("host", "host"),
-        ("accelerator", "accelerator"),
-        ("agents", "c"),
-        ("context_band", "context band"),
-        ("mtp", "MTP"),
-        ("arrival_pattern", "arrival"),
-        ("reasoning_effort", "reasoning"),
-        ("thinking", "thinking"),
-        ("quant_format", "quant"),
-        ("kv_cache_dtype", "KV"),
-        ("speculative_tokens", "spec tokens"),
-        ("power_limit_w", "power W"),
-        ("backend", "backend"),
-        ("allocated_context", "allocated"),
-        ("context_tokens", "context"),
-        ("prompt_tokens", "prompt"),
-        ("output_budget_tokens", "output"),
-        ("request_rate", "req/s"),
-        ("burstiness", "burst"),
-        ("variant", "variant"),
-        ("completion_state", "completion"),
-        ("display_unit", "unit"),
-    )
     varying = [
         (field, label)
-        for field, label in varying_fields
-        if field in latest and len(set(latest[field].map(_clean_value))) > 1
+        for field, label in LABEL_KNOBS
+        if field in latest and latest[field].map(_clean_value).nunique(dropna=False) > 1
     ]
-    labels = {}
+    entries: list[SeriesLabelEntry] = []
     for _, row in latest.iterrows():
         model = _clean_value(row.get("model_short")) or _clean_value(row.get("model")) or "Benchmark run"
-        if model != "Benchmark run":
-            model = short_model(model)
         machine = (
             _clean_value(row.get("machine")) or _clean_value(row.get("accelerator")) or "machine not recorded"
         )
@@ -1226,25 +1308,67 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
             for value in (_clean_value(row.get("engine")), _clean_value(row.get("engine_version")))
             if value
         )
-        base_parts = [model, machine, engine]
-        base_parts = [part for part in base_parts if part]
-        knobs = [
-            f"{name} {value}"
-            for field, name in varying
-            if (value := _clean_value(row.get(field))) is not None
-        ]
-        base_suffix = " · ".join(base_parts[1:])
-        knob_suffix = " · ".join(knobs)
-        label_overhead = len(base_suffix) + (3 if base_suffix else 0)
-        if knob_suffix:
-            label_overhead += len(knob_suffix) + 3
-        model_limit = BAR_LABEL_LIMIT - label_overhead
-        base_parts[0] = _fit_model_label(model, model_limit) if model_limit >= 8 else model
-        label = " · ".join(base_parts) or "Benchmark run"
-        if knob_suffix:
-            label = f"{label} · {knob_suffix}"
-        labels[row["series_key"]] = label
-    return labels
+        base = " · ".join((short_model(model), machine, engine) if engine else (short_model(model), machine))
+        entry = SeriesLabelEntry(str(row["series_key"]), row, base, [])
+        for field, name in varying[:3]:
+            if (value := _label_value(row.get(field))) is not None:
+                part = f"{name} {value}"
+                if len(_render_series_label(entry) + " · " + part) <= BAR_LABEL_LIMIT:
+                    entry.parts.append(part)
+        entries.append(entry)
+
+    for field, name in varying[3:]:
+        groups: dict[str, list[SeriesLabelEntry]] = {}
+        for entry in entries:
+            groups.setdefault(_render_series_label(entry), []).append(entry)
+        for group in groups.values():
+            if len(group) < 2 or len({_clean_value(entry.row.get(field)) for entry in group}) < 2:
+                continue
+            for entry in group:
+                if len(entry.parts) < 3 and (value := _label_value(entry.row.get(field))) is not None:
+                    part = f"{name} {value}"
+                    if len(_render_series_label(entry) + " · " + part) <= BAR_LABEL_LIMIT:
+                        entry.parts.append(part)
+
+    groups: dict[str, list[SeriesLabelEntry]] = {}
+    for entry in entries:
+        groups.setdefault(_render_series_label(entry), []).append(entry)
+    for _, group in groups.items():
+        if len(group) < 2:
+            continue
+        dates = {entry.key: _run_timestamp(entry.row, "%Y-%m-%d") for entry in group}
+        date_counts = pd.Series(list(dates.values())).value_counts()
+        for entry in group:
+            date = dates[entry.key]
+            suffix = f"run {date}"
+            if date_counts.get(date, 0) > 1:
+                suffix = f"run {_run_timestamp(entry.row, '%Y-%m-%d %H:%M')}"
+            while len(_render_series_label(entry) + " · " + suffix) > BAR_LABEL_LIMIT and entry.parts:
+                entry.parts.pop()
+            entry.parts.append(suffix)
+
+    groups = {}
+    for entry in entries:
+        groups.setdefault(_render_series_label(entry), []).append(entry)
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        for index, entry in enumerate(sorted(group, key=lambda item: item.key), start=1):
+            suffix = f"run {_run_timestamp(entry.row, '%Y-%m-%d %H:%M')} #{index}"
+            while len(_render_series_label(entry) + " · " + suffix) > BAR_LABEL_LIMIT and entry.parts:
+                entry.parts.pop()
+            entry.parts.append(suffix)
+
+    return {entry.key: _render_series_label(entry) for entry in entries}
+
+
+def _render_series_label(entry: SeriesLabelEntry) -> str:
+    return " · ".join([entry.base, *entry.parts])
+
+
+def _run_timestamp(row: pd.Series, format_string: str) -> str:
+    timestamp = pd.to_datetime(row.get("timestamp"), utc=True, errors="coerce")
+    return timestamp.strftime(format_string) if pd.notna(timestamp) else "unknown"
 
 
 # ── Chart builders ────────────────────────────────────────────────────────────
@@ -1304,9 +1428,10 @@ def bar_chart(
     sub["display_value"] = sub.apply(
         lambda row: format_value(row["value"], row["display_unit"]), axis="columns"
     )
+    sub["plot_value"] = sub.apply(lambda row: _chart_value(row["value"], row["display_unit"]), axis="columns")
     sub["workload"] = sub.apply(workload_details, axis="columns")
     sub["run_date"] = pd.to_datetime(sub["timestamp"], utc=True).dt.strftime("%Y-%m-%d %H:%M UTC")
-    sub = sub.sort_values("value", ascending=True)
+    sub = sub.sort_values("plot_value", ascending=True)
     units = row_choices(sub, "display_unit")
     axis_unit = units[0] if len(units) == 1 else "unit varies by row"
     state = _clean_value(sub.iloc[0].get("evidence_status")) or "experimental"
@@ -1314,12 +1439,12 @@ def bar_chart(
 
     fig = px.bar(
         sub,
-        x="value",
+        x="plot_value",
         y="label",
         orientation="h",
         text="display_value",
         custom_data=["workload", "evidence_status", "run_date"],
-        labels={"value": f"{humanize(metric)} ({axis_unit})", "label": "Model and system"},
+        labels={"plot_value": f"{humanize(metric)} ({axis_unit})", "label": "Model and system"},
         title=f"{humanize(task)} — {humanize(metric)}",
         color_discrete_sequence=[color],
     )
@@ -1333,12 +1458,15 @@ def bar_chart(
     )
     fig.update_layout(
         height=max(360, len(sub) * 48),
-        margin={"l": 250, "r": 70, "t": 62, "b": 58},
+        margin={"l": 24, "r": 70, "t": 62, "b": 58},
         yaxis_title="",
         font_size=13,
         showlegend=False,
         barmode="group",
     )
+    fig.update_yaxes(automargin=True)
+    if axis_unit == "%":
+        fig.update_xaxes(range=[0, 100], dtick=25, tickformat=".0f")
     return theme_figure(fig)
 
 
@@ -1368,18 +1496,19 @@ def trend_chart(
     sub["display_value"] = sub.apply(
         lambda row: format_value(row["value"], row["display_unit"]), axis="columns"
     )
+    sub["plot_value"] = sub.apply(lambda row: _chart_value(row["value"], row["display_unit"]), axis="columns")
     sub["workload"] = sub.apply(workload_details, axis="columns")
     units = row_choices(sub, "display_unit")
     axis_unit = units[0] if len(units) == 1 else "unit varies by row"
     fig = px.line(
         sub,
         x="timestamp",
-        y="value",
+        y="plot_value",
         color="label",
         markers=True,
         custom_data=["display_value", "workload", "evidence_status"],
         labels={
-            "value": f"{humanize(metric)} ({axis_unit})",
+            "plot_value": f"{humanize(metric)} ({axis_unit})",
             "timestamp": "Run time (UTC)",
             "label": "Model and system",
         },
@@ -1393,6 +1522,8 @@ def trend_chart(
         )
     )
     fig.update_layout(height=440, font_size=13, legend_title="", margin={"l": 72, "r": 24, "t": 62, "b": 62})
+    if axis_unit == "%":
+        fig.update_yaxes(range=[0, 100], dtick=25, tickformat=".0f")
     return theme_figure(fig)
 
 
@@ -1563,7 +1694,7 @@ def _run_metric_value(df: pd.DataFrame, row: pd.Series, aliases: tuple[str, ...]
 
 
 def build_ui():
-    all_rows = load_data()
+    cache = _current_cache()
     initial_mode = AGENTIC_MODE
     evidence_options = [
         ("All valid", "all"),
@@ -1571,12 +1702,11 @@ def build_ui():
         ("Experimental", "experimental"),
         ("Recovered", "recovered"),
     ]
-    initial_evidence = "all"
-    initial_mode_rows = mode_rows(all_rows, initial_mode)
-    initial_rows = evidence_view(initial_mode_rows, initial_evidence)
+    initial_evidence = DEFAULT_EVIDENCE
+    initial_rows = cached_viewer_rows(initial_mode, initial_evidence, cache)
     initial_filter_values = default_filter_selections(initial_rows, initial_mode)
-    default_suite, default_task, default_metric = best_default(initial_rows)
     filtered_rows = filter_viewer_rows(initial_rows, initial_filter_values, initial_mode)
+    default_suite, default_task, default_metric = best_default(filtered_rows)
     suites = suite_choices(filtered_rows)
     if default_suite not in suites:
         default_suite, default_task, default_metric = best_default(filtered_rows)
@@ -1641,7 +1771,7 @@ def build_ui():
         )
 
     def selection_status(
-        data: pd.DataFrame,
+        counts: Mapping[str, int],
         rows: pd.DataFrame,
         evidence: str,
         suite: str | None,
@@ -1649,20 +1779,12 @@ def build_ui():
         metric: str | None,
         unit: str | None,
     ) -> str:
-        counts = data["evidence_status"].value_counts() if "evidence_status" in data else {}
-        evidence_totals = "; ".join(
-            f"{label}: {int(counts.get(key, 0))} rows"
-            for key, label in (
-                ("scored", "Scored"),
-                ("experimental", "Experimental"),
-                ("recovered", "Recovered"),
-            )
-        )
+        evidence_totals = evidence_summary(counts)
         if rows.empty:
             message = (
                 f"No {evidence.capitalize()} rows match these filters. Clear a filter or choose another task."
             )
-            return f"{message}  \nEvidence in this dataset: {evidence_totals}."
+            return f"{message}  \n{evidence_totals}"
         model_count = rows["model"].map(_clean_value).nunique() if "model" in rows else 0
         comparison_count = rows["series_key"].nunique() if "series_key" in rows else 0
         comparison = " / ".join(humanize(value) for value in (suite, task, metric) if value)
@@ -1681,7 +1803,7 @@ def build_ui():
         repeat_counts = rows.groupby("series_key").size() if "series_key" in rows else pd.Series(dtype=int)
         if not repeat_counts.gt(1).any():
             message += "  \nTrend shows individual results until comparable runs repeat over time."
-        return f"{message}  \nEvidence in this dataset: {evidence_totals}."
+        return f"{message}  \n{evidence_totals}"
 
     def mode_description(mode: str) -> str:
         if mode == DIAGNOSTIC_MODE:
@@ -1699,7 +1821,8 @@ def build_ui():
     def synchronize(
         mode, evidence, suite, task, metric, unit, selected_models, pick_default_context, *filter_values
     ):
-        data = mode_rows(evidence_view(load_data(), str(evidence)), str(mode))
+        cache = _current_cache()
+        data = cached_viewer_rows(str(mode), str(evidence), cache)
         selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
         filter_updates = []
         for name, (label, _) in FILTER_SPECS.items():
@@ -1767,7 +1890,7 @@ def build_ui():
         bar = bar_chart(filtered, suite, task, metric, unit)
         trend = trend_chart(filtered, suite, task, metric, chosen_models, unit)
         table = summary_table(filtered, suite, task, metric, unit)
-        status = selection_status(data, active, str(evidence), suite, task, metric, unit)
+        status = selection_status(cache.evidence_counts, active, str(evidence), suite, task, metric, unit)
         model_update = gr.CheckboxGroup(
             choices=model_choices,
             value=chosen_models,
@@ -1792,9 +1915,7 @@ def build_ui():
         selected_models = values[-1] if values else []
         filter_values = values[:-1]
         selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
-        data = filter_viewer_rows(
-            mode_rows(evidence_view(load_data(), str(evidence)), str(mode)), selections, str(mode)
-        )
+        data = filter_viewer_rows(cached_viewer_rows(str(mode), str(evidence)), selections, str(mode))
         return trend_chart(data, suite, task, metric, selected_models, unit)
 
     def synchronize_mode(mode, evidence, *filter_values):
@@ -1887,7 +2008,7 @@ def build_ui():
 
         status = gr.Markdown(
             selection_status(
-                initial_rows,
+                cache.evidence_counts,
                 active_rows,
                 initial_evidence,
                 default_suite,
