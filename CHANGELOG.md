@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.1...v0.56.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **viewer:** default to throughput and keep bar labels unique ([#435](https://github.com/dryvist/mlx-benchmarks/issues/435)) ([c519df9](https://github.com/dryvist/mlx-benchmarks/commit/c519df9edaf33842e592616c953e7a12569f3720))
+
 ## [0.56.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.0...v0.56.1) (2026-10-18)
 
 
