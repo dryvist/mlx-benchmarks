@@ -1,0 +1,26 @@
+{
+  "schema_version": "1",
+  "timestamp": "2026-10-18T00:00:00Z",
+  "git_sha": null,
+  "trigger": "local",
+  "suite": "repo-qa",
+  "model": "example/model",
+  "system": {
+    "os": "example",
+    "chip": "example",
+    "memory_gb": 0
+  },
+  "results": [
+    {
+      "name": "repo_qa_case_1",
+      "metric": "score",
+      "value": 1.0,
+      "unit": "ratio",
+      "tags": {
+        "arm": "xhigh",
+        "context_size": "30k"
+      }
+    }
+  ],
+  "errors": []
+}

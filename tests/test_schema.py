@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from jsonschema import Draft7Validator
 
@@ -31,9 +34,14 @@ def test_valid_envelope_passes(valid_envelope: dict) -> None:
     validate_envelope(valid_envelope)
 
 
-@pytest.mark.parametrize("suite", ["spl", "tool-queries", "agentic", "triage", "homelab-access"])
+@pytest.mark.parametrize("suite", ["spl", "tool-queries", "agentic", "triage", "homelab-access", "repo-qa"])
 def test_domain_eval_suites_validate(valid_envelope: dict, suite: str) -> None:
     validate_envelope({**valid_envelope, "suite": suite})
+
+
+def test_repo_qa_example_validates() -> None:
+    example_path = Path(__file__).resolve().parents[1] / "examples" / "envelope.repo-qa.json"
+    validate_envelope(json.loads(example_path.read_text()))
 
 
 def test_unknown_runtime_git_sha_can_be_null(valid_envelope: dict) -> None:

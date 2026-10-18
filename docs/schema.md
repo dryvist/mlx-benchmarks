@@ -32,9 +32,11 @@ Closed suite set: `throughput`, `throughput-serving`, `ttft`, `mixed-context`,
 four hardware baselines `gpu-burn`, `nvbandwidth`, `mbw` and `fio` (no model under
 test: publish them with `--model hardware-baseline`). Framework evaluations can
 carry `results[].tags.domain` values `spl`, `tool-queries`, `agentic`, `triage`,
-or `homelab-access`; related runs should keep using existing suites such as
-`tool-calling` when that suite already describes the measurement. Adding a suite
-means editing `schema.json` and filing a schema update PR.
+or `homelab-access`. The `repo-qa` suite records deterministic answers to
+repository questions over packed context. Related runs should keep using an
+existing suite such as `tool-calling` when that suite already describes the
+measurement. Adding a suite means editing `schema.json` and filing a schema
+update PR.
 
 ## Optional top-level fields
 
