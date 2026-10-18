@@ -372,6 +372,36 @@ def load_local_run_index(data_dir: Path) -> tuple[dict[str, dict[str, object]], 
     )
 
 
+RUN_INDEX_PROJECTIONS = {
+    "machine": ("machine", "hostname", "campaign_hardware_machine"),
+    "engine": ("engine", "campaign_software_engine"),
+    "engine_version": ("engine_version", "campaign_software_engine_version"),
+    "engine_build": ("campaign_software_engine_build",),
+    "engine_commit": ("campaign_software_engine_commit",),
+}
+
+
+def apply_run_index_overrides(df: pd.DataFrame, index: dict[str, dict[str, object]]) -> pd.DataFrame:
+    """Project safe per-shard labels and engine metadata without changing Parquet files."""
+    if df.empty or "source_path" not in df:
+        return df
+    df = df.copy()
+    for source_path, entry in index.items():
+        mask = df["source_path"].eq(source_path)
+        if not mask.any():
+            continue
+        for field, columns in RUN_INDEX_PROJECTIONS.items():
+            if field not in entry:
+                continue
+            for column in columns:
+                if column not in df:
+                    df[column] = pd.Series(pd.NA, index=df.index, dtype="object")
+                elif not pd.api.types.is_object_dtype(df[column].dtype):
+                    df[column] = df[column].astype("object")
+                df.loc[mask, column] = entry[field]
+    return df
+
+
 MACHINE_LABELS = {
     "nvidia rtx pro 6000 blackwell max-q": "RTX PRO 6000 Max-Q 96GB",
     "nvidia rtx pro 6000 blackwell max-q 96gb": "RTX PRO 6000 Max-Q 96GB",
@@ -762,8 +792,9 @@ def _load_dataset() -> pd.DataFrame:
     df = pd.concat(frames, ignore_index=True)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="ISO8601")
     raw_suites = set(df["suite"].dropna().unique())
-    df = normalize_rows(df)
     run_index, historical_cutoff = load_local_run_index(data_dir)
+    df = apply_run_index_overrides(df, run_index)
+    df = normalize_rows(df)
     df = comparable_rows(add_evidence_metadata(df, run_index, historical_cutoff))
     df.attrs["awaiting_suites"] = sorted(raw_suites - set(df["suite"].dropna().unique()))
     return df

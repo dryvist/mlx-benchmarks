@@ -262,13 +262,14 @@ def test_publish_step_keeps_invalid_shards_out_of_latest_but_in_history(
     assert hub.recent_values() == [2.0]
 
 
-def test_publish_step_applies_run_index_overrides_to_canonical_only_shards(
+def test_publish_step_preserves_published_canonical_shard_bytes(
     publish_step: tuple[ModuleType, FakeHub],
 ) -> None:
     script, hub = publish_step
     source_path = "data/run-2026-09-08T10-00-00-abc1234-throughput-example-model-0a1b2c3d.parquet"
     canonical_path = _shard_path("2026-09-08T10-00-00")
     hub.files[canonical_path] = _parquet(_table(("2026-09-08T10:00:00Z", 1.0)))
+    original_bytes = hub.files[canonical_path]
     script.RUN_INDEX_PATH.write_text(
         json.dumps(
             {
@@ -289,9 +290,41 @@ def test_publish_step_applies_run_index_overrides_to_canonical_only_shards(
 
     script.normalize_dataset("example/dataset", apply=True)
 
-    normalized = pq.read_table(io.BytesIO(hub.files[canonical_path]))
-    assert normalized.column("hostname").to_pylist() == ["Mac Studio M4 Max 128GB"]
-    assert normalized.column("engine").to_pylist() == ["llama.cpp"]
-    assert normalized.column("engine_version").to_pylist() == ["b11669"]
-    assert normalized.column("campaign_software_engine_commit").to_pylist() == ["620d2225c"]
+    assert hub.files[canonical_path] == original_bytes
+    assert canonical_path not in hub.commits[0]
     assert source_path not in hub.files
+
+
+def test_publish_step_does_not_apply_run_index_overrides_to_published_copies(
+    publish_step: tuple[ModuleType, FakeHub],
+) -> None:
+    script, hub = publish_step
+    source_path = "data/run-2026-09-08T10-00-00-abc1234-throughput-example-model-0a1b2c3d.parquet"
+    canonical_path = _shard_path("2026-09-08T10-00-00")
+    source = _table(("2026-09-08T10:00:00Z", 1.0))
+    canonical = script.normalize_legacy_table(source)
+    original_bytes = _parquet(canonical)
+    hub.files[source_path] = _parquet(source)
+    hub.files[canonical_path] = original_bytes
+    script.RUN_INDEX_PATH.write_text(
+        json.dumps(
+            {
+                "runs": [
+                    {
+                        "path": source_path,
+                        "status": "scored",
+                        "machine": "Mac Studio M4 Max 128GB",
+                        "engine": "llama.cpp",
+                        "engine_version": "b11669",
+                        "engine_build": "b11669",
+                        "engine_commit": "620d2225c",
+                    }
+                ]
+            }
+        )
+    )
+
+    script.normalize_dataset("example/dataset", apply=True)
+
+    assert hub.files[canonical_path] == original_bytes
+    assert canonical_path not in hub.commits[0]

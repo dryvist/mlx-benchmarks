@@ -238,7 +238,17 @@ def test_local_data_dir_keeps_loading_parquets_and_neighboring_index(tmp_path, m
     (metadata_dir / "run-index-v1.json").write_text(
         json.dumps(
             {
-                "runs": [{"path": "data/run-2026-10-01-example.parquet", "status": "scored"}],
+                "runs": [
+                    {
+                        "path": "data/run-2026-10-01-example.parquet",
+                        "status": "scored",
+                        "machine": "Mac Studio M4 Max 128GB",
+                        "engine": "llama.cpp",
+                        "engine_version": "b11669",
+                        "engine_build": "b11669",
+                        "engine_commit": "620d2225c",
+                    }
+                ],
                 "historical_scored_before": "2026-08-25T00:00:00Z",
             }
         )
@@ -253,6 +263,11 @@ def test_local_data_dir_keeps_loading_parquets_and_neighboring_index(tmp_path, m
 
     assert loaded.loc[0, "evidence_status"] == "scored"
     assert loaded.loc[0, "source_path"] == "data/run-2026-10-01-example.parquet"
+    assert loaded.loc[0, "machine"] == "Mac Studio M4 Max 128GB"
+    assert loaded.loc[0, "hostname"] == "Mac Studio M4 Max 128GB"
+    assert loaded.loc[0, "engine"] == "llama.cpp"
+    assert loaded.loc[0, "engine_version"] == "b11669"
+    assert loaded.loc[0, "campaign_software_engine_commit"] == "620d2225c"
 
 
 def test_expired_cache_returns_old_frame_while_refresh_runs(monkeypatch) -> None:
