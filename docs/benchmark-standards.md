@@ -28,6 +28,9 @@ for result rows.
    `/props` slot count and per-slot `n_ctx`. Skip a standard concurrency only
    when it does not fit, and record the reason.
 
+   Concurrent throughput rows use the same metric mapping as sequential rows
+   and record the run's concurrency in the `concurrency` field.
+
 4. **Load shapes.** Report batched load with `--request-rate inf` and staggered
    Poisson load with `--request-rate R --burstiness 1`, at the same maximum
    concurrency. Include a staggered agentic pair in every throughput block:

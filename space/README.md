@@ -67,12 +67,8 @@ Space, dataset, and datasets-server endpoints. Network timings vary by run.
 
 Measurements while the Space was already running:
 
-- Three fresh headless Chromium sessions showed data in 1.5 s, 3.2 s, and
-  1.6 s. The first switch to **Speed / diagnostic** took 2.9 s; the next took
-  0.3 s. Evidence-filter switches took 0.3–1.8 s.
-- After a 660-second cache wait, three fresh sessions showed page-to-data in
-  1.9 s, 1.7 s, and 1.5 s; mode switches in 5.0 s, 4.8 s, and 4.8 s; and
-  evidence-filter switches in 0.4 s, 0.3 s, and 0.4 s.
+- The current filter sample showed a cold page-to-data load in about 3.1 s,
+  mode switches in about 0.3 s, and suite switches in 0.3–0.4 s.
 - datasets-server `default` first rows returned HTTP 200 in 0.41 s; `history`
   first rows returned HTTP 200 in 0.25 s.
 - `data/recent/latest.parquet` downloaded 268,957 bytes in 0.71 s. The dataset
