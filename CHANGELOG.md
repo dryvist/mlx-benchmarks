@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.2...v0.59.3) (2026-10-18)
+
+
+### Documentation
+
+* refresh benchmark performance notes ([#465](https://github.com/dryvist/mlx-benchmarks/issues/465)) ([5cf554b](https://github.com/dryvist/mlx-benchmarks/commit/5cf554b5272c7d4a38a6b4ac9d4a16b525fbbd9e))
+
 ## [0.59.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.1...v0.59.2) (2026-10-18)
 
 
