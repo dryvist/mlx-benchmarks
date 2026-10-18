@@ -1,14 +1,25 @@
 # Run a benchmark block end to end
 
-Use the reusable Semaphore templates for client creation, profile convergence,
-suite execution, and cleanup. Pass survey values through each task; do not run
-SSH, `pct`, `uv`, or suite commands by hand. Resolve new template IDs by their
-canonical names after the catalog is applied. The workstation helper accepts
+Use the reusable Semaphore templates for the pre-block upgrade, client
+creation, profile convergence, suite execution, and cleanup. Pass survey values
+through each task; do not run SSH, `pct`, `uv`, or suite commands by hand.
+Resolve new template IDs by their canonical names after the catalog is applied.
+The workstation helper accepts
 `sem.sh <project-id> <template-id> <message> '<JSON argument array>'`.
+
+Before the first cell, full-upgrade the selected Proxmox node and GPU guest, and
+create a fresh full-upgraded benchmark client. The Proxmox template uses the
+existing rolling upgrade playbook; target one selected node with the task-level
+`--limit` shown below. On a Mac-native block, run `softwareupdate -l` before the
+first cell. Installing macOS updates requires operator sudo and Touch ID; when
+unattended, record `macOS updates pending: <list>` in that row's `patches`
+metadata.
 
 Run these jobs in order, waiting for each to finish before the next:
 
 ```text
+sem.sh 2 "<proxmox-benchmark-upgrade-id>" "benchmark upgrade <run-id>" \
+  '["--limit","<NODE>,localhost"]'
 sem.sh 2 "<proxmox-benchmark-client-id>" "client present" \
   '[
     "--extra-vars", "node=<NODE>",
@@ -28,6 +39,7 @@ sem.sh 4 "<ai-benchmark-run-id>" "benchmark cell <run-id> <cell-id>" \
   '[
     "--extra-vars", "node=<NODE>",
     "--extra-vars", "client_vmid=<CLIENT_VMID>",
+    "--extra-vars", "gpu_guest_vmid=<ENGINE_GUEST_VMID>",
     "--extra-vars", "engine_url=<ENGINE_URL>",
     "--extra-vars", "model=<MODEL>",
     "--extra-vars", "tokenizer=<TOKENIZER>",
@@ -42,8 +54,10 @@ sem.sh 4 "<ai-benchmark-run-id>" "benchmark cell <run-id> <cell-id>" \
     "--extra-vars", "num_prompts=<PROMPTS>",
     "--extra-vars", "seed=<SEED>",
     "--extra-vars", "run_id=<RUN_ID>",
+    "--extra-vars", "upgrade=true",
     "--extra-vars", "publish=false"
   ]'
+# Set upgrade=false on later cells in this block; the runner defaults it to true.
 # Repeat the benchmark-run job once for every planned cell.
 # Collect baseline and final telemetry with the same template.
 sem.sh 4 85 "final telemetry <run-id>" '[]'
@@ -59,32 +73,42 @@ sem.sh 2 "<proxmox-benchmark-client-id>" "client absent" \
 ```
 
 Project 4 profile template `137` or `97` is selected by the lane owner. The
-client and benchmark-run template IDs are read by canonical name after apply.
+upgrade, client, and benchmark-run template IDs are read by canonical name after apply.
 The client template uses its digest-pinned image and tool defaults unless the
 `images` or `tools` survey values are overridden.
 Set `items_file=` for BigCodeBench; for Promptfoo, use the config URL with its
 immutable source commit in the path.
 
-1. **Create the client.** Run `proxmox-benchmark-client` with `state=present`,
+1. **Upgrade the Proxmox node.** Run `proxmox-benchmark-upgrade` once for the
+   selected node before the block's first cell, with a task-level
+   `--limit <NODE>,localhost`. It uses the existing serial full-upgrade and HA
+   migration procedure, and converges the NVIDIA production driver from its
+   current pin. The node reboots only when its running kernel differs from the
+   selected installed kernel.
+2. **Create the client.** Run `proxmox-benchmark-client` with `state=present`,
    the published node and client VMID, the serving guest VMID used for network
    settings, and the requested CPU, memory, disk, template, image, and tool
-   values. Use the default digest-pinned BigCodeBench sandbox image and the
-   pinned x86_64 vLLM client image from the tool defaults. The task starts the
-   tagged client, installs its tools, pulls both images, and verifies the
-   selected engine URL.
-2. **Converge the serving profile.** Run the existing AI GPU profile template
+   values. Client creation runs `apt-get full-upgrade` before installing tools.
+   Use the default digest-pinned BigCodeBench sandbox image and the pinned
+   x86_64 vLLM client image from the tool defaults. The task starts the tagged
+   client, installs its tools, pulls both images, and verifies the selected
+   engine URL.
+3. **Converge the serving profile.** Run the existing AI GPU profile template
    for the selected lane, with its normal profile survey. Respect lane
-   ownership before scheduling the job. Then run Semaphore project 4, template
-   85 to collect baseline power and fan telemetry. Repeat it after the last
-   benchmark cell for final telemetry.
-3. **Run suite cells.** Dispatch `ai-benchmark-run` once per cell, with a
+   ownership before scheduling the job. This aligns the GPU guest's NVIDIA
+   userspace and CUDA packages with the upgraded host pin. Then run Semaphore
+   project 4, template 85 to collect baseline power and fan telemetry. Repeat it
+   after the last benchmark cell for final telemetry.
+4. **Run suite cells.** Dispatch `ai-benchmark-run` once per cell, with a
    unique `run_id` per cell and a shared block prefix. Use
    `suite=bigcodebench-hard` with `item_limit` from 1 through 148 (default 30),
    `suite=promptfoo-<suite>` with an immutable raw GitHub `items_file`, or
    `suite=vllm-sweep` for one fixed-length serving cell. EvalScope records
    `reasoning_arm` explicitly: `off` maps to `enable_thinking=false`; `low` and
    `xhigh` map to their matching `reasoning_effort` values. Promptfoo and
-   EvalScope run inside the client.
+   EvalScope run inside the client. The first cell defaults to
+   `upgrade=true` and full-upgrades the GPU guest before running the suite; pass
+   `upgrade=false` for the remaining cells in the same block.
 
    BigCodeBench first checks three negative controls and three canonical
    ground-truth controls with the official pinned `bigcodebench.evaluate`
@@ -116,13 +140,16 @@ immutable source commit in the path.
    The task prints `host_uptime_s`, `guest_uptime_s`, and `engine_uptime_s` at
    block start and stores them in `run.json`. If direct guest uptime is not
    readable, keep it `null` and retain its reason. The task archives raw output
-   on the selected node and prints the artifact path in the job log. The log
+   on the selected node and prints the artifact path in the job log. The
+   archive includes `run.json` and `campaign-dimensions.json`; the latter carries
+   PVE package and kernel versions, NVIDIA driver and CUDA versions, guest and
+   client package versions, and `campaign_dimensions.run.patches`. The log
    reports the suite, return code, and output-line counts without echoing raw
    suite text.
-4. **Collect and review.** Retrieve the reported archive from the node and
-   review the result JSON and `run.json`. Keep each cell's uptime values and
-   null reasons with its publication metadata.
-5. **Publish from the workstation.** Semaphore publication stays disabled.
+5. **Collect and review.** Retrieve the reported archive from the node and
+   review the result JSON, `run.json`, and `campaign-dimensions.json`. Keep each
+   cell's uptime and patch values with its publication metadata.
+6. **Publish from the workstation.** Semaphore publication stays disabled.
    Supply `HF_TOKEN_REPOS_ADMIN` through the approved local secret wrapper and
    map it to the publisher's `HF_TOKEN`. Dry-run the existing
    `mlx-bench-publish` command first. Add `host_uptime_s=<seconds>` and
@@ -132,13 +159,14 @@ immutable source commit in the path.
    ```sh
    HF_TOKEN="$HF_TOKEN_REPOS_ADMIN" .venv/bin/mlx-bench-publish \
      "run-output/<cell>.json" --kind vllm --suite throughput \
+     --campaign-dimensions "run-output/campaign-dimensions.json" \
      --published-metadata "run-output/<published-metadata>.json" \
      --tag "host_uptime_s=<seconds>" --tag "guest_uptime_s=<seconds-or-null>" --dry-run
    ```
 
    After reviewing the dry-run output and metadata, repeat the command without
    `--dry-run`.
-6. **Remove the client.** Run `proxmox-benchmark-client` with
+7. **Remove the client.** Run `proxmox-benchmark-client` with
    `state=absent`. The playbook refuses to stop or destroy an LXC that lacks
    the `benchmark-client` tag.
 
