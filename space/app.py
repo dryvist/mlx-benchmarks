@@ -2225,7 +2225,7 @@ def build_ui():
             with gr.Tab("Latest"):
                 bar_plot = gr.Plot(
                     value=bar_chart(
-                        initial_rows, default_suite, default_task, default_metric, initial_unit, initial_mode
+                        filtered_rows, default_suite, default_task, default_metric, initial_unit, initial_mode
                     ),
                     label="Latest comparable run",
                 )
@@ -2238,7 +2238,7 @@ def build_ui():
                 )
                 trend_plot = gr.Plot(
                     value=trend_chart(
-                        initial_rows,
+                        filtered_rows,
                         default_suite,
                         default_task,
                         default_metric,
@@ -2250,7 +2250,7 @@ def build_ui():
             with gr.Tab("Summary"):
                 table_out = gr.DataFrame(
                     value=summary_table(
-                        initial_rows, default_suite, default_task, default_metric, initial_unit
+                        filtered_rows, default_suite, default_task, default_metric, initial_unit
                     ),
                     interactive=False,
                     label="Latest run per comparison",
