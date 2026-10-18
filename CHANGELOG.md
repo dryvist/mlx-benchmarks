@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.56.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.0...v0.56.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* include long-context evidence in default viewer ([#433](https://github.com/dryvist/mlx-benchmarks/issues/433)) ([aa47c0e](https://github.com/dryvist/mlx-benchmarks/commit/aa47c0e12e93bb0e5d4367b4d69effa48be32e66))
+* **space:** include valid long-context evidence by default ([aa47c0e](https://github.com/dryvist/mlx-benchmarks/commit/aa47c0e12e93bb0e5d4367b4d69effa48be32e66))
+
 ## [0.56.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.55.0...v0.56.0) (2026-10-18)
 
 
