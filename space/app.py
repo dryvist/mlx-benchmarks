@@ -994,8 +994,11 @@ def suite_choices(df: pd.DataFrame) -> list[str]:
         return []
     series_column = "series_key" if "series_key" in rows else "model"
     counts = rows.groupby(["suite", "name", "metric"], dropna=False)[series_column].nunique()
-    comparable = counts[counts >= 2].index.get_level_values("suite")
-    return sorted(set(comparable), key=str.casefold)
+    suites = set(counts[counts >= 2].index.get_level_values("suite"))
+    primary = rows[(rows["suite"] == "throughput") & (rows["metric"] == THROUGHPUT_OUTPUT_METRIC)]
+    if not primary.empty:
+        suites.add("throughput")
+    return sorted(suites, key=str.casefold)
 
 
 def task_choices(df: pd.DataFrame, suite: str | None) -> list[str]:
@@ -1049,11 +1052,22 @@ def top_metric(df: pd.DataFrame, suite: str, task: str) -> str | None:
 
 
 def best_default(df: pd.DataFrame) -> tuple[str | None, str | None, str | None]:
-    """Choose the newest non-saturated scored triple measured on two machines."""
+    """Prefer scored throughput output speed, then the newest comparable triple."""
     rows = comparable_rows(df)
     if "evidence_status" in rows:
         rows = rows[rows["evidence_status"].astype("string").str.casefold() == "scored"]
-    if rows.empty or "machine" not in rows:
+    if rows.empty:
+        return (None, None, None)
+
+    primary = rows[(rows["suite"] == "throughput") & (rows["metric"] == THROUGHPUT_OUTPUT_METRIC)]
+    if not primary.empty:
+        timestamps = pd.to_datetime(primary["timestamp"], utc=True, errors="coerce")
+        latest = timestamps.max()
+        latest_tasks = primary.loc[timestamps == latest, "name"] if not pd.isna(latest) else primary["name"]
+        task = latest_tasks.dropna().astype(str).sort_values().iloc[0]
+        return ("throughput", task, THROUGHPUT_OUTPUT_METRIC)
+
+    if "machine" not in rows:
         return (None, None, None)
 
     candidates = []
@@ -1162,6 +1176,8 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
         return {}
     latest = df.sort_values("timestamp").drop_duplicates("series_key", keep="last")
     varying_fields = (
+        ("host", "host"),
+        ("accelerator", "accelerator"),
         ("agents", "c"),
         ("context_band", "context band"),
         ("mtp", "MTP"),
@@ -1180,6 +1196,8 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
         ("request_rate", "req/s"),
         ("burstiness", "burst"),
         ("variant", "variant"),
+        ("completion_state", "completion"),
+        ("display_unit", "unit"),
     )
     varying = [
         (field, label)
@@ -1207,17 +1225,15 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
             if (value := _clean_value(row.get(field))) is not None
         ]
         base_suffix = " · ".join(base_parts[1:])
-        first_knob_length = len(f" · {knobs[0]}") if knobs else 0
-        model_limit = BAR_LABEL_LIMIT - len(base_suffix) - (3 if base_suffix else 0) - first_knob_length
-        base_parts[0] = _fit_model_label(model, model_limit)
+        knob_suffix = " · ".join(knobs)
+        label_overhead = len(base_suffix) + (3 if base_suffix else 0)
+        if knob_suffix:
+            label_overhead += len(knob_suffix) + 3
+        model_limit = BAR_LABEL_LIMIT - label_overhead
+        base_parts[0] = _fit_model_label(model, model_limit) if model_limit >= 8 else model
         label = " · ".join(base_parts) or "Benchmark run"
-        for knob in knobs:
-            candidate = f"{label} · {knob}"
-            if len(candidate) > BAR_LABEL_LIMIT:
-                if len(label) + 4 <= BAR_LABEL_LIMIT:
-                    label += " · …"
-                break
-            label = candidate
+        if knob_suffix:
+            label = f"{label} · {knob_suffix}"
         labels[row["series_key"]] = label
     return labels
 
@@ -1312,6 +1328,7 @@ def bar_chart(
         yaxis_title="",
         font_size=13,
         showlegend=False,
+        barmode="group",
     )
     return theme_figure(fig)
 
