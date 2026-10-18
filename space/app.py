@@ -574,7 +574,9 @@ MACHINE_LABELS = {
     "apple m4 max": "Mac Studio M4 Max 128GB",
     "mac studio": "Mac Studio M4 Max 128GB",
     "mac studio m4 max 128gb": "Mac Studio M4 Max 128GB",
+    "2x apple m4 max 128gb (thunderbolt rdma)": "2x Apple M4 Max 128GB (Thunderbolt RDMA)",
 }
+MACHINE_SHORT_LABELS = {"2x Apple M4 Max 128GB (Thunderbolt RDMA)": "2x Apple M4 Max 128GB · TB5 RDMA"}
 
 
 def normalize_machine(value: object) -> str | None:
@@ -1116,6 +1118,11 @@ def short_model(name: str | None) -> str:
     return name
 
 
+def short_machine(name: str) -> str:
+    """Use compact chart labels for long canonical machine names."""
+    return MACHINE_SHORT_LABELS.get(name, name)
+
+
 def row_choices(df: pd.DataFrame, column: str) -> list[str]:
     if df.empty or column not in df:
         return []
@@ -1400,6 +1407,7 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
         machine = (
             _clean_value(row.get("machine")) or _clean_value(row.get("accelerator")) or "machine not recorded"
         )
+        machine = short_machine(machine)
         engine = " ".join(
             value
             for value in (_clean_value(row.get("engine")), _clean_value(row.get("engine_version")))

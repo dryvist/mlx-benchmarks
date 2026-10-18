@@ -13,7 +13,8 @@ normalized with nulls for all new columns, so every file has the same schema.
 
 ## Field groups
 
-- **hardware:** machine; accelerator model, memory, and bandwidth; host CPU,
+- **hardware:** machine, interconnect, and world size; accelerator model,
+  memory, and bandwidth; host CPU,
   RAM, and speed; PCIe generation/width; power cap; UPS/circuit;
   chassis/container; optional published inventory device ID.
 - **environment:** ambient temperature in Fahrenheit; fan duty for GPU,

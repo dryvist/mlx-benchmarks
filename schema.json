@@ -285,6 +285,15 @@
               "type": ["string", "null"],
               "description": "Machine product/model label; omit the private hostname."
             },
+            "interconnect": {
+              "type": ["string", "null"],
+              "description": "Node-to-node interconnect used by a multi-machine run."
+            },
+            "world_size": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "description": "Number of machines participating in a multi-machine run."
+            },
             "accelerator_model": {
               "type": ["string", "null"],
               "description": "Accelerator model or integrated GPU model."

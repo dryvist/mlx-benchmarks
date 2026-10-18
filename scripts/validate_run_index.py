@@ -33,6 +33,7 @@ CANONICAL_MACHINES = {
     "Mac Studio M4 Max 128GB",
     "RTX PRO 6000 Max-Q 96GB",
     "RTX 4080 SUPER 16GB",
+    "2x Apple M4 Max 128GB (Thunderbolt RDMA)",
 }
 RUN_DATE = re.compile(r"^data/run-(\d{4}-\d{2}-\d{2})")
 LLAMA_CPP_VERSION = re.compile(r"b\d+\Z")

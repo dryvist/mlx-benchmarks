@@ -53,6 +53,8 @@ def test_historical_row_variants_normalize_to_one_schema() -> None:
     assert older_table.schema.equals(newer_table.schema, check_metadata=False)
     assert older_table.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False)
     assert older["decode_tokens_per_second"] is None
+    assert older["campaign_hardware_interconnect"] is None
+    assert older["campaign_hardware_world_size"] is None
     assert newer["decode_tokens_per_second"] == 11.5
     assert newer["output_tokens_mean"] == 123.5
     assert newer["reasoning_tokens_mean"] == 18.5
@@ -72,6 +74,24 @@ def test_historical_row_variants_normalize_to_one_schema() -> None:
     }
 
 
+def test_cluster_hardware_dimensions_normalize_and_legacy_columns_stay_null() -> None:
+    [legacy] = normalize_legacy_rows([{}])
+    [cluster] = normalize_legacy_rows(
+        [{}],
+        campaign_dimensions={
+            "hardware": {
+                "interconnect": "Thunderbolt 5 RDMA",
+                "world_size": 2,
+            }
+        },
+    )
+
+    assert legacy["campaign_hardware_interconnect"] is None
+    assert legacy["campaign_hardware_world_size"] is None
+    assert cluster["campaign_hardware_interconnect"] == "Thunderbolt 5 RDMA"
+    assert cluster["campaign_hardware_world_size"] == 2
+
+
 def test_machine_labels_are_validated_and_apple_fallback_is_generic() -> None:
     assert parse_machine_labels(None) == {}
     assert parse_machine_labels('{"machine-id-one":"MacBook Pro M4 Max 128GB"}') == {
@@ -80,11 +100,32 @@ def test_machine_labels_are_validated_and_apple_fallback_is_generic() -> None:
     assert parse_machine_labels('{"studio-id":"Mac Studio M4 Max 128GB"}') == {
         "studio-id": "Mac Studio M4 Max 128GB"
     }
+    cluster_label = "2x Apple M4 Max 128GB (Thunderbolt RDMA)"
+    assert parse_machine_labels(json.dumps({"cluster-id": cluster_label})) == {"cluster-id": cluster_label}
     with pytest.raises(ValueError, match="invalid entry"):
         parse_machine_labels('{"machine-id-one":"machine-id-one"}')
 
     [row] = normalize_legacy_rows([{"hostname": "machine-id-one", "chip": "Apple M4 Max", "memory_gb": 128}])
     assert row["hostname"] == APPLE_MACHINE_FALLBACK
+
+
+def test_cluster_machine_label_normalizes_from_private_machine_id() -> None:
+    label = "2x Apple M4 Max 128GB (Thunderbolt RDMA)"
+    [row] = normalize_legacy_rows(
+        [
+            {
+                "hostname": "cluster-id",
+                "machine": "cluster-id",
+                "campaign_hardware_machine": "cluster-id",
+                "chip": "Apple M4 Max",
+                "memory_gb": 128,
+            }
+        ],
+        machine_labels={"cluster-id": label},
+    )
+
+    assert row["hostname"] == label
+    assert row["campaign_hardware_machine"] == label
 
 
 def test_machine_label_projection_updates_identity_fields_only() -> None:

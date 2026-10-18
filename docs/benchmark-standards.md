@@ -75,7 +75,8 @@ for result rows.
     macOS does not expose fan duty. Publish uptime as `host_uptime_s` and
     `guest_uptime_s`. If an uptime read fails, record `null` with its reason.
     Use these machine labels: `RTX PRO 6000 Max-Q 96GB`,
-    `RTX 4080 SUPER 16GB`, and `Mac Studio M4 Max 128GB`.
+    `RTX 4080 SUPER 16GB`, `Mac Studio M4 Max 128GB`, and
+    `2x Apple M4 Max 128GB (Thunderbolt RDMA)`.
 
 12. **Models.** Use trusted sources only: nvidia, unsloth, bartowski,
     ISTA-DASLab, mlx-community, lmstudio-community, the official releaser, or an

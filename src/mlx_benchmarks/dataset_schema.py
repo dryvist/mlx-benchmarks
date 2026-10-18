@@ -176,6 +176,8 @@ CAMPAIGN_DIMENSION_TYPES = {
     },
     "hardware": {
         "machine": pa.string(),
+        "interconnect": pa.string(),
+        "world_size": pa.int64(),
         "accelerator_model": pa.string(),
         "accelerator_memory_gb": pa.float64(),
         "power_source": pa.string(),
@@ -533,6 +535,7 @@ _MACHINE_LABEL_PATTERNS = (
     re.compile(r"MacBook Pro M4 Max [1-9][0-9]*GB\Z"),
     re.compile(r"RTX PRO 6000 Max-Q 96GB\Z"),
     re.compile(r"RTX 4080 SUPER 16GB\Z"),
+    re.compile(r"2x Apple M4 Max 128GB \(Thunderbolt RDMA\)\Z"),
 )
 _MACHINE_ID_FIELDS = (
     "campaign_hardware_machine",
