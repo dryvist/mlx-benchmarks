@@ -342,6 +342,39 @@ def test_filter_catalog_includes_all_requested_tuning_dimensions() -> None:
     } <= set(app.FILTER_SPECS)
 
 
+def test_summary_table_formats_detail_columns_without_row_wide_apply(monkeypatch) -> None:
+    rows = _annotated(
+        [
+            {
+                "timestamp": "2026-10-01T00:00:00Z",
+                "suite": "reasoning",
+                "name": "task",
+                "metric": "accuracy",
+                "value": 0.8,
+                "model": "m/model",
+                "machine": "Machine A",
+                "engine": "Engine A",
+                "source_path": "data/run-a.parquet",
+            }
+        ]
+    )
+    original_apply = pd.DataFrame.apply
+    row_wide_calls = 0
+
+    def count_row_wide_apply(self, func, axis=0, *args, **kwargs):
+        nonlocal row_wide_calls
+        if axis in (1, "columns"):
+            row_wide_calls += 1
+        return original_apply(self, func, *args, axis=axis, **kwargs)
+
+    monkeypatch.setattr(pd.DataFrame, "apply", count_row_wide_apply)
+    summary = app.summary_table(rows, "reasoning", "task", "accuracy")
+
+    assert summary.loc[0, "Machine"] == "Machine A"
+    assert summary.loc[0, "Engine"] == "Engine A"
+    assert row_wide_calls <= 4
+
+
 def test_cache_filters_use_published_columns_and_keep_none_as_an_enum_value() -> None:
     rows = _annotated(
         [
