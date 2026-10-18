@@ -213,7 +213,8 @@
         "tool-queries",
         "agentic",
         "triage",
-        "homelab-access"
+        "homelab-access",
+        "repo-qa"
       ],
       "description": "Which benchmark suite was executed"
     },
