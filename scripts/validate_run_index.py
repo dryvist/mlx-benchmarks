@@ -6,7 +6,15 @@ import json
 import re
 from pathlib import Path
 
+import pyarrow as pa
 from huggingface_hub import HfApi
+
+from mlx_benchmarks.dataset_schema import (
+    CACHE_CONFIGURATION_FIELDS,
+    CACHE_OFFLOAD_BACKENDS,
+    STANDARD_CACHE_FIELD_DIMENSIONS,
+    STANDARD_CACHE_FIELD_TYPES,
+)
 
 DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
 INDEX_PATH = Path("metadata/run-index-v1.json")
@@ -29,6 +37,45 @@ CANONICAL_MACHINES = {
 RUN_DATE = re.compile(r"^data/run-(\d{4}-\d{2}-\d{2})")
 LLAMA_CPP_VERSION = re.compile(r"b\d+\Z")
 ENGINE_COMMIT = re.compile(r"[0-9a-f]{7,40}\Z")
+BACKFILL_START = datetime.date(2026, 10, 11)
+
+
+def _matches_arrow_type(value: object, arrow_type: pa.DataType) -> bool:
+    if pa.types.is_boolean(arrow_type):
+        return isinstance(value, bool)
+    if pa.types.is_integer(arrow_type):
+        return isinstance(value, int) and not isinstance(value, bool)
+    if pa.types.is_floating(arrow_type):
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if pa.types.is_string(arrow_type):
+        return isinstance(value, str)
+    return False
+
+
+def validate_cache_projection(entry: dict[str, object]) -> None:
+    """Require typed, caveated cache configuration overrides for backfilled shards."""
+    dimensions = entry.get("campaign_dimensions")
+    reasons = entry.get("dimension_null_reasons")
+    if not isinstance(dimensions, dict) or not isinstance(reasons, dict):
+        raise ValueError(
+            f"run-index entry must contain cache projections and null reasons: {entry.get('path')}"
+        )
+    for name in CACHE_CONFIGURATION_FIELDS:
+        category, field = STANDARD_CACHE_FIELD_DIMENSIONS[name]
+        values = dimensions.get(category)
+        if not isinstance(values, dict) or field not in values:
+            raise ValueError(f"run-index cache projection is missing {category}.{field}: {entry.get('path')}")
+        value = values[field]
+        reason_key = f"{category}.{field}"
+        if value is None:
+            if not isinstance(reasons.get(reason_key), str) or not reasons[reason_key]:
+                raise ValueError(
+                    f"null cache configuration needs a reason for {reason_key}: {entry.get('path')}"
+                )
+        elif not _matches_arrow_type(value, STANDARD_CACHE_FIELD_TYPES[name]):
+            raise ValueError(f"invalid type for {reason_key}: {entry.get('path')}")
+        if name == "kv_offload_backend" and value is not None and value not in CACHE_OFFLOAD_BACKENDS:
+            raise ValueError(f"invalid KV offload backend for {entry.get('path')}: {value!r}")
 
 
 def load_index(path: Path) -> list[dict[str, object]]:
@@ -56,6 +103,8 @@ def validate_entries(entries: list[dict[str, object]]) -> None:
         if entry["status"] not in VALID_STATUSES:
             raise ValueError(f"invalid status for {path}: {entry['status']!r}")
         date_match = RUN_DATE.match(path)
+        if date_match and datetime.date.fromisoformat(date_match.group(1)) >= BACKFILL_START:
+            validate_cache_projection(entry)
         if (
             date_match
             and datetime.date.fromisoformat(date_match.group(1)) >= datetime.date(2026, 9, 1)

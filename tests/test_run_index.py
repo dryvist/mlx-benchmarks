@@ -65,3 +65,54 @@ def test_uncaptured_llama_cpp_build_must_be_experimental_with_caveat() -> None:
 
     with pytest.raises(ValueError, match="normalized engine or version"):
         _validator().validate_entries([{**entry, "status": "scored"}])
+
+
+def test_backfill_shards_require_typed_cache_configuration_and_null_reasons() -> None:
+    entry = _entry(
+        path="data/run-2026-10-11T00-00-00-run.parquet",
+        campaign_dimensions={
+            "hardware": {"host_ram_limit_gib": None},
+            "run": {
+                "prefix_cache": True,
+                "kv_offload_backend": "none",
+                "kv_offload_cpu_gib": 0.0,
+                "kv_offload_disk_gib": 0.0,
+                "weight_cpu_offload_gib": 0.0,
+                "llamacpp_cache_ram_mib": 8192,
+                "gpu_memory_utilization": 0.88,
+                "max_num_batched_tokens": None,
+                "kv_pool_tokens": None,
+            },
+        },
+        dimension_null_reasons={
+            "hardware.host_ram_limit_gib": "NOT_SOURCED",
+            "run.max_num_batched_tokens": "NOT_CAPTURED",
+            "run.kv_pool_tokens": "STARTUP_LOG_NOT_CAPTURED",
+        },
+    )
+
+    _validator().validate_entries([entry])
+
+
+def test_backfill_shards_reject_wrong_cache_configuration_types() -> None:
+    entry = _entry(
+        path="data/run-2026-10-11T00-00-00-run.parquet",
+        campaign_dimensions={
+            "hardware": {"host_ram_limit_gib": 48},
+            "run": {
+                "prefix_cache": "true",
+                "kv_offload_backend": "none",
+                "kv_offload_cpu_gib": 0,
+                "kv_offload_disk_gib": 0,
+                "weight_cpu_offload_gib": 0,
+                "llamacpp_cache_ram_mib": 8192,
+                "gpu_memory_utilization": 0.88,
+                "max_num_batched_tokens": 8192,
+                "kv_pool_tokens": 123456,
+            },
+        },
+        dimension_null_reasons={},
+    )
+
+    with pytest.raises(ValueError, match=r"invalid type for run.prefix_cache"):
+        _validator().validate_entries([entry])

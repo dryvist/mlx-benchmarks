@@ -11,6 +11,9 @@ from jsonschema import Draft7Validator
 from mlx_benchmarks.dataset_schema import (
     CAMPAIGN_DIMENSION_TYPES,
     PARQUET_ROW_SCHEMA,
+    STANDARD_CACHE_FIELD_DESCRIPTIONS,
+    STANDARD_CACHE_FIELD_DIMENSIONS,
+    STANDARD_CACHE_FIELD_TYPES,
     campaign_dimension_column,
 )
 from mlx_benchmarks.envelope import (
@@ -28,6 +31,17 @@ def test_schema_declares_id_and_examples() -> None:
     schema = load_schema()
     assert schema.get("$id"), "schema must declare $id so consumers can pin to a canonical URL"
     assert schema.get("examples"), "schema should ship at least one example"
+
+
+def test_standard_cache_fields_have_typed_campaign_dimensions_and_descriptions() -> None:
+    assert set(STANDARD_CACHE_FIELD_TYPES) == set(STANDARD_CACHE_FIELD_DIMENSIONS)
+    assert set(STANDARD_CACHE_FIELD_TYPES) == set(STANDARD_CACHE_FIELD_DESCRIPTIONS)
+    assert len(STANDARD_CACHE_FIELD_TYPES) == 26
+
+    for name, (category, field) in STANDARD_CACHE_FIELD_DIMENSIONS.items():
+        assert field in CAMPAIGN_DIMENSION_TYPES[category], name
+        assert STANDARD_CACHE_FIELD_TYPES[name] == CAMPAIGN_DIMENSION_TYPES[category][field]
+        assert STANDARD_CACHE_FIELD_DESCRIPTIONS[name]
 
 
 def test_valid_envelope_passes(valid_envelope: dict) -> None:

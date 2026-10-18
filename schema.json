@@ -317,6 +317,11 @@
               "description": "Host physical RAM capacity in GB.",
               "minimum": 0
             },
+            "host_ram_limit_gib": {
+              "type": ["number", "null"],
+              "description": "Memory limit available to the serving host, in GiB.",
+              "minimum": 0
+            },
             "host_ram_speed_mts": {
               "type": ["number", "null"],
               "description": "Host memory transfer rate in MT/s, when reported separately.",
@@ -543,7 +548,7 @@
             },
             "output_tokens": {
               "type": ["integer", "null"],
-              "description": "Requested output token count.",
+              "description": "Requested output token count per answer.",
               "minimum": 0
             },
             "measured_output_tokens": {
@@ -602,6 +607,72 @@
             "prefix_cache": {
               "type": ["boolean", "null"],
               "description": "Whether prefix caching was enabled."
+            },
+            "kv_offload_backend": {
+              "type": ["string", "null"],
+              "description": "KV-cache offload backend: none, native, lmcache, or llamacpp_cache_ram.",
+              "enum": ["none", "native", "lmcache", "llamacpp_cache_ram", null]
+            },
+            "kv_offload_cpu_gib": {
+              "type": ["number", "null"],
+              "description": "Configured KV-cache offload capacity in host RAM, in GiB.",
+              "minimum": 0
+            },
+            "kv_offload_disk_gib": {
+              "type": ["number", "null"],
+              "description": "Configured KV-cache offload capacity on disk, in GiB.",
+              "minimum": 0
+            },
+            "weight_cpu_offload_gib": {
+              "type": ["number", "null"],
+              "description": "Model-weight offload capacity in host RAM, in GiB.",
+              "minimum": 0
+            },
+            "llamacpp_cache_ram_mib": {
+              "type": ["integer", "null"],
+              "description": "llama.cpp cache-ram setting in MiB.",
+              "minimum": 0
+            },
+            "gpu_memory_utilization": {
+              "type": ["number", "null"],
+              "description": "Fraction of GPU memory reserved by the serving engine, from 0 to 1.",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "max_num_batched_tokens": {
+              "type": ["integer", "null"],
+              "description": "Maximum number of tokens processed in one serving batch.",
+              "minimum": 1
+            },
+            "cache_workload": {
+              "type": ["string", "null"],
+              "description": "Cache pressure class: fits_gpu, spills_to_ram, exceeds_all, or none.",
+              "enum": ["fits_gpu", "spills_to_ram", "exceeds_all", "none", null]
+            },
+            "num_users": {
+              "type": ["integer", "null"],
+              "description": "Number of simulated users in the cache workload.",
+              "minimum": 1
+            },
+            "num_rounds": {
+              "type": ["integer", "null"],
+              "description": "Number of interaction rounds per simulated user.",
+              "minimum": 1
+            },
+            "shared_prompt_tokens": {
+              "type": ["integer", "null"],
+              "description": "Token count in the prompt shared across users.",
+              "minimum": 0
+            },
+            "user_history_tokens": {
+              "type": ["integer", "null"],
+              "description": "History token count retained for each simulated user.",
+              "minimum": 0
+            },
+            "request_rate": {
+              "type": ["number", "null"],
+              "description": "Configured request arrival rate in requests per second.",
+              "minimum": 0
             },
             "speculative_mtp": {
               "type": ["boolean", "null"],
@@ -686,7 +757,7 @@
             },
             "kv_pool_tokens": {
               "type": ["integer", "null"],
-              "description": "Configured total token capacity of the serving KV pool.",
+              "description": "Configured total token capacity of the serving KV pool, from the engine startup log.",
               "minimum": 0
             },
             "max_running_requests": {
@@ -889,6 +960,32 @@
               "minimum": 0,
               "maximum": 1
             },
+            "external_prefix_cache_hit_rate": {
+              "type": ["number", "null"],
+              "description": "External prefix-cache hit ratio as a fraction of eligible lookups.",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "kv_block_idle_before_evict_p50_s": {
+              "type": ["number", "null"],
+              "description": "Median idle time before a KV-cache block is evicted, in seconds.",
+              "minimum": 0
+            },
+            "ttft_first_round_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median time to first token in the first interaction round, in milliseconds.",
+              "minimum": 0
+            },
+            "ttft_later_rounds_p50_ms": {
+              "type": ["number", "null"],
+              "description": "Median time to first token after the first interaction round, in milliseconds.",
+              "minimum": 0
+            },
+            "ttft_later_rounds_p99_ms": {
+              "type": ["number", "null"],
+              "description": "99th percentile time to first token after the first interaction round, in milliseconds.",
+              "minimum": 0
+            },
             "queue_time_p50_ms": {
               "type": ["number", "null"],
               "description": "Median time spent waiting in the server admission queue.",
@@ -925,6 +1022,16 @@
             "host_ram_peak_gb": {
               "type": ["number", "null"],
               "description": "Peak host RAM used in GB.",
+              "minimum": 0
+            },
+            "host_ram_peak_gib": {
+              "type": ["number", "null"],
+              "description": "Peak host RAM used during the run, in GiB.",
+              "minimum": 0
+            },
+            "preemptions": {
+              "type": ["integer", "null"],
+              "description": "Number of requests preempted by the serving engine.",
               "minimum": 0
             },
             "cpu_offload_layers": {

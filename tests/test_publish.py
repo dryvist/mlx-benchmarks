@@ -147,6 +147,44 @@ def test_campaign_dimensions_keep_a_fixed_nullable_parquet_schema(valid_envelope
     assert json.loads(row["campaign_dimension_null_reasons_json"]) == {"hardware.pcie_generation": "N/A_SOC"}
 
 
+def test_cache_configuration_campaign_dimensions_reach_parquet(valid_envelope: dict) -> None:
+    import pyarrow.parquet as pq
+
+    envelope = {
+        **valid_envelope,
+        "campaign_dimensions": {
+            "hardware": {"host_ram_limit_gib": 48.0},
+            "run": {
+                "prefix_cache": True,
+                "kv_offload_backend": "none",
+                "kv_offload_cpu_gib": 0.0,
+                "kv_offload_disk_gib": 0.0,
+                "weight_cpu_offload_gib": 0.0,
+                "llamacpp_cache_ram_mib": 8192,
+                "gpu_memory_utilization": 0.88,
+                "max_num_batched_tokens": 8192,
+                "kv_pool_tokens": 123456,
+                "output_tokens": 512,
+            },
+        },
+    }
+
+    table = pq.read_table(io.BytesIO(rows_to_parquet(envelope_to_rows(envelope))))
+    row = table.to_pylist()[0]
+
+    assert row[campaign_dimension_column("hardware", "host_ram_limit_gib")] == 48.0
+    assert row[campaign_dimension_column("run", "prefix_cache")] is True
+    assert row[campaign_dimension_column("run", "kv_offload_backend")] == "none"
+    assert row[campaign_dimension_column("run", "kv_offload_cpu_gib")] == 0.0
+    assert row[campaign_dimension_column("run", "kv_offload_disk_gib")] == 0.0
+    assert row[campaign_dimension_column("run", "weight_cpu_offload_gib")] == 0.0
+    assert row[campaign_dimension_column("run", "llamacpp_cache_ram_mib")] == 8192
+    assert row[campaign_dimension_column("run", "gpu_memory_utilization")] == 0.88
+    assert row[campaign_dimension_column("run", "max_num_batched_tokens")] == 8192
+    assert row[campaign_dimension_column("run", "kv_pool_tokens")] == 123456
+    assert row[campaign_dimension_column("run", "output_tokens")] == 512
+
+
 def _stage0_envelope(valid_envelope: dict, pipeline_tag: str) -> dict:
     return {
         **valid_envelope,
