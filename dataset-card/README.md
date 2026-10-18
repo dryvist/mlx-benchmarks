@@ -150,7 +150,14 @@ Detailed campaign envelopes add stable `campaign_<group>_<field>` columns for
 hardware, software, model, run, speed, resource, quality, provenance, and cost
 dimensions. `campaign_dimension_null_reasons_json` retains the reason codes for
 explicit unknown or inapplicable values. Historical shards receive nulls in
-these columns during schema normalization.
+new columns unless their run-index entry supplies a per-shard projection.
+
+Cache dimensions describe the host memory limit, prefix caching, KV and weight
+offload settings, cache workload shape, GPU KV capacity, cache hit rates,
+occupancy, eviction delay, preemptions, host RAM peak, and first versus later
+round TTFT. Memory settings use GiB or MiB as named; hit rates are fractions and
+KV occupancy is a percentage. Fields that were unavailable or inapplicable are
+null with a corresponding reason code.
 
 Canonical rows use hardware labels for machine identity. Original shards remain
 at their original paths as historical source data.

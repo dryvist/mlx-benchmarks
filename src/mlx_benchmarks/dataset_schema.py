@@ -183,6 +183,7 @@ CAMPAIGN_DIMENSION_TYPES = {
         "memory_bandwidth_gbps": pa.float64(),
         "host_cpu": pa.string(),
         "host_ram_gb": pa.float64(),
+        "host_ram_limit_gib": pa.float64(),
         "host_ram_speed_mts": pa.float64(),
         "pcie_generation": pa.float64(),
         "pcie_width_lanes": pa.int64(),
@@ -246,6 +247,19 @@ CAMPAIGN_DIMENSION_TYPES = {
         "ubatch_size": pa.int64(),
         "parallel_slots": pa.int64(),
         "prefix_cache": pa.bool_(),
+        "kv_offload_backend": pa.string(),
+        "kv_offload_cpu_gib": pa.float64(),
+        "kv_offload_disk_gib": pa.float64(),
+        "weight_cpu_offload_gib": pa.float64(),
+        "llamacpp_cache_ram_mib": pa.int64(),
+        "gpu_memory_utilization": pa.float64(),
+        "max_num_batched_tokens": pa.int64(),
+        "cache_workload": pa.string(),
+        "num_users": pa.int64(),
+        "num_rounds": pa.int64(),
+        "shared_prompt_tokens": pa.int64(),
+        "user_history_tokens": pa.int64(),
+        "request_rate": pa.float64(),
         "speculative_mtp": pa.bool_(),
         "draft_model": pa.string(),
         "temperature": pa.float64(),
@@ -302,6 +316,11 @@ CAMPAIGN_DIMENSION_TYPES = {
         "mtp_accept_length": pa.float64(),
         "kv_cache_usage_peak_pct": pa.float64(),
         "prefix_cache_hit_rate": pa.float64(),
+        "external_prefix_cache_hit_rate": pa.float64(),
+        "kv_block_idle_before_evict_p50_s": pa.float64(),
+        "ttft_first_round_p50_ms": pa.float64(),
+        "ttft_later_rounds_p50_ms": pa.float64(),
+        "ttft_later_rounds_p99_ms": pa.float64(),
         "queue_time_p50_ms": pa.float64(),
         "queue_time_p99_ms": pa.float64(),
         "goodput_pct": pa.float64(),
@@ -310,6 +329,8 @@ CAMPAIGN_DIMENSION_TYPES = {
     "resource": {
         "accelerator_memory_peak_gb": pa.float64(),
         "host_ram_peak_gb": pa.float64(),
+        "host_ram_peak_gib": pa.float64(),
+        "preemptions": pa.int64(),
         "cpu_offload_layers": pa.int64(),
         "ple_bytes": pa.int64(),
         "gpu_utilization_avg_percent": pa.float64(),
@@ -368,6 +389,83 @@ CAMPAIGN_DIMENSION_TYPES = {
     },
 }
 
+# Standard cache-field names map onto these stable campaign dimensions. Existing
+# dimensions are reused when their meaning and units match the shared contract.
+STANDARD_CACHE_FIELD_DIMENSIONS = {
+    "host_ram_limit_gib": ("hardware", "host_ram_limit_gib"),
+    "prefix_caching": ("run", "prefix_cache"),
+    "kv_offload_backend": ("run", "kv_offload_backend"),
+    "kv_offload_cpu_gib": ("run", "kv_offload_cpu_gib"),
+    "kv_offload_disk_gib": ("run", "kv_offload_disk_gib"),
+    "weight_cpu_offload_gib": ("run", "weight_cpu_offload_gib"),
+    "llamacpp_cache_ram_mib": ("run", "llamacpp_cache_ram_mib"),
+    "gpu_memory_utilization": ("run", "gpu_memory_utilization"),
+    "max_num_batched_tokens": ("run", "max_num_batched_tokens"),
+    "gpu_kv_capacity_tokens": ("run", "kv_pool_tokens"),
+    "cache_workload": ("run", "cache_workload"),
+    "num_users": ("run", "num_users"),
+    "num_rounds": ("run", "num_rounds"),
+    "shared_prompt_tokens": ("run", "shared_prompt_tokens"),
+    "user_history_tokens": ("run", "user_history_tokens"),
+    "answer_tokens": ("run", "output_tokens"),
+    "request_rate": ("run", "request_rate"),
+    "prefix_cache_hit_rate": ("speed", "prefix_cache_hit_rate"),
+    "external_prefix_cache_hit_rate": ("speed", "external_prefix_cache_hit_rate"),
+    "kv_cache_usage_peak": ("speed", "kv_cache_usage_peak_pct"),
+    "kv_block_idle_before_evict_p50_s": ("speed", "kv_block_idle_before_evict_p50_s"),
+    "host_ram_peak_gib": ("resource", "host_ram_peak_gib"),
+    "preemptions": ("resource", "preemptions"),
+    "ttft_first_round_p50_ms": ("speed", "ttft_first_round_p50_ms"),
+    "ttft_later_rounds_p50_ms": ("speed", "ttft_later_rounds_p50_ms"),
+    "ttft_later_rounds_p99_ms": ("speed", "ttft_later_rounds_p99_ms"),
+}
+CACHE_CONFIGURATION_FIELDS = (
+    "host_ram_limit_gib",
+    "prefix_caching",
+    "kv_offload_backend",
+    "kv_offload_cpu_gib",
+    "kv_offload_disk_gib",
+    "weight_cpu_offload_gib",
+    "llamacpp_cache_ram_mib",
+    "gpu_memory_utilization",
+    "max_num_batched_tokens",
+    "gpu_kv_capacity_tokens",
+)
+STANDARD_CACHE_FIELD_TYPES = {
+    name: CAMPAIGN_DIMENSION_TYPES[category][field]
+    for name, (category, field) in STANDARD_CACHE_FIELD_DIMENSIONS.items()
+}
+STANDARD_CACHE_FIELD_DESCRIPTIONS = {
+    "host_ram_limit_gib": "Memory limit available to the serving host, in GiB.",
+    "prefix_caching": "Whether prefix caching was enabled.",
+    "kv_offload_backend": "KV-cache offload backend: none, native, lmcache, or llamacpp_cache_ram.",
+    "kv_offload_cpu_gib": "Configured KV-cache offload capacity in host RAM, in GiB.",
+    "kv_offload_disk_gib": "Configured KV-cache offload capacity on disk, in GiB.",
+    "weight_cpu_offload_gib": "Model-weight offload capacity in host RAM, in GiB.",
+    "llamacpp_cache_ram_mib": "llama.cpp cache-ram setting in MiB.",
+    "gpu_memory_utilization": "Fraction of GPU memory reserved by the serving engine, from 0 to 1.",
+    "max_num_batched_tokens": "Maximum number of tokens processed in one serving batch.",
+    "gpu_kv_capacity_tokens": "Configured total token capacity of the serving KV pool, from the engine startup log.",
+    "cache_workload": "Cache pressure class: fits_gpu, spills_to_ram, exceeds_all, or none.",
+    "num_users": "Number of simulated users in the cache workload.",
+    "num_rounds": "Number of interaction rounds per simulated user.",
+    "shared_prompt_tokens": "Token count in the prompt shared across users.",
+    "user_history_tokens": "History token count retained for each simulated user.",
+    "answer_tokens": "Requested output token count per answer.",
+    "request_rate": "Configured request arrival rate in requests per second.",
+    "prefix_cache_hit_rate": "Prefix-cache hit ratio as a fraction of eligible lookups.",
+    "external_prefix_cache_hit_rate": "External prefix-cache hit ratio as a fraction of eligible lookups.",
+    "kv_cache_usage_peak": "Peak KV-cache occupancy as a percentage of configured capacity.",
+    "kv_block_idle_before_evict_p50_s": "Median idle time before a KV-cache block is evicted, in seconds.",
+    "host_ram_peak_gib": "Peak host RAM used during the run, in GiB.",
+    "preemptions": "Number of requests preempted by the serving engine.",
+    "ttft_first_round_p50_ms": "Median time to first token in the first interaction round, in milliseconds.",
+    "ttft_later_rounds_p50_ms": "Median time to first token after the first interaction round, in milliseconds.",
+    "ttft_later_rounds_p99_ms": "99th percentile time to first token after the first interaction round, in milliseconds.",
+}
+CACHE_OFFLOAD_BACKENDS = frozenset({"none", "native", "lmcache", "llamacpp_cache_ram"})
+CACHE_WORKLOADS = frozenset({"fits_gpu", "spills_to_ram", "exceeds_all", "none"})
+
 CAMPAIGN_DIMENSION_JSON_FIELDS = frozenset(
     {
         ("environment", "fan_duty_pct"),
@@ -385,6 +483,44 @@ def campaign_dimension_column(category: str, field: str) -> str:
     """Return the fixed Parquet column name for one campaign dimension."""
     suffix = "_json" if (category, field) in CAMPAIGN_DIMENSION_JSON_FIELDS else ""
     return f"campaign_{category}_{field}{suffix}"
+
+
+def _apply_campaign_dimension_projection(
+    row: dict[str, Any],
+    campaign_dimensions: Mapping[str, Any] | None,
+    dimension_null_reasons: Mapping[str, str] | None,
+) -> None:
+    """Apply validated per-shard dimensions to a normalized row."""
+    if campaign_dimensions is not None:
+        if not isinstance(campaign_dimensions, Mapping):
+            raise ValueError("run-index campaign_dimensions must be an object")
+        for category, values in campaign_dimensions.items():
+            fields = CAMPAIGN_DIMENSION_TYPES.get(category)
+            if fields is None or not isinstance(values, Mapping):
+                raise ValueError(f"invalid run-index campaign_dimensions category: {category!r}")
+            for field, value in values.items():
+                if field not in fields:
+                    raise ValueError(f"unknown run-index campaign dimension: {category}.{field}")
+                if value is not None and (category, field) in CAMPAIGN_DIMENSION_JSON_FIELDS:
+                    value = json.dumps(value, sort_keys=True)
+                row[campaign_dimension_column(category, field)] = value
+
+    if dimension_null_reasons is None:
+        return
+    if not isinstance(dimension_null_reasons, Mapping) or not all(
+        isinstance(field, str) and isinstance(reason, str) for field, reason in dimension_null_reasons.items()
+    ):
+        raise ValueError("run-index dimension_null_reasons must map field paths to strings")
+    current = row.get("campaign_dimension_null_reasons_json")
+    if current is None:
+        reasons: dict[str, str] = {}
+    else:
+        decoded = json.loads(current) if isinstance(current, str) else current
+        if not isinstance(decoded, dict):
+            raise ValueError("historical campaign dimension null reasons must contain a JSON object")
+        reasons = {str(field): str(reason) for field, reason in decoded.items()}
+    reasons.update(dimension_null_reasons)
+    row["campaign_dimension_null_reasons_json"] = json.dumps(reasons, sort_keys=True)
 
 
 JSON_STRING_COLUMNS = frozenset({"serving", "gpu", "system_engine", "container", "topology"})
@@ -656,6 +792,8 @@ def normalize_legacy_rows(
     rows: list[dict[str, Any]],
     *,
     machine_labels: Mapping[str, str] | None = None,
+    campaign_dimensions: Mapping[str, Any] | None = None,
+    dimension_null_reasons: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Pad historical rows, retain dynamic fields, and project safe machine labels."""
     normalized_rows: list[dict[str, Any]] = []
@@ -730,6 +868,7 @@ def normalize_legacy_rows(
                 machine_id: (machine_labels or {}).get(machine_id, label) for machine_id in raw_machine_ids
             }
             row = _scrub_machine_identifiers(row, replacements)
+        _apply_campaign_dimension_projection(row, campaign_dimensions, dimension_null_reasons)
         normalized_rows.append(row)
     return normalized_rows
 
@@ -740,6 +879,8 @@ def canonical_shard_needs_refresh(
     *,
     machine_labels: Mapping[str, str] | None = None,
     prior_projection: pa.Table | None = None,
+    campaign_dimensions: Mapping[str, Any] | None = None,
+    dimension_null_reasons: Mapping[str, str] | None = None,
 ) -> bool:
     """Check whether a canonical shard can be refreshed from its retained source."""
     if not expected.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
@@ -756,11 +897,18 @@ def canonical_shard_needs_refresh(
             raise ValueError("prior projection does not use the canonical schema")
         if prior_projection.num_rows != expected.num_rows:
             raise RuntimeError("prior projection row count differs from its source")
-        if existing.to_pylist() == prior_projection.to_pylist():
+        prior_rows = normalize_legacy_rows(existing.to_pylist(), machine_labels=machine_labels)
+        prior_table = pa.Table.from_pylist(prior_rows, schema=PARQUET_ROW_SCHEMA)
+        if prior_table.to_pylist() == prior_projection.to_pylist():
             return True
 
     refreshed = pa.Table.from_pylist(
-        normalize_legacy_rows(existing.to_pylist(), machine_labels=machine_labels),
+        normalize_legacy_rows(
+            existing.to_pylist(),
+            machine_labels=machine_labels,
+            campaign_dimensions=campaign_dimensions,
+            dimension_null_reasons=dimension_null_reasons,
+        ),
         schema=PARQUET_ROW_SCHEMA,
     )
     if refreshed.to_pylist() != expected.to_pylist():

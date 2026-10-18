@@ -293,3 +293,221 @@
       values_seen: [prometheus, 1]
       default: null
       source_url: https://github.com/Niko1221/Strata
+
+- section: shared
+  engine: "*"
+  engine_version_seen: null
+  case_id: standard-cache-field-contract
+  knobs:
+    cache_configuration_fields: [host_ram_limit_gib, prefix_caching, kv_offload_backend, kv_offload_cpu_gib, kv_offload_disk_gib, weight_cpu_offload_gib, llamacpp_cache_ram_mib, gpu_memory_utilization, max_num_batched_tokens, gpu_kv_capacity_tokens]
+    cache_workload_fields: [cache_workload, num_users, num_rounds, shared_prompt_tokens, user_history_tokens, answer_tokens, request_rate]
+    cache_measurement_fields: [prefix_cache_hit_rate, external_prefix_cache_hit_rate, kv_cache_usage_peak, kv_block_idle_before_evict_p50_s, host_ram_peak_gib, preemptions, ttft_first_round_p50_ms, ttft_later_rounds_p50_ms, ttft_later_rounds_p99_ms]
+  knob_catalog:
+    - name: host_ram_limit_gib
+      field: campaign_dimensions.hardware.host_ram_limit_gib
+      type: number | null
+      description: Memory limit available to the serving host, in GiB.
+      flag_env: campaign_dimensions.hardware.host_ram_limit_gib
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: prefix_caching
+      field: campaign_dimensions.run.prefix_cache
+      type: boolean | null
+      description: Whether prefix caching was enabled.
+      flag_env: campaign_dimensions.run.prefix_cache
+      values_seen: [true, false]
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: kv_offload_backend
+      field: campaign_dimensions.run.kv_offload_backend
+      type: string enum | null
+      description: "KV-cache offload backend: none, native, lmcache, or llamacpp_cache_ram."
+      flag_env: campaign_dimensions.run.kv_offload_backend
+      values_seen: [none, native, lmcache, llamacpp_cache_ram]
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: kv_offload_cpu_gib
+      field: campaign_dimensions.run.kv_offload_cpu_gib
+      type: number | null
+      description: Configured KV-cache offload capacity in host RAM, in GiB.
+      flag_env: campaign_dimensions.run.kv_offload_cpu_gib
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: kv_offload_disk_gib
+      field: campaign_dimensions.run.kv_offload_disk_gib
+      type: number | null
+      description: Configured KV-cache offload capacity on disk, in GiB.
+      flag_env: campaign_dimensions.run.kv_offload_disk_gib
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: weight_cpu_offload_gib
+      field: campaign_dimensions.run.weight_cpu_offload_gib
+      type: number | null
+      description: Model-weight offload capacity in host RAM, in GiB.
+      flag_env: campaign_dimensions.run.weight_cpu_offload_gib
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: llamacpp_cache_ram_mib
+      field: campaign_dimensions.run.llamacpp_cache_ram_mib
+      type: integer | null
+      description: llama.cpp cache-ram setting in MiB.
+      flag_env: campaign_dimensions.run.llamacpp_cache_ram_mib
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: gpu_memory_utilization
+      field: campaign_dimensions.run.gpu_memory_utilization
+      type: number | null
+      description: Fraction of GPU memory reserved by the serving engine, from 0 to 1.
+      flag_env: campaign_dimensions.run.gpu_memory_utilization
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: max_num_batched_tokens
+      field: campaign_dimensions.run.max_num_batched_tokens
+      type: integer | null
+      description: Maximum number of tokens processed in one serving batch.
+      flag_env: campaign_dimensions.run.max_num_batched_tokens
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: gpu_kv_capacity_tokens
+      field: campaign_dimensions.run.kv_pool_tokens
+      type: integer | null
+      description: Configured total token capacity of the serving KV pool, from the engine startup log.
+      flag_env: campaign_dimensions.run.kv_pool_tokens
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: cache_workload
+      field: campaign_dimensions.run.cache_workload
+      type: string enum | null
+      description: "Cache pressure class: fits_gpu, spills_to_ram, exceeds_all, or none."
+      flag_env: campaign_dimensions.run.cache_workload
+      values_seen: [fits_gpu, spills_to_ram, exceeds_all, none]
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: num_users
+      field: campaign_dimensions.run.num_users
+      type: integer | null
+      description: Number of simulated users in the cache workload.
+      flag_env: campaign_dimensions.run.num_users
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: num_rounds
+      field: campaign_dimensions.run.num_rounds
+      type: integer | null
+      description: Number of interaction rounds per simulated user.
+      flag_env: campaign_dimensions.run.num_rounds
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: shared_prompt_tokens
+      field: campaign_dimensions.run.shared_prompt_tokens
+      type: integer | null
+      description: Token count in the prompt shared across users.
+      flag_env: campaign_dimensions.run.shared_prompt_tokens
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: user_history_tokens
+      field: campaign_dimensions.run.user_history_tokens
+      type: integer | null
+      description: History token count retained for each simulated user.
+      flag_env: campaign_dimensions.run.user_history_tokens
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: answer_tokens
+      field: campaign_dimensions.run.output_tokens
+      type: integer | null
+      description: Requested output token count per answer.
+      flag_env: campaign_dimensions.run.output_tokens
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: request_rate
+      field: campaign_dimensions.run.request_rate
+      type: number | null
+      description: Configured request arrival rate in requests per second.
+      flag_env: campaign_dimensions.run.request_rate
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: prefix_cache_hit_rate
+      field: campaign_dimensions.speed.prefix_cache_hit_rate
+      type: number | null
+      description: Prefix-cache hit ratio as a fraction of eligible lookups.
+      flag_env: campaign_dimensions.speed.prefix_cache_hit_rate
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: external_prefix_cache_hit_rate
+      field: campaign_dimensions.speed.external_prefix_cache_hit_rate
+      type: number | null
+      description: External prefix-cache hit ratio as a fraction of eligible lookups.
+      flag_env: campaign_dimensions.speed.external_prefix_cache_hit_rate
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: kv_cache_usage_peak
+      field: campaign_dimensions.speed.kv_cache_usage_peak_pct
+      type: number | null
+      description: Peak KV-cache occupancy as a percentage of configured capacity.
+      flag_env: campaign_dimensions.speed.kv_cache_usage_peak_pct
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: kv_block_idle_before_evict_p50_s
+      field: campaign_dimensions.speed.kv_block_idle_before_evict_p50_s
+      type: number | null
+      description: Median idle time before a KV-cache block is evicted, in seconds.
+      flag_env: campaign_dimensions.speed.kv_block_idle_before_evict_p50_s
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: host_ram_peak_gib
+      field: campaign_dimensions.resource.host_ram_peak_gib
+      type: number | null
+      description: Peak host RAM used during the run, in GiB.
+      flag_env: campaign_dimensions.resource.host_ram_peak_gib
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: preemptions
+      field: campaign_dimensions.resource.preemptions
+      type: integer | null
+      description: Number of requests preempted by the serving engine.
+      flag_env: campaign_dimensions.resource.preemptions
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: ttft_first_round_p50_ms
+      field: campaign_dimensions.speed.ttft_first_round_p50_ms
+      type: number | null
+      description: Median time to first token in the first interaction round, in milliseconds.
+      flag_env: campaign_dimensions.speed.ttft_first_round_p50_ms
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: ttft_later_rounds_p50_ms
+      field: campaign_dimensions.speed.ttft_later_rounds_p50_ms
+      type: number | null
+      description: Median time to first token after the first interaction round, in milliseconds.
+      flag_env: campaign_dimensions.speed.ttft_later_rounds_p50_ms
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions
+    - name: ttft_later_rounds_p99_ms
+      field: campaign_dimensions.speed.ttft_later_rounds_p99_ms
+      type: number | null
+      description: 99th percentile time to first token after the first interaction round, in milliseconds.
+      flag_env: campaign_dimensions.speed.ttft_later_rounds_p99_ms
+      values_seen: []
+      default: null
+      source_url: https://github.com/JacobPEvans/mlx-benchmarks/blob/main/docs/schema.md#cache-field-dimensions

@@ -290,7 +290,18 @@ def test_cli_rejects_malformed_json(tmp_path: Path) -> None:
 _DIMENSIONS_FILE = {
     "campaign_dimensions": {
         "hardware": {"machine": "Example GPU", "power_cap_w": 300.0, "ups_circuit": None},
-        "run": {"concurrent_agents": 4},
+        "run": {
+            "concurrent_agents": 4,
+            "prefix_cache": True,
+            "kv_offload_backend": "none",
+            "kv_offload_cpu_gib": 0.0,
+            "kv_offload_disk_gib": 0.0,
+            "weight_cpu_offload_gib": 0.0,
+            "llamacpp_cache_ram_mib": 8192,
+            "gpu_memory_utilization": 0.88,
+            "max_num_batched_tokens": 8192,
+            "kv_pool_tokens": 123456,
+        },
     },
     "dimension_null_reasons": {"hardware.ups_circuit": "NOT_SOURCED"},
 }

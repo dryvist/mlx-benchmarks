@@ -32,9 +32,16 @@ def normalize_legacy_table(
     table: pa.Table,
     *,
     machine_labels: dict[str, str] | None = None,
+    campaign_dimensions: dict[str, object] | None = None,
+    dimension_null_reasons: dict[str, str] | None = None,
 ) -> pa.Table:
     """Pad one historical table and replace machine identifiers in its projection."""
-    rows = normalize_legacy_rows(table.to_pylist(), machine_labels=machine_labels)
+    rows = normalize_legacy_rows(
+        table.to_pylist(),
+        machine_labels=machine_labels,
+        campaign_dimensions=campaign_dimensions,
+        dimension_null_reasons=dimension_null_reasons,
+    )
     return pa.Table.from_pylist(rows, schema=PARQUET_ROW_SCHEMA)
 
 
@@ -93,19 +100,33 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         source = _read_table(api, repo_id, source_path)
         target_path = canonical_shard_path(source_path)
         source_rows += source.num_rows
-        normalized = normalize_legacy_table(source, machine_labels=machine_labels)
+        run_index_entry = run_index.get(source_path, {})
+        campaign_dimensions = run_index_entry.get("campaign_dimensions")
+        dimension_null_reasons = run_index_entry.get("dimension_null_reasons")
+        normalized = normalize_legacy_table(
+            source,
+            machine_labels=machine_labels,
+            campaign_dimensions=campaign_dimensions,
+            dimension_null_reasons=dimension_null_reasons,
+        )
         if normalized.num_rows != source.num_rows:
             raise RuntimeError(f"normalization changed the row count for {source_path}")
         if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
             raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
         if target_path in repo_paths:
             existing = _read_table(api, repo_id, target_path)
-            prior_projection = normalize_legacy_table(source, machine_labels={}) if machine_labels else None
+            prior_projection = (
+                normalize_legacy_table(source, machine_labels=machine_labels)
+                if machine_labels or campaign_dimensions or dimension_null_reasons
+                else None
+            )
             needs_refresh = canonical_shard_needs_refresh(
                 existing,
                 normalized,
                 machine_labels=machine_labels,
                 prior_projection=prior_projection,
+                campaign_dimensions=campaign_dimensions,
+                dimension_null_reasons=dimension_null_reasons,
             )
             if needs_refresh:
                 operations.append(

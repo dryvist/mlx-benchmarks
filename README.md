@@ -266,11 +266,10 @@ backing every published shard. A minimal valid envelope:
 Envelope v1 also accepts a set of optional fields, which the CLI auto-detects
 at publish time — no hand-curation required.
 
-See [`docs/schema.md`](docs/schema.md) for every field, required and optional,
-[`docs/schema-migration.md`](docs/schema-migration.md) for version upgrades,
-[`docs/model-notes.md`](docs/model-notes.md) for per-model-class serving and
-tool-calling quirks, and [`docs/faq.md`](docs/faq.md) for ops questions and
-troubleshooting.
+See the [schema](docs/schema.md) and [cache fields](docs/cache-fields.md) guides
+for field definitions, types, and units; [schema migration](docs/schema-migration.md)
+for version upgrades; [model notes](docs/model-notes.md) for serving details; and
+the [FAQ](docs/faq.md) for operational questions.
 
 ### The publisher
 

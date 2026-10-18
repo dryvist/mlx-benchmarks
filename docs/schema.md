@@ -65,20 +65,20 @@ update PR.
 
 ### `campaign_dimensions`
 
-The object is optional so existing v1 envelopes remain valid. Its optional
-groups contain the dimension fields defined for each group in `schema.json`; every
-leaf is optional and accepts an explicit `null` when a measurement is
-unavailable or inapplicable. The publisher flattens each leaf into one stable
-`campaign_<group>_<field>` Parquet column. Environment fan duty, patches,
-knob maps, sampling settings, build architecture, build-flag objects, and
-throttle-reason fields use a `_json` column suffix.
-Older canonical shards are normalized with nulls for all new columns, so every
-file has the same schema.
+The object is optional and leaves may be `null`. The publisher flattens leaves
+into stable `campaign_<group>_<field>` Parquet columns; selected object fields
+use a `_json` suffix. The normalizer fills new columns with null unless the run
+index supplies a per-shard projection.
 
 `dimension_null_reasons` maps paths such as `run.kv_cache_dtype` to a concise
 reason code. Use a reason for each explicit null in newly enriched campaign
 envelopes; a missing property remains distinct from an observed-but-unknown
 value.
+
+### Cache fields
+
+See [cache fields](cache-fields.md) for typed dimensions, units, and mappings.
+Explicit nulls include a `dimension_null_reasons` entry.
 
 Converters keep both objects. `mlx-bench-publish --campaign-dimensions PATH`
 reads a JSON file with a `campaign_dimensions` object and an optional
