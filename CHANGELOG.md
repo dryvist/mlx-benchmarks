@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.5...v0.57.0) (2026-10-18)
+
+
+### Features
+
+* **dataset:** publish cache fields and viewer filters ([#441](https://github.com/dryvist/mlx-benchmarks/issues/441)) ([fded4d1](https://github.com/dryvist/mlx-benchmarks/commit/fded4d16aab29cd4832672c28a7d6d6cd21b8e61))
+
 ## [0.56.5](https://github.com/dryvist/mlx-benchmarks/compare/v0.56.4...v0.56.5) (2026-10-18)
 
 
