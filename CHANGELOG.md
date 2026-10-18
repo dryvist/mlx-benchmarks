@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.3...v0.58.0) (2026-10-18)
+
+
+### Features
+
+* add MoE expert offload dimensions ([#451](https://github.com/dryvist/mlx-benchmarks/issues/451)) ([0d665fa](https://github.com/dryvist/mlx-benchmarks/commit/0d665fa029f49d3407322729ac7fcca7a3c4b771))
+
 ## [0.57.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.57.2...v0.57.3) (2026-10-18)
 
 
