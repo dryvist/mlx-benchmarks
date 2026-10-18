@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.51.2...v0.52.0) (2026-10-18)
+
+
+### Features
+
+* **dataset:** index October evaluation shards in the run index ([#407](https://github.com/dryvist/mlx-benchmarks/issues/407)) ([5938a07](https://github.com/dryvist/mlx-benchmarks/commit/5938a075866e652a4d3059d4862794c794272cee))
+
 ## [0.51.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.51.1...v0.51.2) (2026-10-18)
 
 
