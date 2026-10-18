@@ -809,6 +809,11 @@ def evidence_view(df: pd.DataFrame, status: str = "scored") -> pd.DataFrame:
     if normalized == "invalid":
         return df.iloc[0:0].copy()
     rows = comparable_rows(df)
+    if normalized in {"all", "all valid", "all-valid"}:
+        if "evidence_status" not in rows:
+            return rows
+        valid_statuses = {"scored", "experimental", "recovered"}
+        return rows[rows["evidence_status"].astype("string").str.casefold().isin(valid_statuses)]
     if "evidence_status" not in rows:
         return rows if normalized == "scored" else rows.iloc[0:0].copy()
     return rows[
@@ -1534,8 +1539,13 @@ def _run_metric_value(df: pd.DataFrame, row: pd.Series, aliases: tuple[str, ...]
 def build_ui():
     all_rows = load_data()
     initial_mode = AGENTIC_MODE
-    evidence_options = [("Scored", "scored"), ("Experimental", "experimental"), ("Recovered", "recovered")]
-    initial_evidence = "scored"
+    evidence_options = [
+        ("All valid", "all"),
+        ("Scored", "scored"),
+        ("Experimental", "experimental"),
+        ("Recovered", "recovered"),
+    ]
+    initial_evidence = "all"
     initial_mode_rows = mode_rows(all_rows, initial_mode)
     initial_rows = evidence_view(initial_mode_rows, initial_evidence)
     preferred_context_band = default_context_band(initial_rows)

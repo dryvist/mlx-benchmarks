@@ -64,6 +64,71 @@ def test_throughput_split_uses_input_length_and_keeps_evaluations_in_agentic_mod
     )
 
 
+def test_all_valid_evidence_includes_decision_and_experimental_rows_only() -> None:
+    rows = pd.DataFrame(
+        [
+            {"name": name, "evidence_status": status}
+            for name, status in (
+                ("aggregate-score", "scored"),
+                ("long-context-throughput", "experimental"),
+                ("recovered-result", "recovered"),
+                ("invalid-result", "invalid"),
+                ("test_1", "scored"),
+            )
+        ]
+    )
+
+    visible = app.evidence_view(rows, "all")
+
+    assert list(visible["name"]) == ["aggregate-score", "long-context-throughput", "recovered-result"]
+
+
+def test_agentic_default_context_keeps_long_throughput_and_all_evaluation_suites() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "suite": suite,
+                "name": name,
+                "metric": metric,
+                "prompt_tokens": prompt_tokens,
+                "context_band": context_band,
+                "evidence_status": status,
+            }
+            for suite, name, metric, prompt_tokens, context_band, status in (
+                (
+                    "throughput",
+                    "benchmark_serving",
+                    "throughput_output_toks_per_s",
+                    65536,
+                    "64k",
+                    "experimental",
+                ),
+                (
+                    "throughput",
+                    "benchmark_serving",
+                    "throughput_output_toks_per_s",
+                    4096,
+                    "4k",
+                    "scored",
+                ),
+                ("repo-qa", "complete", "accuracy", None, None, "scored"),
+                ("mmlu-pro", "mmlu-pro", "accuracy", None, None, "experimental"),
+                ("invalid-suite", "invalid", "accuracy", None, None, "invalid"),
+            )
+        ]
+    )
+
+    agentic = app.mode_rows(rows, app.AGENTIC_MODE)
+    visible = app.evidence_view(agentic, "all")
+    context_band = app.default_context_band(visible)
+    filtered = app.filter_viewer_rows(visible, {"context_band": context_band}, app.AGENTIC_MODE)
+
+    assert context_band == "64k"
+    assert set(filtered["suite"]) == {"throughput", "repo-qa", "mmlu-pro"}
+    throughput = filtered[filtered["suite"] == "throughput"]
+    assert list(throughput["context_band"]) == ["64k"]
+
+
 def test_default_context_band_prefers_64k_then_nearest_band_at_least_32k() -> None:
     rows = pd.DataFrame(
         [
