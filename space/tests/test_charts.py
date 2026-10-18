@@ -185,8 +185,11 @@ def test_mtp_run_index_retains_all_historical_shards_as_non_scored() -> None:
     assert paths
     assert len(set(paths)) == len(paths)
     assert all(path.startswith("data/run-") and path.endswith(".parquet") for path in paths)
-    assert {entry["status"] for entry in entries} <= {"experimental", "recovered"}
-    assert all(entry["caveat"] for entry in entries)
+    historical = [entry for entry in entries if entry["path"] < "data/run-2026-09"]
+    assert {entry["status"] for entry in historical} <= {"experimental", "recovered"}
+    assert all(entry["caveat"] for entry in historical)
+    assert {entry["status"] for entry in entries} <= {"scored", "experimental", "invalid", "recovered"}
+    assert all(entry["caveat"] for entry in entries if entry["status"] == "invalid")
     assert {entry["context_band"] for entry in entries} >= {"64k", "128k"}
 
 

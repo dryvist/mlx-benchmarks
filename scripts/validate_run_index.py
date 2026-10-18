@@ -53,7 +53,13 @@ def validate_remote(entries: list[dict[str, object]], repo_id: str) -> None:
         for item in HfApi().list_repo_tree(repo_id, repo_type="dataset", recursive=True)
         if item.path.startswith("data/")
     }
-    missing = sorted(str(entry["path"]) for entry in entries if entry["path"] not in remote_paths)
+    # Newer runs are published only as canonical shards (data/run-canonical-run-...).
+    missing = sorted(
+        str(entry["path"])
+        for entry in entries
+        if entry["path"] not in remote_paths
+        and str(entry["path"]).replace("data/", "data/run-canonical-", 1) not in remote_paths
+    )
     if missing:
         raise ValueError(f"indexed parquet files missing from {repo_id}: {', '.join(missing)}")
 
