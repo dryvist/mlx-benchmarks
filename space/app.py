@@ -845,23 +845,31 @@ AGGREGATE_METRICS = frozenset(
 THROUGHPUT_OUTPUT_METRIC = "throughput_output_toks_per_s"
 BAR_LABEL_LIMIT = 150
 LABEL_KNOBS = (
-    ("reasoning_effort", "reasoning"),
-    ("thinking", "thinking"),
-    ("mtp", "MTP"),
-    ("quant_format", "quant"),
-    ("kv_cache_dtype", "KV"),
     ("agents", "c"),
-    ("speculative_tokens", "spec"),
-    ("power_limit_w", "power"),
-    ("backend", "backend"),
-    ("context_band", "context"),
-    ("allocated_context", "allocated"),
     ("context_tokens", "context"),
     ("prompt_tokens", "prompt"),
     ("output_budget_tokens", "output"),
     ("arrival_pattern", "arrival"),
     ("request_rate", "request"),
     ("burstiness", "burst"),
+    ("context_band", "context"),
+    ("allocated_context", "allocated"),
+    ("reasoning_effort", "reasoning"),
+    ("thinking", "thinking"),
+    ("mtp", "MTP"),
+    ("speculative_tokens", "spec"),
+    ("power_limit_w", "power"),
+    ("backend", "backend"),
+    ("quant_format", "quant"),
+    ("kv_cache_dtype", "KV"),
+)
+DIAGNOSTIC_GROUP_FIELDS = (
+    "model",
+    "machine",
+    "engine_version",
+    "agents",
+    "prompt_tokens",
+    "output_budget_tokens",
 )
 
 
@@ -1327,11 +1335,6 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
     if df.empty:
         return {}
     latest = df.sort_values("timestamp").drop_duplicates("series_key", keep="last")
-    varying = [
-        (field, label)
-        for field, label in LABEL_KNOBS
-        if field in latest and latest[field].map(_clean_value).nunique(dropna=False) > 1
-    ]
     entries: list[SeriesLabelEntry] = []
     for _, row in latest.iterrows():
         model = _clean_value(row.get("model_short")) or _clean_value(row.get("model")) or "Benchmark run"
@@ -1344,57 +1347,91 @@ def series_labels(df: pd.DataFrame) -> dict[str, str]:
             if value
         )
         base = " · ".join((short_model(model), machine, engine) if engine else (short_model(model), machine))
-        entry = SeriesLabelEntry(str(row["series_key"]), row, base, [])
-        for field, name in varying[:3]:
-            if (value := _label_value(row.get(field))) is not None:
-                part = f"{name} {value}"
-                if len(_render_series_label(entry) + " · " + part) <= BAR_LABEL_LIMIT:
-                    entry.parts.append(part)
-        entries.append(entry)
-
-    for field, name in varying[3:]:
-        groups: dict[str, list[SeriesLabelEntry]] = {}
-        for entry in entries:
-            groups.setdefault(_render_series_label(entry), []).append(entry)
-        for group in groups.values():
-            if len(group) < 2 or len({_clean_value(entry.row.get(field)) for entry in group}) < 2:
-                continue
-            for entry in group:
-                if len(entry.parts) < 3 and (value := _label_value(entry.row.get(field))) is not None:
-                    part = f"{name} {value}"
-                    if len(_render_series_label(entry) + " · " + part) <= BAR_LABEL_LIMIT:
-                        entry.parts.append(part)
+        entries.append(SeriesLabelEntry(str(row["series_key"]), row, base, []))
 
     groups: dict[str, list[SeriesLabelEntry]] = {}
     for entry in entries:
-        groups.setdefault(_render_series_label(entry), []).append(entry)
-    for _, group in groups.items():
-        if len(group) < 2:
-            continue
-        dates = {entry.key: _run_timestamp(entry.row, "%Y-%m-%d") for entry in group}
-        date_counts = pd.Series(list(dates.values())).value_counts()
-        for entry in group:
-            date = dates[entry.key]
-            suffix = f"run {date}"
-            if date_counts.get(date, 0) > 1:
-                suffix = f"run {_run_timestamp(entry.row, '%Y-%m-%d %H:%M')}"
-            while len(_render_series_label(entry) + " · " + suffix) > BAR_LABEL_LIMIT and entry.parts:
-                entry.parts.pop()
-            entry.parts.append(suffix)
-
-    groups = {}
-    for entry in entries:
-        groups.setdefault(_render_series_label(entry), []).append(entry)
+        groups.setdefault(entry.base, []).append(entry)
     for group in groups.values():
         if len(group) < 2:
             continue
-        for index, entry in enumerate(sorted(group, key=lambda item: item.key), start=1):
-            suffix = f"run {_run_timestamp(entry.row, '%Y-%m-%d %H:%M')} #{index}"
+        varying = [
+            (field, label)
+            for field, label in LABEL_KNOBS
+            if len({_clean_value(entry.row.get(field)) for entry in group}) > 1
+        ]
+        for entry in group:
+            for field, label in varying[:3]:
+                if (value := _label_value(entry.row.get(field))) is not None:
+                    part = f"{label} {value}"
+                    if len(_render_series_label(entry) + " · " + part) <= BAR_LABEL_LIMIT:
+                        entry.parts.append(part)
+
+        for field, label in varying[3:]:
+            labels_by_text: dict[str, list[SeriesLabelEntry]] = {}
+            for entry in group:
+                labels_by_text.setdefault(_render_series_label(entry), []).append(entry)
+            for duplicates in labels_by_text.values():
+                if (
+                    len(duplicates) < 2
+                    or len({_clean_value(entry.row.get(field)) for entry in duplicates}) < 2
+                ):
+                    continue
+                for entry in duplicates:
+                    if len(entry.parts) < 3 and (value := _label_value(entry.row.get(field))) is not None:
+                        part = f"{label} {value}"
+                        if len(_render_series_label(entry) + " · " + part) <= BAR_LABEL_LIMIT:
+                            entry.parts.append(part)
+
+    duplicate_labels: dict[str, list[SeriesLabelEntry]] = {}
+    for entry in entries:
+        duplicate_labels.setdefault(_render_series_label(entry), []).append(entry)
+    for group in duplicate_labels.values():
+        if len(group) < 2:
+            continue
+        knobs_equal = all(
+            len({_clean_value(entry.row.get(field)) for entry in group}) == 1 for field, _ in LABEL_KNOBS
+        )
+        if knobs_equal:
+            dates = {entry.key: _run_timestamp(entry.row, "%Y-%m-%d") for entry in group}
+            date_counts = pd.Series(list(dates.values())).value_counts()
+            suffixes = {
+                entry.key: (
+                    f"run {_run_timestamp(entry.row, '%Y-%m-%d %H:%M')}"
+                    if date_counts.get(dates[entry.key], 0) > 1
+                    else f"run {dates[entry.key]}"
+                )
+                for entry in group
+            }
+        else:
+            suffixes = {
+                entry.key: f"comparison {index}"
+                for index, entry in enumerate(sorted(group, key=lambda item: item.key), start=1)
+            }
+        for entry in group:
+            suffix = suffixes[entry.key]
             while len(_render_series_label(entry) + " · " + suffix) > BAR_LABEL_LIMIT and entry.parts:
                 entry.parts.pop()
             entry.parts.append(suffix)
 
+    duplicate_labels = {}
+    for entry in entries:
+        duplicate_labels.setdefault(_render_series_label(entry), []).append(entry)
+    for group in duplicate_labels.values():
+        if len(group) > 1:
+            for index, entry in enumerate(sorted(group, key=lambda item: item.key), start=1):
+                entry.parts.append(f"#{index}")
+
     return {entry.key: _render_series_label(entry) for entry in entries}
+
+
+def latest_diagnostic_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Keep the newest workload comparison for the diagnostic bars."""
+    if df.empty or not set(DIAGNOSTIC_GROUP_FIELDS) <= set(df.columns):
+        return df.copy()
+    return df.sort_values("timestamp", kind="stable").drop_duplicates(
+        list(DIAGNOSTIC_GROUP_FIELDS), keep="last"
+    )
 
 
 def _render_series_label(entry: SeriesLabelEntry) -> str:
@@ -1450,13 +1487,20 @@ def selected_rows(
 
 
 def bar_chart(
-    df: pd.DataFrame, suite: str | None, task: str | None, metric: str | None, unit: str | None = None
+    df: pd.DataFrame,
+    suite: str | None,
+    task: str | None,
+    metric: str | None,
+    unit: str | None = None,
+    mode: str = AGENTIC_MODE,
 ) -> go.Figure:
     """Show the latest row for each fully identified comparison."""
     sub = selected_rows(df, suite, task, metric, unit)
     if sub.empty:
         return empty_figure("No data matches these filters. Clear a filter or choose another task.")
 
+    if mode == DIAGNOSTIC_MODE:
+        sub = latest_diagnostic_rows(sub)
     sub = sub.sort_values("timestamp").drop_duplicates("series_key", keep="last")
     labels = series_labels(sub)
     sub["label"] = sub["series_key"].map(labels)
@@ -1794,6 +1838,26 @@ def _run_metric_value(
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
 
 
+def filter_option_label(name: str, value: str) -> str:
+    if name == "agents":
+        return f"{value} agent" if value == "1" else f"{value} agents"
+    if name in {"allocated_context", "context_tokens", "prompt_tokens", "output_budget_tokens"}:
+        return f"{format_tokens(value)} tokens"
+    return value
+
+
+def filter_dropdown(values: list[str], label: str, value: str | None, name: str):
+    return gr.Dropdown(
+        choices=[(filter_option_label(name, item), item) for item in values],
+        value=value if value in values else None,
+        label=label,
+        interactive=bool(values),
+        visible=True,
+        allow_custom_value=False,
+        elem_id=f"filter-{name}",
+    )
+
+
 def build_ui():
     cache = _current_cache()
     initial_mode = AGENTIC_MODE
@@ -1823,13 +1887,6 @@ def build_ui():
     initial_labels = series_labels(active_rows)
     initial_models = active_rows["series_key"].value_counts().head(6).index.tolist()
 
-    def filter_option_label(name: str, value: str) -> str:
-        if name == "agents":
-            return f"{value} agent" if value == "1" else f"{value} agents"
-        if name in {"allocated_context", "context_tokens", "prompt_tokens", "output_budget_tokens"}:
-            return f"{format_tokens(value)} tokens"
-        return value
-
     def metric_options(data: pd.DataFrame, suite: str | None, task: str | None):
         options = []
         for metric_value in metric_choices(data, suite, task):
@@ -1847,15 +1904,10 @@ def build_ui():
         interactive: bool | None = None,
         visible: bool | None = None,
         elem_id: str | None = None,
-        filter_name: str | None = None,
     ):
         choices = [
             (
-                filter_option_label(filter_name, item)
-                if filter_name
-                else humanize(item)
-                if human_names
-                else item,
+                humanize(item) if human_names else item,
                 item,
             )
             for item in values
@@ -1934,17 +1986,7 @@ def build_ui():
             if selected not in choices:
                 selected = None
             selections[name] = selected
-            filter_updates.append(
-                dropdown(
-                    choices,
-                    label,
-                    selected,
-                    interactive=bool(choices),
-                    visible=bool(choices),
-                    elem_id=f"filter-{name}",
-                    filter_name=name,
-                )
-            )
+            filter_updates.append(filter_dropdown(choices, label, selected, name))
 
         filtered = filter_viewer_rows(data, selections, str(mode))
         available_suites = suite_choices(filtered)
@@ -1988,7 +2030,7 @@ def build_ui():
             allow_custom_value=False,
             elem_id="unit",
         )
-        bar = bar_chart(filtered, suite, task, metric, unit)
+        bar = bar_chart(filtered, suite, task, metric, unit, str(mode))
         trend = trend_chart(filtered, suite, task, metric, chosen_models, unit)
         table = summary_table(filtered, suite, task, metric, unit)
         status = selection_status(cache.evidence_counts, active, str(evidence), suite, task, metric, unit)
@@ -2097,14 +2139,7 @@ def build_ui():
                     for name, (label, _) in filter_items[start : start + 5]:
                         choices = row_choices(initial_rows, name)
                         filter_controls.append(
-                            dropdown(
-                                choices,
-                                label,
-                                initial_filter_values[name],
-                                elem_id=f"filter-{name}",
-                                filter_name=name,
-                                visible=bool(choices),
-                            )
+                            filter_dropdown(choices, label, initial_filter_values[name], name)
                         )
 
         status = gr.Markdown(
@@ -2122,7 +2157,9 @@ def build_ui():
         with gr.Tabs():
             with gr.Tab("Latest"):
                 bar_plot = gr.Plot(
-                    value=bar_chart(initial_rows, default_suite, default_task, default_metric, initial_unit),
+                    value=bar_chart(
+                        initial_rows, default_suite, default_task, default_metric, initial_unit, initial_mode
+                    ),
                     label="Latest comparable run",
                 )
             with gr.Tab("Trend"):
