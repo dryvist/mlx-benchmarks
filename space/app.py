@@ -426,6 +426,15 @@ def default_filter_selections(df: pd.DataFrame, mode: str) -> dict[str, str | No
     return selections
 
 
+def current_filter_selections(df: pd.DataFrame, filter_values) -> dict[str, str | None]:
+    """Drop selections that no row in this frame carries, such as another mode's context band."""
+    selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
+    return {
+        name: value if value is None or value in row_choices(df, name) else None
+        for name, value in selections.items()
+    }
+
+
 def _metric_unit(metric: str, unit: object = None) -> str:
     """Normalize known units and infer only units encoded by the metric contract."""
     explicit = _clean_value(unit)
@@ -2042,7 +2051,7 @@ def build_ui():
     ):
         cache = _current_cache()
         data = cached_viewer_rows(str(mode), str(evidence), cache)
-        selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
+        selections = current_filter_selections(data, filter_values)
         available_choices = available_viewer_filter_choices_for_all(data, selections, str(mode))
         filter_updates = []
         for name, (label, _) in FILTER_SPECS.items():
@@ -2124,8 +2133,8 @@ def build_ui():
     def update_trend_from_models(mode, evidence, suite, task, metric, unit, *values):
         selected_models = values[-1] if values else []
         filter_values = values[:-1]
-        selections = dict(zip(FILTER_SPECS, filter_values, strict=False))
-        data = filter_viewer_rows(cached_viewer_rows(str(mode), str(evidence)), selections, str(mode))
+        rows = cached_viewer_rows(str(mode), str(evidence))
+        data = filter_viewer_rows(rows, current_filter_selections(rows, filter_values), str(mode))
         return trend_chart(data, suite, task, metric, selected_models, unit)
 
     def synchronize_mode(mode, evidence, *filter_values):

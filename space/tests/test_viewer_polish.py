@@ -531,3 +531,25 @@ def test_hover_retains_full_knob_details() -> None:
     assert "MTP: true" in details
     assert "Arrival: Staggered" in details
     assert "Variant: MTP default" in details
+
+
+def test_mode_switch_drops_a_context_band_the_new_mode_lacks() -> None:
+    rows = pd.DataFrame(
+        [
+            {"viewer_mode": app.DIAGNOSTIC_MODE, "context_band": "4k", "machine": machine, "agents": 8}
+            for machine in ("RTX PRO 6000 Max-Q 96GB", "Mac Studio M4 Max 128GB")
+        ]
+    )
+    values = [
+        "128k" if name == "context_band" else "8" if name == "agents" else None for name in app.FILTER_SPECS
+    ]
+
+    stale = dict(zip(app.FILTER_SPECS, values, strict=False))
+    assert app.available_viewer_filter_choices_for_all(rows, stale, app.DIAGNOSTIC_MODE)["machine"] == []
+
+    selections = app.current_filter_selections(rows, values)
+    choices = app.available_viewer_filter_choices_for_all(rows, selections, app.DIAGNOSTIC_MODE)
+
+    assert selections["context_band"] is None
+    assert selections["agents"] == "8"
+    assert choices["machine"] == ["Mac Studio M4 Max 128GB", "RTX PRO 6000 Max-Q 96GB"]
