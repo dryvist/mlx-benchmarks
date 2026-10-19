@@ -8,8 +8,10 @@ converter keeps the dimensions it is handed.
 
 from __future__ import annotations
 
+import csv
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -66,6 +68,17 @@ def _throughput_probe() -> dict:
     }
 
 
+def _kvo_offload() -> dict[str, Any]:
+    path = Path(__file__).parent / "fixtures" / "kvo_result_sample.jsonl"
+    return json.loads(path.read_text().splitlines()[0].partition(" ")[2])
+
+
+def _moe_offload() -> dict[str, str]:
+    path = Path(__file__).parent / "fixtures" / "moe_offload_sample.csv"
+    with path.open(newline="", encoding="utf-8") as source:
+        return next(csv.DictReader(source))
+
+
 # kind -> (suite, builder of the raw tool output). Builders take the shared fixtures.
 RAW_BY_KIND: dict[str, tuple[str, Callable[[pytest.FixtureRequest], Any]]] = {
     "agentic": ("tool-calling", lambda r: r.getfixturevalue("agentic_sample")),
@@ -96,7 +109,9 @@ RAW_BY_KIND: dict[str, tuple[str, Callable[[pytest.FixtureRequest], Any]]] = {
     ),
     "llamacpp-server": ("throughput", lambda _: []),
     "lm-eval": ("reasoning", lambda r: r.getfixturevalue("lm_eval_sample")),
+    "kv-offload": ("lmcache-multi-round-qa", lambda _: _kvo_offload()),
     "mbw": ("mbw", lambda r: r.getfixturevalue("mbw_sample")),
+    "moe-offload": ("moe-offload", lambda _: _moe_offload()),
     "nvbandwidth": ("nvbandwidth", lambda r: r.getfixturevalue("nvbandwidth_sample")),
     "promptstack": ("promptstack", lambda r: r.getfixturevalue("promptstack_sample")),
     "promptfoo": ("framework-eval", lambda r: r.getfixturevalue("promptfoo_sample")),
@@ -107,6 +122,11 @@ RAW_BY_KIND: dict[str, tuple[str, Callable[[pytest.FixtureRequest], Any]]] = {
 
 def _context(suite: str, **overrides: Any) -> ConverterContext:
     return ConverterContext(suite=suite, model="example/model", git_sha="abc1234", system=SYSTEM, **overrides)
+
+
+def _converter_context(kind: str, suite: str, **overrides: Any) -> ConverterContext:
+    engine_version = {"kv-offload": "0.32.0", "moe-offload": "b11669"}.get(kind)
+    return _context(suite, engine_version=engine_version, **overrides)
 
 
 def test_every_cli_kind_is_covered() -> None:
@@ -120,10 +140,18 @@ def test_converter_keeps_declared_campaign_dimensions(kind: str, request: pytest
     suite, build_raw = RAW_BY_KIND[kind]
     envelope = get_converter(kind).build_envelope(
         build_raw(request),
-        _context(suite, campaign_dimensions=DIMENSIONS, dimension_null_reasons=NULL_REASONS),
+        _converter_context(
+            kind,
+            suite,
+            campaign_dimensions=DIMENSIONS,
+            dimension_null_reasons=NULL_REASONS,
+        ),
     )
 
-    if kind == "vllm":
+    if kind in {"kv-offload", "moe-offload"}:
+        assert envelope["campaign_dimensions"] == DIMENSIONS
+        assert envelope["dimension_null_reasons"] == NULL_REASONS
+    elif kind == "vllm":
         actual_dimensions = envelope["campaign_dimensions"]
         assert {key: actual_dimensions[key] for key in DIMENSIONS} == DIMENSIONS
         assert "speed" in actual_dimensions
@@ -141,9 +169,12 @@ def test_converter_leaves_dimensions_absent_when_none_are_declared(
     kind: str, request: pytest.FixtureRequest
 ) -> None:
     suite, build_raw = RAW_BY_KIND[kind]
-    envelope = get_converter(kind).build_envelope(build_raw(request), _context(suite))
+    envelope = get_converter(kind).build_envelope(build_raw(request), _converter_context(kind, suite))
 
-    if kind == "vllm":
+    if kind in {"kv-offload", "moe-offload"}:
+        assert "campaign_dimensions" in envelope
+        assert "dimension_null_reasons" in envelope
+    elif kind == "vllm":
         assert "campaign_dimensions" in envelope
         assert "speed" in envelope["campaign_dimensions"]
         assert "dimension_null_reasons" in envelope

@@ -209,6 +209,8 @@
         "nvbandwidth",
         "mbw",
         "fio",
+        "lmcache-multi-round-qa",
+        "moe-offload",
         "spl",
         "tool-queries",
         "agentic",

@@ -25,6 +25,9 @@ class ConverterContext:
     # concurrency = in-flight request count, serving = inference-server identity.
     env_class: str | None = None
     concurrency: int | None = None
+    engine_version: str | None = None
+    engine_build: str | None = None
+    engine_commit: str | None = None
     # reasoning_effort = the thinking level the run asked for, verbatim. Declared
     # by the caller because no harness can see a serving default or an agent
     # CLI's own config, and a guess is indistinguishable from a measurement.

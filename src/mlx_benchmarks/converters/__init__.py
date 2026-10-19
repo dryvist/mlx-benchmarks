@@ -14,6 +14,7 @@ from mlx_benchmarks.converters.llamacpp_server import LlamaCppServerConverter
 from mlx_benchmarks.converters.lm_eval import LmEvalConverter
 from mlx_benchmarks.converters.mbw import MbwConverter
 from mlx_benchmarks.converters.nvbandwidth import NvbandwidthConverter
+from mlx_benchmarks.converters.nvidia_offload import KvOffloadConverter, MoeOffloadConverter
 from mlx_benchmarks.converters.promptfoo import PromptfooConverter
 from mlx_benchmarks.converters.promptstack import PromptstackConverter
 from mlx_benchmarks.converters.throughput_probe import ThroughputProbeConverter
@@ -31,9 +32,11 @@ __all__ = [
     "FioConverter",
     "GpuBurnConverter",
     "InspectAIConverter",
+    "KvOffloadConverter",
     "LlamaCppServerConverter",
     "LmEvalConverter",
     "MbwConverter",
+    "MoeOffloadConverter",
     "NvbandwidthConverter",
     "PromptfooConverter",
     "PromptstackConverter",
@@ -61,7 +64,9 @@ def get_converter(kind: str) -> Converter:
         "inspect-ai": InspectAIConverter,
         "llamacpp-server": LlamaCppServerConverter,
         "lm-eval": LmEvalConverter,
+        "kv-offload": KvOffloadConverter,
         "mbw": MbwConverter,
+        "moe-offload": MoeOffloadConverter,
         "nvbandwidth": NvbandwidthConverter,
         "promptstack": PromptstackConverter,
         "promptfoo": PromptfooConverter,
