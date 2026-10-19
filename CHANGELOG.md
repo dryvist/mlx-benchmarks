@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.61.0...v0.62.0) (2026-10-19)
+
+
+### Features
+
+* **run-index:** index the MiniMax-M2.7-3bit Mac cluster shards ([#481](https://github.com/dryvist/mlx-benchmarks/issues/481)) ([3e438d5](https://github.com/dryvist/mlx-benchmarks/commit/3e438d5d38503352b38d0a9a0a75038026cbd789))
+
 ## [0.61.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.60.0...v0.61.0) (2026-10-19)
 
 
