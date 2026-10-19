@@ -1,0 +1,3 @@
+profile,model,arm,prompt_tokens,output_tokens,concurrency,decode_tok_s,ttft_p50_ms,ttft_p99_ms,vram_used_gib,guest_ram_peak_gib,n_cpu_moe,cache_ram_mib,semaphore_task
+qwen3-moe-q4,Qwen3-30B-A3B-Q4_K_M.gguf,--n-cpu-moe 12,4096,512,4,52.4,840.2,1214.5,15.1,26.3,12,8192,moe-n-cpu-cell
+qwen3-moe-q4,Qwen3-30B-A3B-Q4_K_M.gguf,--cpu-moe,4096,512,4,45.8,1020.4,1490.3,14.9,29.8,0,0,moe-cpu-cell

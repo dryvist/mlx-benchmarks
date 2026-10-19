@@ -52,6 +52,53 @@ def test_cli_dry_run_happy_path(
     assert "dry-run" in captured.err.lower() or "planned" in captured.err.lower()
 
 
+def test_cli_keeps_list_input_for_single_cell_converters(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_path = tmp_path / "bench-serve.json"
+    results_path.write_text(
+        json.dumps(
+            [
+                {
+                    "model_id": "mlx-community/Qwen3.6-35B-A3B-4bit",
+                    "model_revision": "a" * 40,
+                    "prompt_set": "short",
+                    "concurrency": 1,
+                    "repetition": 0,
+                    "gen_tps": 100.0,
+                    "throughput_tps": 110.0,
+                    "ttft_ms": 70.0,
+                    "tpot_ms": 7.5,
+                }
+            ]
+        )
+    )
+    published: list[dict] = []
+    monkeypatch.setattr("mlx_benchmarks.cli.detect_system", dict)
+    monkeypatch.setattr(
+        "mlx_benchmarks.cli.publish",
+        lambda envelope, **_: published.append(envelope) or "data/run-test.parquet",
+    )
+
+    assert (
+        main(
+            [
+                str(results_path),
+                "--kind",
+                "bench-serve",
+                "--suite",
+                "throughput",
+                "--git-sha",
+                "deadbeef",
+            ]
+        )
+        == 0
+    )
+    assert len(published) == 1
+    assert published[0]["model"] == "mlx-community/Qwen3.6-35B-A3B-4bit"
+    assert len(published[0]["results"]) == 4
+
+
 def test_cli_rejects_serving_port_flag(capsys: pytest.CaptureFixture) -> None:
     with pytest.raises(SystemExit):
         build_parser().parse_args(["results.json", "--suite", "reasoning", "--serving-port"])
