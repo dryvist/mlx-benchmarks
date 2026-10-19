@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.62.0...v0.63.0) (2026-10-19)
+
+
+### Features
+
+* **run-index:** add 21 benchmark result entries ([#483](https://github.com/dryvist/mlx-benchmarks/issues/483)) ([1c61ad5](https://github.com/dryvist/mlx-benchmarks/commit/1c61ad5ac91fa23e6beecdcc32fc59e9a22e028c))
+
 ## [0.62.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.61.0...v0.62.0) (2026-10-19)
 
 
