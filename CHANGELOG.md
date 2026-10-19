@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.60.0...v0.61.0) (2026-10-19)
+
+
+### Features
+
+* **run-index:** index the 2026-10-19 Mac cluster shards ([#479](https://github.com/dryvist/mlx-benchmarks/issues/479)) ([5201f52](https://github.com/dryvist/mlx-benchmarks/commit/5201f52efbfbebfb7b1e91e79e4d2217e44f5782))
+
 ## [0.60.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.7...v0.60.0) (2026-10-19)
 
 
