@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.60.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.7...v0.60.0) (2026-10-19)
+
+
+### Features
+
+* **publish:** convert NVIDIA offload benchmark cells ([#476](https://github.com/dryvist/mlx-benchmarks/issues/476)) ([d7b6999](https://github.com/dryvist/mlx-benchmarks/commit/d7b6999bbdb7a52f8f73c0a3a68eb1f672a13511))
+
 ## [0.59.7](https://github.com/dryvist/mlx-benchmarks/compare/v0.59.6...v0.59.7) (2026-10-18)
 
 
