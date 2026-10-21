@@ -89,6 +89,25 @@ def load_index(path: Path) -> list[dict[str, object]]:
     return runs
 
 
+def _canonical_source_path(path: str) -> str:
+    return (
+        path.replace("data/run-canonical-run-", "data/run-", 1)
+        if path.startswith("data/run-canonical-run-")
+        else path
+    )
+
+
+def validate_shard_coverage(entries: list[dict[str, object]], canonical_paths: set[str]) -> None:
+    """Require a source-path index entry for each published canonical run shard."""
+    indexed_paths = {_canonical_source_path(str(entry["path"])) for entry in entries}
+    canonical_sources = {_canonical_source_path(path) for path in canonical_paths}
+    missing = sorted(canonical_sources - indexed_paths)
+    if missing:
+        raise ValueError(
+            f"canonical run shards missing from run index ({len(missing)}): {', '.join(missing)}"
+        )
+
+
 def validate_entries(entries: list[dict[str, object]]) -> None:
     paths: set[str] = set()
     for entry in entries:
@@ -98,9 +117,10 @@ def validate_entries(entries: list[dict[str, object]]) -> None:
         path = entry["path"]
         if not isinstance(path, str) or not path.startswith("data/run-") or not path.endswith(".parquet"):
             raise ValueError(f"invalid parquet path: {path!r}")
-        if path in paths:
+        source_path = _canonical_source_path(path)
+        if source_path in paths:
             raise ValueError(f"duplicate parquet path: {path}")
-        paths.add(path)
+        paths.add(source_path)
         if entry["status"] not in VALID_STATUSES:
             raise ValueError(f"invalid status for {path}: {entry['status']!r}")
         date_match = RUN_DATE.match(path)
@@ -151,6 +171,12 @@ def validate_remote(entries: list[dict[str, object]], repo_id: str) -> None:
     )
     if missing:
         raise ValueError(f"indexed parquet files missing from {repo_id}: {', '.join(missing)}")
+    canonical_run_paths = {
+        path
+        for path in remote_paths
+        if path.startswith("data/run-canonical-run-") and path.endswith(".parquet")
+    }
+    validate_shard_coverage(entries, canonical_run_paths)
 
 
 def main() -> int:
