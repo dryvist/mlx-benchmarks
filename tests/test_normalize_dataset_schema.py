@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
+
 import pyarrow as pa
 import pytest
-from scripts.normalize_dataset_schema import _campaign_dimensions_for_run
 
 from mlx_benchmarks.dataset_schema import (
     APPLE_MACHINE_FALLBACK,
@@ -11,6 +13,16 @@ from mlx_benchmarks.dataset_schema import (
     canonical_shard_needs_refresh,
     normalize_legacy_rows,
 )
+
+NORMALIZER_PATH = Path(__file__).resolve().parents[1] / "scripts" / "normalize_dataset_schema.py"
+
+
+def _normalizer_module():
+    spec = importlib.util.spec_from_file_location("normalize_dataset_schema", NORMALIZER_PATH)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _historical_table() -> pa.Table:
@@ -172,7 +184,7 @@ def test_run_index_metadata_projects_machine_and_normalized_engine_version() -> 
         "engine_commit": "620d2225c",
         "campaign_dimensions": {"run": {"prefix_cache": True}},
     }
-    dimensions = _campaign_dimensions_for_run(entry)
+    dimensions = _normalizer_module()._campaign_dimensions_for_run(entry)
     normalized = normalize_legacy_rows(
         [{"chip": "Apple M4 Max", "memory_gb": 128, "engine_version": "b11669-620d2225c"}],
         campaign_dimensions=dimensions,
