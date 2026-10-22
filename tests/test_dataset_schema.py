@@ -201,3 +201,24 @@ def test_nvidia_hardware_fields_produce_public_machine_labels() -> None:
         "RTX PRO 6000 Max-Q 96GB",
         "RTX 4080 SUPER 16GB",
     ]
+
+
+def test_coding_row_projects_campaign_hardware_from_hardware_json() -> None:
+    hardware = {
+        "accelerator_memory_gb": 96,
+        "accelerator_model": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+        "machine": "RTX PRO 6000 Max-Q 96GB",
+    }
+
+    [row] = normalize_legacy_rows([{"suite": "coding", "hardware": json.dumps(hardware)}])
+
+    assert row["campaign_hardware_machine"] == "RTX PRO 6000 Max-Q 96GB"
+    assert row["campaign_hardware_accelerator_model"] == "NVIDIA RTX PRO 6000 Blackwell Max-Q"
+    assert row["campaign_hardware_accelerator_memory_gb"] == 96
+
+
+def test_hardware_machine_fallback_requires_a_canonical_label() -> None:
+    hardware = {"machine": "private-machine-id"}
+
+    with pytest.raises(ValueError, match="hardware machine must use a canonical hardware label"):
+        normalize_legacy_rows([{"hardware": json.dumps(hardware)}])
