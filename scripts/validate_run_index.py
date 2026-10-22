@@ -7,13 +7,16 @@ import re
 from pathlib import Path
 
 import pyarrow as pa
+import pyarrow.parquet as pq
 from huggingface_hub import HfApi
 
 from mlx_benchmarks.dataset_schema import (
     CACHE_CONFIGURATION_FIELDS,
     CACHE_OFFLOAD_BACKENDS,
+    RECENT_SHARD_PATH,
     STANDARD_CACHE_FIELD_DIMENSIONS,
     STANDARD_CACHE_FIELD_TYPES,
+    normalize_legacy_rows,
 )
 
 DEFAULT_REPO_ID = "JacobPEvans/mlx-benchmarks"
@@ -157,9 +160,10 @@ def validate_entries(entries: list[dict[str, object]]) -> None:
 
 
 def validate_remote(entries: list[dict[str, object]], repo_id: str) -> None:
+    api = HfApi()
     remote_paths = {
         item.path
-        for item in HfApi().list_repo_tree(repo_id, repo_type="dataset", recursive=True)
+        for item in api.list_repo_tree(repo_id, repo_type="dataset", recursive=True)
         if item.path.startswith("data/")
     }
     # Newer runs are published only as canonical shards (data/run-canonical-run-...).
@@ -177,6 +181,42 @@ def validate_remote(entries: list[dict[str, object]], repo_id: str) -> None:
         if path.startswith("data/run-canonical-run-") and path.endswith(".parquet")
     }
     validate_shard_coverage(entries, canonical_run_paths)
+    recent_path = api.hf_hub_download(repo_id=repo_id, repo_type="dataset", filename=RECENT_SHARD_PATH)
+    recent_rows = pq.read_table(recent_path).to_pylist()
+    projected_rows = normalize_legacy_rows(recent_rows)
+    hardware_dimensions = [_hardware_dimensions(row) for row in recent_rows]
+    columns = {
+        "machine": "campaign_hardware_machine",
+        "accelerator_model": "campaign_hardware_accelerator_model",
+        "accelerator_memory_gb": "campaign_hardware_accelerator_memory_gb",
+    }
+    uncovered = {
+        field: sum(
+            dimensions.get(field) is not None and projected[column] is None
+            for dimensions, projected in zip(hardware_dimensions, projected_rows, strict=True)
+        )
+        for field, column in columns.items()
+    }
+    if any(uncovered.values()):
+        missing = ", ".join(f"{field}={count}" for field, count in uncovered.items() if count)
+        raise ValueError(f"recent dataset hardware dimensions lack campaign projections: {missing}")
+    print(
+        "validated recent dataset hardware projections for "
+        + ", ".join(
+            f"{field}={sum(dimensions.get(field) is not None for dimensions in hardware_dimensions)}"
+            for field in columns
+        )
+    )
+
+
+def _hardware_dimensions(row: dict[str, object]) -> dict[str, object]:
+    hardware = row.get("hardware")
+    if isinstance(hardware, str):
+        try:
+            hardware = json.loads(hardware)
+        except json.JSONDecodeError:
+            return {}
+    return hardware if isinstance(hardware, dict) else {}
 
 
 def main() -> int:

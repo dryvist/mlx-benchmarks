@@ -887,6 +887,22 @@ def normalize_legacy_rows(
         )
         if isinstance(software_dimensions, Mapping) and software_dimensions.get("engine_version") is not None:
             row["engine_version"] = software_dimensions["engine_version"]
+        hardware = row.get("hardware")
+        if isinstance(hardware, str):
+            try:
+                hardware = json.loads(hardware)
+            except json.JSONDecodeError:
+                hardware = None
+        if isinstance(hardware, Mapping):
+            machine = hardware.get("machine")
+            if row["campaign_hardware_machine"] is None and machine is not None:
+                if not _machine_label_is_valid(machine):
+                    raise ValueError("hardware machine must use a canonical hardware label")
+                row["campaign_hardware_machine"] = machine
+            for field in ("accelerator_model", "accelerator_memory_gb"):
+                column = campaign_dimension_column("hardware", field)
+                if row[column] is None and hardware.get(field) is not None:
+                    row[column] = hardware[field]
         normalized_rows.append(row)
     return normalized_rows
 
