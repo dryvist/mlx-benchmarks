@@ -843,6 +843,14 @@ def normalize_legacy_rows(
             if system_extra is not None
             else "{}"
         )
+        hardware_dimensions = (
+            campaign_dimensions.get("hardware") if isinstance(campaign_dimensions, Mapping) else None
+        )
+        if isinstance(hardware_dimensions, Mapping) and hardware_dimensions.get("machine") is not None:
+            machine = hardware_dimensions["machine"]
+            if not _machine_label_is_valid(machine):
+                raise ValueError("run-index machine must use a canonical hardware label")
+            row["campaign_hardware_machine"] = machine
         label = _machine_label_for_row(row, tags, extras, machine_labels or {})
         if label:
             row["hostname"] = label
@@ -874,6 +882,11 @@ def normalize_legacy_rows(
             }
             row = _scrub_machine_identifiers(row, replacements)
         _apply_campaign_dimension_projection(row, campaign_dimensions, dimension_null_reasons)
+        software_dimensions = (
+            campaign_dimensions.get("software") if isinstance(campaign_dimensions, Mapping) else None
+        )
+        if isinstance(software_dimensions, Mapping) and software_dimensions.get("engine_version") is not None:
+            row["engine_version"] = software_dimensions["engine_version"]
         normalized_rows.append(row)
     return normalized_rows
 

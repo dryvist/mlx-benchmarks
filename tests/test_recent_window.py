@@ -295,13 +295,16 @@ def test_publish_step_preserves_published_canonical_shard_bytes(
     assert source_path not in hub.files
 
 
-def test_publish_step_does_not_apply_run_index_overrides_to_published_copies(
+def test_publish_step_applies_run_index_overrides_to_published_copies(
     publish_step: tuple[ModuleType, FakeHub],
 ) -> None:
     script, hub = publish_step
     source_path = "data/run-2026-09-08T10-00-00-abc1234-throughput-example-model-0a1b2c3d.parquet"
     canonical_path = _shard_path("2026-09-08T10-00-00")
-    source = _table(("2026-09-08T10:00:00Z", 1.0))
+    source = pa.Table.from_pylist(
+        [{"timestamp": "2026-09-08T10:00:00Z", "chip": "Apple M4 Max", "memory_gb": 128, "value": 1.0}],
+        schema=PARQUET_ROW_SCHEMA,
+    )
     canonical = script.normalize_legacy_table(source)
     original_bytes = _parquet(canonical)
     hub.files[source_path] = _parquet(source)
@@ -326,5 +329,8 @@ def test_publish_step_does_not_apply_run_index_overrides_to_published_copies(
 
     script.normalize_dataset("example/dataset", apply=True)
 
-    assert hub.files[canonical_path] == original_bytes
-    assert canonical_path not in hub.commits[0]
+    assert hub.files[canonical_path] != original_bytes
+    assert canonical_path in hub.commits[0]
+    published = pq.read_table(io.BytesIO(hub.files[canonical_path])).to_pylist()[0]
+    assert published["hostname"] == "Mac Studio M4 Max 128GB"
+    assert published["campaign_software_engine_version"] == "b11669"

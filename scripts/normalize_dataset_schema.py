@@ -67,6 +67,48 @@ def _run_index_entries() -> dict[str, dict[str, object]]:
     return entries
 
 
+def _campaign_dimensions_for_run(entry: dict[str, object]) -> dict[str, object] | None:
+    dimensions = entry.get("campaign_dimensions")
+    if dimensions is None:
+        projected: dict[str, object] = {}
+    elif isinstance(dimensions, dict):
+        projected = {
+            category: dict(values) if isinstance(values, dict) else values
+            for category, values in dimensions.items()
+        }
+    else:
+        raise ValueError("run-index campaign_dimensions must be an object")
+
+    for name, category, field in (
+        ("machine", "hardware", "machine"),
+        ("engine", "software", "engine"),
+        ("engine_version", "software", "engine_version"),
+        ("engine_build", "software", "engine_build"),
+        ("engine_commit", "software", "engine_commit"),
+    ):
+        value = entry.get(name)
+        if value is not None:
+            values = projected.setdefault(category, {})
+            if not isinstance(values, dict):
+                raise ValueError(f"run-index campaign_dimensions.{category} must be an object")
+            values[field] = value
+    return projected or None
+
+
+def _dimension_null_reasons_for_run(entry: dict[str, object]) -> dict[str, str] | None:
+    reasons = entry.get("dimension_null_reasons")
+    if reasons is None:
+        return None
+    if not isinstance(reasons, dict):
+        raise ValueError("run-index dimension_null_reasons must be an object")
+    normalized: dict[str, str] = {}
+    for field, reason in reasons.items():
+        if not isinstance(field, str) or not isinstance(reason, str):
+            raise ValueError("run-index dimension_null_reasons must map strings to strings")
+        normalized[field] = reason
+    return normalized
+
+
 def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     """Add or refresh canonical copies, the recent window and the dataset card in one Hub commit.
 
@@ -101,8 +143,8 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         target_path = canonical_shard_path(source_path)
         source_rows += source.num_rows
         run_index_entry = run_index.get(source_path, {})
-        campaign_dimensions = run_index_entry.get("campaign_dimensions")
-        dimension_null_reasons = run_index_entry.get("dimension_null_reasons")
+        campaign_dimensions = _campaign_dimensions_for_run(run_index_entry)
+        dimension_null_reasons = _dimension_null_reasons_for_run(run_index_entry)
         normalized = normalize_legacy_table(
             source,
             machine_labels=machine_labels,
