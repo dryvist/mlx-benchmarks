@@ -117,11 +117,32 @@ def _dimension_null_reasons_for_run(entry: dict[str, object]) -> dict[str, str] 
     return normalized
 
 
+def _needs_hardware_projection(table: pa.Table) -> bool:
+    """Check for missing campaign hardware fields with values retained in the raw hardware column."""
+    if "hardware" not in table.schema.names:
+        return False
+    for row in table.to_pylist():
+        value = row.get("hardware")
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(value, dict):
+            continue
+        if value.get("machine") is not None and row.get("campaign_hardware_machine") is None:
+            return True
+        for field in ("accelerator_model", "accelerator_memory_gb"):
+            if value.get(field) is not None and row.get(f"campaign_hardware_{field}") is None:
+                return True
+    return False
+
+
 def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
     """Add or refresh canonical copies, the recent window and the dataset card in one Hub commit.
 
-    Original paths are retained. Existing canonical paths refresh only when
-    their rows still match the retained source after schema and label projection.
+    Original paths are preferred. When one is absent, an indexed canonical copy
+    can supply retained hardware fields for projection.
     The recent window is rebuilt from the canonical shards as they stand after this
     commit and is written only when its rows changed.
     """
@@ -140,19 +161,37 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         and path.endswith(".parquet")
         and not path.startswith("data/run-canonical-")
     )
+    canonical_only_sources = {
+        _source_shard_path(path): path
+        for path in repo_paths
+        if path.startswith("data/run-canonical-run-")
+        and path.endswith(".parquet")
+        and _source_shard_path(path) not in originals
+        and _source_shard_path(path) in run_index
+    }
+    normalization_inputs = {path: path for path in originals} | canonical_only_sources
     operations: list[CommitOperationAdd] = []
     canonical_tables: dict[str, pa.Table] = {}
     source_rows = 0
+    canonical_only_shards = 0
+    canonical_only_rows = 0
     existing_copies = 0
     canonical_to_add = 0
     canonical_to_refresh = 0
-    for source_path in originals:
-        source = _read_table(api, repo_id, source_path)
+    for source_path, input_path in sorted(normalization_inputs.items()):
+        source = _read_table(api, repo_id, input_path)
+        canonical_only = input_path != source_path
+        if canonical_only:
+            if not _needs_hardware_projection(source):
+                continue
+            canonical_only_shards += 1
+            canonical_only_rows += source.num_rows
         target_path = canonical_shard_path(source_path)
-        source_rows += source.num_rows
+        if input_path == source_path:
+            source_rows += source.num_rows
         run_index_entry = run_index.get(source_path, {})
-        campaign_dimensions = _campaign_dimensions_for_run(run_index_entry)
-        dimension_null_reasons = _dimension_null_reasons_for_run(run_index_entry)
+        campaign_dimensions = None if canonical_only else _campaign_dimensions_for_run(run_index_entry)
+        dimension_null_reasons = None if canonical_only else _dimension_null_reasons_for_run(run_index_entry)
         normalized = normalize_legacy_table(
             source,
             machine_labels=machine_labels,
@@ -164,7 +203,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
         if not normalized.schema.equals(PARQUET_ROW_SCHEMA, check_metadata=False):
             raise RuntimeError(f"normalization produced an unexpected schema for {source_path}")
         if target_path in repo_paths:
-            existing = _read_table(api, repo_id, target_path)
+            existing = source if input_path == target_path else _read_table(api, repo_id, target_path)
             prior_projection = (
                 normalize_legacy_table(source, machine_labels=machine_labels)
                 if machine_labels or campaign_dimensions or dimension_null_reasons
@@ -189,6 +228,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
                 canonical_to_refresh += 1
                 continue
             existing_copies += 1
+            canonical_tables[target_path] = existing
             continue
         operations.append(
             CommitOperationAdd(
@@ -224,6 +264,7 @@ def normalize_dataset(repo_id: str, *, apply: bool) -> tuple[int, int, int]:
 
     print(
         f"source_shards={len(originals)} source_rows={source_rows} "
+        f"canonical_only_shards={canonical_only_shards} canonical_only_rows={canonical_only_rows} "
         f"canonical_existing={existing_copies} canonical_to_add={canonical_to_add} "
         f"canonical_to_refresh={canonical_to_refresh} "
         f"recent_shards={len(recent_paths)} recent_rows={recent.num_rows} "
