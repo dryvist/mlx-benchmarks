@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.1...v0.63.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* project campaign hardware from row metadata ([#488](https://github.com/dryvist/mlx-benchmarks/issues/488)) ([a5fcb06](https://github.com/dryvist/mlx-benchmarks/commit/a5fcb06b37e0f51f9187211d5ced1dc8828fd1dc))
+
 ## [0.63.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.0...v0.63.1) (2026-10-22)
 
 
