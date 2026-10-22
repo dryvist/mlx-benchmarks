@@ -184,6 +184,10 @@ def validate_remote(entries: list[dict[str, object]], repo_id: str) -> None:
     recent_path = api.hf_hub_download(repo_id=repo_id, repo_type="dataset", filename=RECENT_SHARD_PATH)
     recent_rows = pq.read_table(recent_path).to_pylist()
     projected_rows = normalize_legacy_rows(recent_rows)
+    if len(projected_rows) != len(recent_rows):
+        raise ValueError(
+            f"normalization changed recent dataset row count: {len(recent_rows)} to {len(projected_rows)}"
+        )
     hardware_dimensions = [_hardware_dimensions(row) for row in recent_rows]
     columns = {
         "machine": "campaign_hardware_machine",
