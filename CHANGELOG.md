@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.63.1](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.0...v0.63.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* enforce complete run-index shard coverage ([#486](https://github.com/dryvist/mlx-benchmarks/issues/486)) ([6f305ef](https://github.com/dryvist/mlx-benchmarks/commit/6f305ef0eaabafd534a857dec247728b34f70ce1))
+* project run-index metadata into canonical shards ([#485](https://github.com/dryvist/mlx-benchmarks/issues/485)) ([5649759](https://github.com/dryvist/mlx-benchmarks/commit/5649759cb90ae1d78302d1ae2f76abf06d5eb7bd))
+
 ## [0.63.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.62.0...v0.63.0) (2026-10-19)
 
 
