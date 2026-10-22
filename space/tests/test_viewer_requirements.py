@@ -269,7 +269,7 @@ def test_local_data_dir_keeps_loading_parquets_and_neighboring_index(tmp_path, m
             {
                 "runs": [
                     {
-                        "path": "data/run-2026-10-01-example.parquet",
+                        "path": "data/run-canonical-run-2026-10-01-example.parquet",
                         "status": "scored",
                         "machine": "Mac Studio M4 Max 128GB",
                         "engine": "llama.cpp",

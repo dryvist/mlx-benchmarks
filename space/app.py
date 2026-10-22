@@ -538,7 +538,11 @@ def load_local_run_index(data_dir: Path) -> tuple[dict[str, dict[str, object]], 
     cutoff = payload.get("historical_scored_before")
     cutoff_timestamp = pd.to_datetime(cutoff, utc=True, errors="coerce") if cutoff else None
     return (
-        {entry["path"]: entry for entry in runs if isinstance(entry, dict) and "path" in entry},
+        {
+            _dataset_path(f"hf://{DATASET}/{entry['path']}"): entry
+            for entry in runs
+            if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+        },
         cutoff_timestamp if pd.notna(cutoff_timestamp) else None,
     )
 

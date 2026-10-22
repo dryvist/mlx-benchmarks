@@ -56,12 +56,20 @@ def _read_table(api: HfApi, repo_id: str, path: str) -> pa.Table:
     return pq.read_table(local_path)
 
 
+def _source_shard_path(path: str) -> str:
+    return (
+        path.replace("data/run-canonical-run-", "data/run-", 1)
+        if path.startswith("data/run-canonical-run-")
+        else path
+    )
+
+
 def _run_index_entries() -> dict[str, dict[str, object]]:
     payload = json.loads(RUN_INDEX_PATH.read_text())
     runs = payload.get("runs") if isinstance(payload, dict) else None
     if not isinstance(runs, list) or not all(isinstance(run, dict) for run in runs):
         raise ValueError("run index must contain a list of run objects")
-    entries = {str(run["path"]): run for run in runs if isinstance(run.get("path"), str)}
+    entries = {_source_shard_path(run["path"]): run for run in runs if isinstance(run.get("path"), str)}
     if len(entries) != len(runs):
         raise ValueError("run index paths must be strings and unique")
     return entries

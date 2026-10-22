@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from types import ModuleType
 
 import pytest
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "validate_run_index.py"
+NORMALIZER_PATH = Path(__file__).resolve().parents[1] / "scripts" / "normalize_dataset_schema.py"
 
 
 def _validator() -> ModuleType:
     spec = importlib.util.spec_from_file_location("validate_run_index", SCRIPT_PATH)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _normalizer() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("normalize_dataset_schema", NORMALIZER_PATH)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -37,6 +47,56 @@ def _entry(**overrides: object) -> dict[str, object]:
 def test_recent_shards_require_a_canonical_machine_label() -> None:
     with pytest.raises(ValueError, match="machine label"):
         _validator().validate_entries([_entry(machine="Mac Studio")])
+
+
+def test_original_and_canonical_paths_share_index_identity() -> None:
+    source = _entry(path="data/run-2026-09-01T00-00-00-run.parquet")
+    canonical = {**source, "path": "data/run-canonical-run-2026-09-01T00-00-00-run.parquet"}
+    validator = _validator()
+
+    validator.validate_entries([canonical])
+    with pytest.raises(ValueError, match="duplicate parquet path"):
+        validator.validate_entries([source, canonical])
+
+
+def test_remote_coverage_includes_every_canonical_run_shard() -> None:
+    validator = _validator()
+    entry = _entry(path="data/run-canonical-run-2026-09-01T00-00-00-run.parquet")
+    canonical_paths = {
+        "data/run-canonical-run-2026-09-01T00-00-00-run.parquet",
+        "data/run-canonical-run-2026-09-02T00-00-00-run.parquet",
+    }
+
+    with pytest.raises(ValueError, match=r"missing from run index \(1\)"):
+        validator.validate_shard_coverage([entry], canonical_paths)
+
+    validator.validate_shard_coverage(
+        [
+            entry,
+            {**entry, "path": "data/run-2026-09-02T00-00-00-run.parquet"},
+        ],
+        canonical_paths,
+    )
+
+
+def test_normalizer_resolves_canonical_index_paths_to_sources(tmp_path, monkeypatch) -> None:
+    normalizer = _normalizer()
+    index_path = tmp_path / "run-index-v1.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "runs": [
+                    {
+                        "path": "data/run-canonical-run-2026-09-01T00-00-00-run.parquet",
+                        "status": "experimental",
+                    }
+                ]
+            }
+        )
+    )
+    monkeypatch.setattr(normalizer, "RUN_INDEX_PATH", index_path)
+
+    assert set(normalizer._run_index_entries()) == {"data/run-2026-09-01T00-00-00-run.parquet"}
 
 
 def test_cluster_machine_label_and_cache_dimensions_validate() -> None:
