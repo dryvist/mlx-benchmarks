@@ -217,6 +217,59 @@ def test_publish_step_writes_the_window_once_and_rolls_it_with_new_shards(
     assert hub.recent_values() == [4.0]
 
 
+def test_publish_step_refreshes_canonical_only_shard_from_retained_hardware(
+    publish_step: tuple[ModuleType, FakeHub], capsys: pytest.CaptureFixture[str]
+) -> None:
+    script, hub = publish_step
+    machine = "Mac Studio M4 Max 128GB"
+    source_path = "data/run-2026-10-18T04-00-00-abc1234-coding-example.parquet"
+    canonical_path = f"data/run-canonical-{source_path.removeprefix('data/')}"
+    rows = [
+        {
+            "schema_version": "1",
+            "timestamp": "2026-10-18T04:00:00Z",
+            "suite": "coding",
+            "model": "example/model",
+            "name": "request",
+            "metric": "pass_rate",
+            "value": 1.0,
+            "unit": "ratio",
+            "hardware": json.dumps({"machine": machine, "accelerator_model": "Apple M4 Max"}),
+        },
+        {
+            "schema_version": "1",
+            "timestamp": "2026-10-18T04:00:00Z",
+            "suite": "coding",
+            "model": "example/model",
+            "name": "request_without_accelerator",
+            "metric": "pass_rate",
+            "value": 1.0,
+            "unit": "ratio",
+            "hardware": json.dumps({"machine": machine}),
+        },
+    ]
+    existing = pa.Table.from_pylist(rows, schema=PARQUET_ROW_SCHEMA)
+    hub.files[canonical_path] = _parquet(existing)
+    hub.files[RECENT_SHARD_PATH] = _parquet(existing)
+    hub.files["README.md"] = CARD_PATH.read_bytes()
+    index_path = hub.workdir / "run-index.json"
+    index_path.write_text(json.dumps({"runs": [{"path": source_path, "status": "scored"}]}))
+    script.RUN_INDEX_PATH = index_path
+
+    script.normalize_dataset("example/dataset", apply=True)
+
+    assert set(hub.commits[0]) == {canonical_path, RECENT_SHARD_PATH}
+    canonical = pq.read_table(io.BytesIO(hub.files[canonical_path])).to_pylist()
+    recent = pq.read_table(io.BytesIO(hub.files[RECENT_SHARD_PATH])).to_pylist()
+    for normalized in (canonical, recent):
+        assert [row["campaign_hardware_machine"] for row in normalized] == [machine, machine]
+        assert [row["campaign_hardware_accelerator_model"] for row in normalized] == ["Apple M4 Max", None]
+    output = capsys.readouterr().out
+    assert "canonical_only_shards=1 canonical_only_rows=2" in output
+    assert "canonical_to_refresh=1" in output
+    assert "recent_update=true" in output
+
+
 def test_publish_step_windows_a_shard_it_adds_in_the_same_commit(
     publish_step: tuple[ModuleType, FakeHub],
 ) -> None:
