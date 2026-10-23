@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.2...v0.63.3) (2026-10-23)
+
+
+### Bug Fixes
+
+* refresh canonical hardware projections ([#490](https://github.com/dryvist/mlx-benchmarks/issues/490)) ([d9fd4b8](https://github.com/dryvist/mlx-benchmarks/commit/d9fd4b8d21dc4bdb4bc5f7b8a65c153e55502f77))
+
 ## [0.63.2](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.1...v0.63.2) (2026-10-22)
 
 
