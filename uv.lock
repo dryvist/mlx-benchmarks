@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13"
 
 [options]
@@ -7,11 +7,11 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
+brotli = "2026-10-22T14:00:13Z"
+brotlicffi = "2026-10-22T16:19:34Z"
 certifi = "2026-10-23T11:36:17Z"
 filelock = "2026-10-19T01:57:52Z"
-brotli = "2026-10-22T14:00:13Z"
 virtualenv = "2026-10-22T20:10:17Z"
-brotlicffi = "2026-10-22T16:19:34Z"
 
 [[package]]
 name = "agent-client-protocol"
