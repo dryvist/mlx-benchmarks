@@ -152,3 +152,7 @@ filterwarnings = [
 [tool.coverage.run]
 branch = true
 source = ["mlx_benchmarks"]
+
+[tool.uv]
+exclude-newer = "7 days"
+required-version = ">=0.9.17"
