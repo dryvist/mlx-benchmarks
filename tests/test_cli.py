@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from mlx_benchmarks.cli import build_parser, main
+from mlx_benchmarks.envelope import validate_envelope
 
 
 def _write_sample(tmp_path: Path, sample: dict) -> Path:
@@ -97,6 +98,59 @@ def test_cli_keeps_list_input_for_single_cell_converters(
     assert len(published) == 1
     assert published[0]["model"] == "mlx-community/Qwen3.6-35B-A3B-4bit"
     assert len(published[0]["results"]) == 4
+
+
+def test_cli_writes_schema_valid_envelope_without_publishing(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_path = _write_sample(tmp_path, lm_eval_sample)
+    output_dir = tmp_path / "envelopes"
+    monkeypatch.setattr(
+        "mlx_benchmarks.cli.detect_system",
+        lambda: {"os": None, "chip": None, "memory_gb": None},
+    )
+    monkeypatch.delenv("MLX_BENCH_METRICS_URL", raising=False)
+
+    def unexpected_publish(*_: object, **__: object) -> str:
+        pytest.fail("publish was called with --output-dir")
+
+    monkeypatch.setattr("mlx_benchmarks.cli.publish", unexpected_publish)
+
+    assert (
+        main(
+            [
+                str(results_path),
+                "--kind",
+                "lm-eval",
+                "--suite",
+                "reasoning",
+                "--git-sha",
+                "deadbeef",
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 0
+    )
+
+    [envelope_path] = output_dir.glob("*.json")
+    envelope = json.loads(envelope_path.read_text())
+    validate_envelope(envelope)
+
+
+def test_cli_publishes_by_default(
+    tmp_path: Path, lm_eval_sample: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_path = _write_sample(tmp_path, lm_eval_sample)
+    published: list[dict] = []
+    monkeypatch.setattr("mlx_benchmarks.cli.detect_system", dict)
+    monkeypatch.setattr(
+        "mlx_benchmarks.cli.publish",
+        lambda envelope, **_: published.append(envelope) or "data/run.json",
+    )
+
+    assert main([str(results_path), "--kind", "lm-eval", "--suite", "reasoning"]) == 0
+    assert len(published) == 1
 
 
 def test_cli_rejects_serving_port_flag(capsys: pytest.CaptureFixture) -> None:
