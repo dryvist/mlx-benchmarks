@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.3...v0.64.0) (2026-10-25)
+
+
+### Features
+
+* **cli:** write the result envelope to a directory without publishing ([#498](https://github.com/dryvist/mlx-benchmarks/issues/498)) ([cc5301b](https://github.com/dryvist/mlx-benchmarks/commit/cc5301b8e73eefe050c4ab3a8c72b4eb21227f31))
+
 ## [0.63.3](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.2...v0.63.3) (2026-10-23)
 
 
