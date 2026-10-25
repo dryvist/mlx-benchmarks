@@ -49,6 +49,17 @@ class PublishError(RuntimeError):
     """Raised for publisher-layer failures (auth, upload, empty results, ...)."""
 
 
+def prepare_envelope(envelope: Envelope) -> None:
+    """Apply shared metadata enrichment and schema checks before serialization or publishing."""
+    populate_engine_release_metadata(envelope)
+    validate_envelope(envelope)
+    try:
+        enrich_power_metrics(envelope)
+    except PowerMetricsError as exc:
+        raise PublishError(str(exc)) from exc
+    validate_envelope(envelope)
+
+
 def slugify(model: str) -> str:
     """Filesystem-safe slug of a model identifier.
 
@@ -220,13 +231,7 @@ def publish(
         serving = envelope.get("serving")
         if isinstance(serving, dict) and "endpoint_port" in serving:
             raise PublishError("serving.endpoint_port is retained for legacy rows and cannot be published")
-    populate_engine_release_metadata(envelope)
-    validate_envelope(envelope)
-    try:
-        enrich_power_metrics(envelope)
-    except PowerMetricsError as exc:
-        raise PublishError(str(exc)) from exc
-    validate_envelope(envelope)
+    prepare_envelope(envelope)
     if not isinstance(published_metadata, dict):
         raise PublishError("--published-metadata is required for every published score")
 

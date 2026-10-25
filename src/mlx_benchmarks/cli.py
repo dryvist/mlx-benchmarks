@@ -5,7 +5,8 @@ Typical use::
     mlx-bench-publish run-output/mymodel/results_*.json \\
         --kind lm-eval --suite reasoning
 
-``--dry-run`` prints the planned upload without touching the network.
+``--dry-run`` prints the planned upload without touching the network. Pass
+``--output-dir`` to write validated envelope JSON without publishing.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import hashlib
 import json
 import logging
 import math
@@ -34,7 +36,7 @@ from mlx_benchmarks.converters.nvidia_offload import (
     engine_metadata,
 )
 from mlx_benchmarks.envelope import CampaignDimensions, Envelope, EnvelopeValidationError, Serving
-from mlx_benchmarks.publish import PublishError, current_git_sha, publish
+from mlx_benchmarks.publish import PublishError, current_git_sha, prepare_envelope, publish
 from mlx_benchmarks.published_results import DATASET_FIELDS
 from mlx_benchmarks.system import detect_system
 
@@ -148,7 +150,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="KEY=VALUE",
         help="Attach a tag to every result (repeat flag for multiple)",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Validate + plan only; do not upload")
+    output_mode = parser.add_mutually_exclusive_group()
+    output_mode.add_argument("--dry-run", action="store_true", help="Validate + plan only; do not upload")
+    output_mode.add_argument(
+        "--output-dir",
+        type=Path,
+        metavar="DIR",
+        help="Write validated envelope JSON to DIR instead of publishing",
+    )
     parser.add_argument(
         "--log-level",
         default="INFO",
@@ -345,28 +354,45 @@ def main(argv: list[str] | None = None) -> int:
                 model,
                 args.suite,
             )
-            publish_kwargs: dict[str, Any] = {
-                "dry_run": args.dry_run,
-                "published_metadata": cell_metadata,
-            }
-            if args.repo_id:
-                publish_kwargs["repo_id"] = args.repo_id
-            path = publish(envelope, **publish_kwargs)
-            if batch and not args.dry_run:
-                entry = _run_index_entry(args, cell, envelope, path, cell_metadata or {})
-                _append_run_index_entry(args.run_index, entry)
+            if args.output_dir is not None:
+                prepare_envelope(envelope)
+                path = _write_local_envelope(args.output_dir, envelope)
+            else:
+                publish_kwargs: dict[str, Any] = {
+                    "dry_run": args.dry_run,
+                    "published_metadata": cell_metadata,
+                }
+                if args.repo_id:
+                    publish_kwargs["repo_id"] = args.repo_id
+                path = publish(envelope, **publish_kwargs)
+                if batch and not args.dry_run:
+                    entry = _run_index_entry(args, cell, envelope, path, cell_metadata or {})
+                    _append_run_index_entry(args.run_index, entry)
         except EnvelopeValidationError as exc:
             log.error("%s", exc)
             return 3
         except PublishError as exc:
-            log.error("publish failed: %s", exc)
+            action = "envelope preparation" if args.output_dir is not None else "publish"
+            log.error("%s failed: %s", action, exc)
             return 4
         except (OSError, ValueError, KeyError) as exc:
             log.error("offload cell %d failed: %s", index, exc)
             return 5 if batch else 2
 
-        log.info("%s -> %s", "planned" if args.dry_run else "published", path)
+        action = "saved" if args.output_dir is not None else ("planned" if args.dry_run else "published")
+        log.info("%s -> %s", action, path)
     return 0
+
+
+def _write_local_envelope(output_dir: Path, envelope: Envelope) -> Path:
+    payload = json.dumps(envelope, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:8]
+    timestamp = envelope["timestamp"].replace(":", "-").rstrip("Z")
+    path = output_dir / f"run-{timestamp}-{envelope['suite']}-{digest}.json"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as result:
+        result.write(payload)
+    return path
 
 
 _MOE_CSV_FIELDS = {
