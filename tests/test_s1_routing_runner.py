@@ -30,14 +30,18 @@ def record(label: str, pred: str | None) -> dict:
 
 
 def test_macro_f1_and_confusion() -> None:
-    result = runner.summarize([record("bulk", "bulk"), record("bulk", "standard"), record("standard", "standard")], COST)
+    result = runner.summarize(
+        [record("bulk", "bulk"), record("bulk", "standard"), record("standard", "standard")], COST
+    )
     assert result["accuracy"] == pytest.approx(2 / 3)
     assert result["macro_f1"] == pytest.approx((2 / 3 + 2 / 3) / 6)
     assert result["confusion_matrix"]["bulk"]["standard"] == 1
 
 
 def test_cost_severe_and_top_group() -> None:
-    result = runner.summarize([record("deep", "bulk"), record("plan", "complex"), record("bulk", "standard")], COST)
+    result = runner.summarize(
+        [record("deep", "bulk"), record("plan", "complex"), record("bulk", "standard")], COST
+    )
     assert result["mean_cost"] == pytest.approx((9 + 0.5 + 2) / 3)
     assert result["severe_count"] == 1
 
@@ -57,13 +61,17 @@ def test_knn() -> None:
 
 
 def test_systemone_response() -> None:
-    assert runner.parse_systemone({"answers": {"route": {"choice": "plan", "answer_confidence": 0.8}}}) == ("plan", 0.8)
+    assert runner.parse_systemone({"answers": {"route": {"choice": "plan", "answer_confidence": 0.8}}}) == (
+        "plan",
+        0.8,
+    )
     assert runner.parse_systemone({"answers": {"route": {"choice": "deep"}}}) == ("deep", None)
     assert runner.parse_systemone({"answers": {"route": {"choice": "other"}}}) == (None, None)
 
 
 def test_chat_response() -> None:
     assert runner.parse_chat('{"label":"complex"}') == "complex"
+    assert runner.parse_chat('{"route": "deep"}') == "deep"
     assert runner.parse_chat("Use bulk-complex, then standard.") == "bulk-complex"
     assert runner.parse_chat("unrecognized") is None
 
