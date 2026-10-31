@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.64.0...v0.65.0) (2026-10-31)
+
+
+### Features
+
+* **s1-routing:** add a task-tier classifier routing benchmark ([#500](https://github.com/dryvist/mlx-benchmarks/issues/500)) ([1f5a218](https://github.com/dryvist/mlx-benchmarks/commit/1f5a21804d09d830429327ffeec2acc7712696ca))
+
 ## [0.64.0](https://github.com/dryvist/mlx-benchmarks/compare/v0.63.3...v0.64.0) (2026-10-25)
 
 
