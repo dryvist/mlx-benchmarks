@@ -31,12 +31,17 @@ LABELS = ("bulk", "bulk-complex", "standard", "complex", "plan", "deep")
 CONFIG = Path(__file__).resolve().parents[2] / "configs/s1-routing/s1-routing.toml"
 
 
-def parse_systemone(data: Mapping[str, Any]) -> tuple[str | None, float | None]:
-    """Extract a valid choice and its optional confidence."""
+def parse_systemone(
+    data: Mapping[str, Any], cost: Mapping[str, Any] | None = None
+) -> tuple[str | None, float | None]:
+    """Extract a valid choice and its optional confidence; with ``cost``, pick the cheapest expected label."""
     try:
         route = data["answers"]["route"]
         choice = route["choice"]
         confidence = route.get("answer_confidence")
+        probabilities = route.get("probabilities")
+        if cost and isinstance(probabilities, Mapping) and set(probabilities) <= set(LABELS):
+            choice = cheapest_label(probabilities, cost)
         return (choice, confidence) if choice in LABELS else (None, None)
     except (KeyError, TypeError):
         return None, None
@@ -61,8 +66,28 @@ def redact_url(url: str) -> str:
     return f"{parsed.scheme}://REDACTED" + (f":{parsed.port}" if parsed.port else "")
 
 
+def row_cost(pred: str, truth: str, cost: Mapping[str, Any]) -> float:
+    """Misroute cost of predicting ``pred`` for a row whose true tier is ``truth``."""
+    ranks = cost["ranks"]
+    difference = ranks[pred] - ranks[truth]
+    if difference < 0:
+        return -difference * cost["under"]
+    if difference > 0:
+        return difference * cost["over"]
+    return cost["within_top"] if pred != truth and ranks[truth] == 3 else 0.0
+
+
+def cheapest_label(weights: Mapping[str, float], cost: Mapping[str, Any]) -> str:
+    """The label with the lowest expected cost under the given label weights."""
+    total = sum(weights.values()) or 1.0
+    return min(LABELS, key=lambda pred: sum(w / total * row_cost(pred, t, cost) for t, w in weights.items()))
+
+
 def knn_predict(
-    vector: Sequence[float], examples: Sequence[tuple[Sequence[float], str]], k: int
+    vector: Sequence[float],
+    examples: Sequence[tuple[Sequence[float], str]],
+    k: int,
+    cost: Mapping[str, Any] | None = None,
 ) -> tuple[str | None, float | None]:
     """Vote by inverse cosine distance; identical vectors dominate the vote."""
 
@@ -80,7 +105,7 @@ def knn_predict(
     weights: dict[str, float] = dict.fromkeys(LABELS, 0.0)
     for dist, label in nearest:
         weights[label] += 1 / max(dist, 1e-9)
-    winner = max(LABELS, key=lambda label: weights[label])
+    winner = cheapest_label(weights, cost) if cost else max(LABELS, key=lambda label: weights[label])
     return winner, weights[winner] / sum(weights.values())
 
 
@@ -103,13 +128,7 @@ def summarize(records: Sequence[Mapping[str, Any]], cost: Mapping[str, Any]) -> 
         pred = row["pred"] if not row["invalid"] and row["pred"] in LABELS else None
         matrix[truth][pred or "invalid"] += 1
         effective = pred or "standard"
-        difference = ranks[effective] - ranks[truth]
-        if difference < 0:
-            total_cost += -difference * cost["under"]
-        elif difference > 0:
-            total_cost += difference * cost["over"]
-        elif effective != truth and ranks[truth] == 3:
-            total_cost += cost["within_top"]
+        total_cost += row_cost(effective, truth, cost)
         severe += ranks[truth] == 3 and ranks[effective] == 0
     f1 = []
     for label in LABELS:
@@ -145,7 +164,7 @@ async def request(
             body = {"state": text, "questions": {"route": {"type": "choice", **prompt}}}
             response = await client.post(args.url, json=body)
             response.raise_for_status()
-            result = parse_systemone(response.json())
+            result = parse_systemone(response.json(), args.decision_cost)
         elif args.kind == "chat":
             # Servers that ignore response_format still need the answer shape spelled out.
             system = (
@@ -193,6 +212,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 
     config = tomllib.loads(CONFIG.read_text())
     prompt = config["prompts"][args.prompt]
+    args.decision_cost = config["cost"] if args.decision == "cost" else None
     raw = args.dataset.read_bytes()
     rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if any(
@@ -235,7 +255,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 if value is not None and item["id"] != row["id"]
             ]
             with contextlib.suppress(ValueError, TypeError):
-                pred, confidence = knn_predict(result, examples, config.get("k", 7))
+                pred, confidence = knn_predict(result, examples, config.get("k", 7), args.decision_cost)
         elif args.kind != "embed-knn" and result is not None:
             pred, confidence = result
         records.append(
@@ -257,6 +277,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             "prompt": args.prompt,
             "split": args.split,
             "quality": args.quality,
+            "decision": args.decision,
             "dataset_sha256": hashlib.sha256(raw).hexdigest(),
             "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         },
@@ -279,6 +300,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--warmup", type=int, default=3)
+    parser.add_argument(
+        "--decision",
+        choices=("argmax", "cost"),
+        default="argmax",
+        help="cost: pick the label with the lowest expected misroute cost when label probabilities exist",
+    )
     parser.add_argument("--out", type=Path, required=True)
     return parser
 

@@ -79,3 +79,19 @@ def test_chat_response() -> None:
 def test_redact_url() -> None:
     assert runner.redact_url("https://user:secret@example.com:8443/path?key=value") == "https://REDACTED:8443"
     assert runner.redact_url("http://example.com/path") == "http://REDACTED"
+
+
+def test_cheapest_label_prefers_the_safe_tier() -> None:
+    assert runner.row_cost("bulk", "complex", COST) == 9
+    assert runner.row_cost("plan", "deep", COST) == 0.5
+    # 60% bulk, 40% complex: argmax says bulk, but under-routing complex costs 3x per tier, so complex is cheapest.
+    assert runner.cheapest_label({"bulk": 0.6, "complex": 0.4}, COST) == "complex"
+
+
+def test_cost_decision_on_systemone_and_knn() -> None:
+    data = {"answers": {"route": {"choice": "bulk", "probabilities": {"bulk": 0.6, "complex": 0.4}}}}
+    assert runner.parse_systemone(data) == ("bulk", None)
+    assert runner.parse_systemone(data, COST) == ("complex", None)
+    examples = [([1, 0], "bulk"), ([0, 1], "complex")]
+    assert runner.knn_predict([1, 0.9], examples, 2)[0] == "bulk"
+    assert runner.knn_predict([1, 0.9], examples, 2, COST)[0] == "complex"
