@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import collections
 import contextlib
 import datetime
 import hashlib
@@ -151,6 +152,9 @@ def summarize(records: Sequence[Mapping[str, Any]], cost: Mapping[str, Any]) -> 
     }
 
 
+ERRORS: collections.Counter[str] = collections.Counter()
+
+
 async def request(
     client: Any, args: argparse.Namespace, text: str, prompt: Mapping[str, Any]
 ) -> tuple[Any, float]:
@@ -202,8 +206,10 @@ async def request(
             response = await client.post("embeddings", json={"model": args.model, "input": text})
             response.raise_for_status()
             result = response.json()["data"][0]["embedding"]
-    except Exception:
-        pass
+    except Exception as error:
+        # Status code or exception class only: response bodies can echo the task text.
+        status = getattr(getattr(error, "response", None), "status_code", None)
+        ERRORS[str(status or type(error).__name__)] += 1
     return result, round((time.monotonic() - start) * 1000, 1)
 
 
@@ -278,6 +284,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             "split": args.split,
             "quality": args.quality,
             "decision": args.decision,
+            "errors": dict(ERRORS),
             "dataset_sha256": hashlib.sha256(raw).hexdigest(),
             "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         },
