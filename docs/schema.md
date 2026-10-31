@@ -134,7 +134,7 @@ These are **declared, not probed**: `detect_system()` reads them from
 `MLX_BENCH_POWER_LIMIT_W` and `MLX_BENCH_CONTAINER`, because the publisher may
 run on a different machine than the GPU. Unset, blank, or invalid numeric
 variables are omitted. The `nvidia-smi` snippet that fills them is in
-[`configs/LAYOUT.md`](../configs/LAYOUT.md#nvidia-hosts-configsnvidia). In the
+[`configs/nvidia/README.md`](../configs/nvidia/README.md). In the
 Parquet shard, `gpu` and `system_engine` are JSON-string columns (like
 `topology`); `power_limit_w` and `container` are plain columns.
 
