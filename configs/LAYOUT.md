@@ -48,6 +48,8 @@ configs/
 │   ├── promptstack.toml      # in-repo runner: harness/promptstack/run.py
 │   ├── probes/               # frozen probe banks, one JSON per probe class
 │   └── prompts/              # composed system prompts under test
+├── s1-routing/
+│   └── s1-routing.toml       # in-repo runner: harness/s1-routing/run.py
 ├── factual/
 │   ├── grounded-summary.toml # in-repo runner: harness/factual/run.py
 │   └── fixtures/             # evidence bundles with known-correct answers
